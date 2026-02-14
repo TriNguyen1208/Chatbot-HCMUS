@@ -1,3 +1,6 @@
 fastapi
 selenium
 uvicorn
+sqlalchemy 
+psycopg2-binary
+python-dotenv
