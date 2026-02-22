@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, text, Text, Date
+from sqlalchemy import Column, Integer, text, Text, Date, String
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -17,7 +17,8 @@ class CrawlerModel(Base):
         unique=True,
         index=True
     )
-    content = Column(Text)
+    content = Column(Text, nullable=True)
     crawl_time = Column(Date, server_default=text("CURRENT_DATE"))
     published_date = Column(Date, nullable=True)
     updated_date = Column(Date, nullable=True)
+    type = Column(Integer)
