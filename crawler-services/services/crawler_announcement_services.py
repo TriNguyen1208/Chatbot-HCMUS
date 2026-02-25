@@ -53,7 +53,7 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                 #Lấy tất cả url của articles
                 element_url_article = element.find_element(By.TAG_NAME, 'a')
                 url_article = element_url_article.get_attribute('href')
-                self.db.add_database(
+                self.db.add_lake(
                     url=url_article,
                     type=Type.ANNOUNCEMENT
                 )
@@ -64,7 +64,7 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                 links = element_content.find_elements(By.TAG_NAME, 'a')
                 for link in links:
                     href = link.get_attribute('href')
-                    self.db.add_database(
+                    self.db.add_lake(
                         url=href,
                         type=Type.ANNOUNCEMENT
                     )
@@ -74,11 +74,22 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
             Chỉ viết 1 hàm này, (do nó là abstract method)
             Có thế viết nhiều hàm helper hỗ trợ cho hàm này.
         """
-        # self.db.add_database(
+        # self.db.add_lake(
         #     url=url,
         #     type=Type.ANNOUNCEMENT,
         #     hash_content="Huhu haha",
         #     status="Done"
+        # )
+        
+        # self.db.add_text_warehouse(
+        #     lake_id=1,
+        #     content="haha"
+        # )
+        
+        # self.db.add_sheet_records_warehouse(
+        #     lake_id=1,
+        #     url=url,
+        #     table_name="Haha"
         # )
         #Dựa vào url là page (phân trang lấy ra lưu vào trong biến)
         #Sau đó ở từng trang lấy ra thẻ a trong article
@@ -88,4 +99,4 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
         url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/"
 
         #Get all urls
-        self.get_all_url(url_base=url)
+        # self.get_all_url(url_base=url)

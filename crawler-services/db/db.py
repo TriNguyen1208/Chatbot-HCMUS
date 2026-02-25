@@ -1,10 +1,12 @@
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
 import os
-from models.crawler_model import CrawlerModel, Base
-from datetime import datetime
+from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+from db.base import Base
+from models.lake_saving_model import LakeSavingModel
+from models.text_saving_model import TextSavingModel
+from models.sheet_records_saving_model import SheetRecordsSavingModel
 
 load_dotenv()
 
@@ -34,8 +36,8 @@ class Database:
     def check_is_existed_url(self, url):
         session = self.SessionLocal()
         try:
-            result = session.query(CrawlerModel).filter(
-                CrawlerModel.url == url
+            result = session.query(LakeSavingModel).filter(
+                LakeSavingModel.url == url
             ).first()
 
             return result is not None
@@ -47,10 +49,10 @@ class Database:
         finally:
             session.close()
 
-    def add_database(self, url, type, hash_content=None, status="Pending"):
+    def add_lake(self, url, type, hash_content=None, status="Pending"):
         session = self.SessionLocal()
         try:
-            stmt = insert(CrawlerModel).values(
+            stmt = insert(LakeSavingModel).values(
                 url=url,
                 type=type,
                 hash_content=hash_content,
@@ -62,6 +64,38 @@ class Database:
             session.commit()
         except Exception as e:
             session.rollback()
-            print(f"Error when saving into database: {e}")
+            print(f"[Error][add_lake]: Saving into lake: {e}")
+        finally:
+            session.close()
+            
+    def add_text_warehouse(self, lake_id, content):
+        session = self.SessionLocal()
+        try:
+            stmt = insert(TextSavingModel).values(
+                lake_id=lake_id,
+                content=content
+            )
+            session.execute(stmt)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"[Error][add_text_warehouse]: Saving into text warehouse: {e}")
+        finally:
+            session.close()
+            
+    def add_sheet_records_warehouse(self, lake_id, url, table_name, description=None):
+        session = self.SessionLocal()
+        try:
+            stmt = insert(SheetRecordsSavingModel).values(
+                lake_id=lake_id,
+                url=url,
+                table_name=table_name,
+                description=description
+            )
+            session.execute(stmt)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"[Error][add_text_warehouse]: Saving into text warehouse: {e}")
         finally:
             session.close()

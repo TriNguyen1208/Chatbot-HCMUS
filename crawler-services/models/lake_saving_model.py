@@ -1,10 +1,8 @@
 from sqlalchemy import Column, Integer, text, Text, Date, String
-from sqlalchemy.ext.declarative import declarative_base
+from db.base import Base
 
-Base = declarative_base()
-
-class CrawlerModel(Base):
-    __tablename__ = "crawler"
+class LakeSavingModel(Base):
+    __tablename__ = "lake"
     id = Column(
         Integer,
         primary_key=True,
@@ -20,3 +18,4 @@ class CrawlerModel(Base):
     hash_content = Column(Text, nullable=True)
     status = Column(String)
     created_at = Column(Date, server_default=text("CURRENT_DATE"))
+    
