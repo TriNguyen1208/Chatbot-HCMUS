@@ -76,9 +76,9 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
         """
         # self.db.add_database(
         #     url=url,
-        #     content="Huhu haha",
-        #     published_date="14/01/2026",
-        #     updated_date="14/02/2026",
+        #     type=Type.ANNOUNCEMENT,
+        #     hash_content="Huhu haha",
+        #     status="Done"
         # )
         #Dựa vào url là page (phân trang lấy ra lưu vào trong biến)
         #Sau đó ở từng trang lấy ra thẻ a trong article

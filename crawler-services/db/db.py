@@ -14,7 +14,7 @@ class Database:
     def _init_connection(self):
         self.db_url = os.getenv("DATABASE_URL")
         if not self.db_url:
-            raise ValueError("DATABASE_URL không tồn tại trong file .env")
+            raise ValueError("DATABASE_URL is not existed")
         
         if "sslmode" not in self.db_url:
             self.db_url += "?sslmode=require"
@@ -47,29 +47,14 @@ class Database:
         finally:
             session.close()
 
-    def add_database(self, url, type, content=None, published_date=None, updated_date=None):
+    def add_database(self, url, type, hash_content=None, status="Pending"):
         session = self.SessionLocal()
         try:
-            if isinstance(published_date, str):
-                try:
-                    published_date = datetime.strptime(published_date, "%d/%m/%Y")
-                except ValueError:
-                    print(f"Format ngày không đúng (dd/mm/yyyy): {published_date}")
-                    published_date = None
-
-            if isinstance(updated_date, str):
-                try:
-                    updated_date = datetime.strptime(updated_date, "%d/%m/%Y")
-                except ValueError:
-                    print(f"Format ngày không đúng (dd/mm/yyyy): {updated_date}")
-                    updated_date = None
-            
             stmt = insert(CrawlerModel).values(
                 url=url,
-                content=content,
-                published_date=published_date,
-                updated_date=updated_date,
-                type=type
+                type=type,
+                hash_content=hash_content,
+                status=status
             ).on_conflict_do_nothing(
                 index_elements=["url"]
             )
