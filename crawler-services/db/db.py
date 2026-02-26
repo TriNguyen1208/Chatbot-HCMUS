@@ -49,12 +49,13 @@ class Database:
         finally:
             session.close()
 
-    def add_lake(self, url, type, hash_content=None, status="Pending"):
+    def add_lake(self, url, page_index, url_type, hash_content=None, status="Pending"):
         session = self.SessionLocal()
         try:
             stmt = insert(LakeSavingModel).values(
                 url=url,
-                type=type,
+                type=page_index,
+                url_type=url_type,
                 hash_content=hash_content,
                 status=status
             ).on_conflict_do_nothing(
