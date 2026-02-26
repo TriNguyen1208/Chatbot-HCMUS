@@ -54,7 +54,7 @@ class Database:
         try:
             stmt = insert(LakeSavingModel).values(
                 url=url,
-                type=page_index,
+                page_index=page_index,
                 url_type=url_type,
                 hash_content=hash_content,
                 status=status
