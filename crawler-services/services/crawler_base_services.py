@@ -13,7 +13,7 @@ class CrawlerBaseServices(ABC):
     @abstractmethod
     def crawl(self) -> str:
         """
-            Crawl all the content in url until all the url is visited.
+            Crawl all the contents in url until all the urls are visited.
         """
         pass
 
