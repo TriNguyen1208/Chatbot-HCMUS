@@ -55,7 +55,8 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                 url_article = element_url_article.get_attribute('href')
                 self.db.add_lake(
                     url=url_article,
-                    type=Type.ANNOUNCEMENT
+                    type=Type.ANNOUNCEMENT,
+                    status="Success"
                 )
                 
                 #Lấy tất cả url bên trong articles đó
@@ -66,10 +67,11 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                     href = link.get_attribute('href')
                     self.db.add_lake(
                         url=href,
-                        type=Type.ANNOUNCEMENT
+                        type=Type.ANNOUNCEMENT,
+                        status="Success"
                     )
     @override
-    def crawl(self, url= "https://hcmus.edu.vn/category/da-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:
+    def crawl(self, url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:
         """
             Chỉ viết 1 hàm này, (do nó là abstract method)
             Có thế viết nhiều hàm helper hỗ trợ cho hàm này.
@@ -98,5 +100,5 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
         
         url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/"
 
-        #Get all urls
-        # self.get_all_url(url_base=url)
+        # Get all urls
+        self.get_all_url(url_base=url)

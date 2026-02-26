@@ -7,6 +7,7 @@ from db.base import Base
 from models.lake_saving_model import LakeSavingModel
 from models.text_saving_model import TextSavingModel
 from models.sheet_records_saving_model import SheetRecordsSavingModel
+from sqlalchemy import or_
 
 load_dotenv()
 
@@ -33,21 +34,21 @@ class Database:
             cls._instance._init_connection()
         return cls._instance
     
-    def check_is_existed_url(self, url):
-        session = self.SessionLocal()
-        try:
-            result = session.query(LakeSavingModel).filter(
-                LakeSavingModel.url == url
-            ).first()
+    # def check_is_existed_url(self, url):
+    #     session = self.SessionLocal()
+    #     try:
+    #         result = session.query(LakeSavingModel).filter(
+    #             LakeSavingModel.url == url
+    #         ).first()
 
-            return result is not None
+    #         return result is not None
 
-        except Exception as e:
-            print(f"Error when checking url existence: {e}")
-            return False
+    #     except Exception as e:
+    #         print(f"Error when checking url existence: {e}")
+    #         return False
 
-        finally:
-            session.close()
+    #     finally:
+    #         session.close()
 
     def add_lake(self, url, type, hash_content=None, status="Pending"):
         session = self.SessionLocal()
@@ -57,8 +58,19 @@ class Database:
                 type=type,
                 hash_content=hash_content,
                 status=status
-            ).on_conflict_do_nothing(
-                index_elements=["url"]
+            )
+            
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['url'],
+                set_={
+                    "type": stmt.excluded.type,
+                    "hash_content": stmt.excluded.hash_content,
+                    "status": stmt.excluded.status
+                },
+                where=or_(
+                    LakeSavingModel.hash_content != stmt.excluded.hash_content,
+                    LakeSavingModel.status != stmt.excluded.status
+                )
             )
             session.execute(stmt)
             session.commit()
