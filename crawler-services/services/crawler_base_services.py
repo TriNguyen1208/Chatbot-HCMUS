@@ -36,6 +36,10 @@ class CrawlerBaseServices(ABC):
         if self.driver:
             self.driver.quit()
             print("Close driver successfully")
+            
+        if self.driver_content:
+            self.driver_content.quit()
+            print("Close driver_content successfully")
 
     def get_pdf(self, page_type, url_pdf):
         '''

@@ -2,7 +2,8 @@ from factory.crawler_factory import CrawlerFactory
 
 class CrawlerController:
     def __init__(self):
-        self.crawlers_name = ["curriculum", "fit_info", "enrollment", "announcement"]
+        # self.crawlers_name = ["curriculum", "fit_info", "enrollment", "announcement"]
+        self.crawlers_name = ["curriculum"]
         
     def run(self):
         for name in self.crawlers_name:
