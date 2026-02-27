@@ -8,8 +8,9 @@ class CrawlerController:
         for name in self.crawlers_name:
             crawler_instance = CrawlerFactory.get_crawler(name)
             try:
+                print(f"[INFO] Start to crawl '{name}'")
                 crawler_instance.crawl()
-                print(f"Crawl {name} successfully")
+                print(f"[INFO] Crawl '{name}' successfully")
             except Exception as e:
                 print(e)
             finally:

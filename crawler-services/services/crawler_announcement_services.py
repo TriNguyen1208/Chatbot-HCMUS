@@ -30,10 +30,11 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                 divs[divs.length - 1].remove();
             }
         """, element)
-        
-    def get_all_url(self, url_base) -> str:
+
+    @override
+    def crawl(self, url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:        
         #Lấy số lượng trang
-        self.driver.get(url=url_base)
+        self.driver.get(url)
         element_ul_page_numbers = self.driver.find_element(
             By.CSS_SELECTOR, "ul.page-numbers"
         )
@@ -116,36 +117,3 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                             "status": "Success",
                         }
                     self.db.add_lake(**result)
-
-    @override
-    def crawl(self, url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:
-        """
-            Chỉ viết 1 hàm này, (do nó là abstract method)
-            Có thế viết nhiều hàm helper hỗ trợ cho hàm này.
-        """
-        # self.db.add_lake(
-        #     url=url,
-        #     type=PageType.ANNOUNCEMENT,
-        #     hash_content="Huhu haha",
-        #     status="Done"
-        # )
-        
-        # self.db.add_text_warehouse(
-        #     lake_id=1,
-        #     content="haha"
-        # )
-        
-        # self.db.add_sheet_records_warehouse(
-        #     lake_id=1,
-        #     url=url,
-        #     table_name="Haha"
-        # )
-        #Dựa vào url là page (phân trang lấy ra lưu vào trong biến)
-        #Sau đó ở từng trang lấy ra thẻ a trong article
-        #Lưu hết vào trong biến
-        #Đi vào thẻ a đó nếu như trong article có thẻ a nữa thì lưu vào biến đó
-        
-        url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/"
-
-        # Get all urls
-        self.get_all_url(url_base=url)
