@@ -2,15 +2,19 @@ from services.crawler_base_services import CrawlerBaseServices
 from selenium.webdriver.common.by import By
 from typing import override
 from selenium import webdriver
-from constant.type import Type
+from constant.type import PageType
+from constant.type import URLType
+from selenium.webdriver.support.ui import WebDriverWait 
+from selenium.webdriver.support import expected_conditions as EC
 
 class CrawlerAnnouncementServices(CrawlerBaseServices):
     def __init__(self):
         super().__init__()
         #Có thể thêm gì tuỳ ý.
-        self.urls = []
-        self.driver_content = webdriver.Chrome(options=self.option)
-
+        self.black_list = [
+            "tag",
+            "mailto"
+        ]
     def __remove_attribute(self, element, attribute):
         for attri in element.find_elements(By.TAG_NAME, attribute):
             self.driver_content.execute_script('''
@@ -26,7 +30,7 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                 divs[divs.length - 1].remove();
             }
         """, element)
-
+        
     def get_all_url(self, url_base) -> str:
         #Lấy số lượng trang
         self.driver.get(url=url_base)
@@ -44,39 +48,84 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
             #Lấy nội dung của trang thứ i
             url = f'https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/page/{i}'
             self.driver.get(url)
-
+            wait = WebDriverWait(self.driver, 10)
+            wait.until(
+                EC.presence_of_element_located((By.TAG_NAME, "article"))
+            )
             #Lấy tất cả articles của trang thứ i
             elements_articles = self.driver.find_elements(By.TAG_NAME, 'article')
-
+            article_urls = []
             #Duyệt từng articles
             for element in elements_articles:
                 #Lấy tất cả url của articles
-                element_url_article = element.find_element(By.TAG_NAME, 'a')
-                url_article = element_url_article.get_attribute('href')
-                self.db.add_lake(
-                    url=url_article,
-                    type=Type.ANNOUNCEMENT
-                )
+                try:
+                    url_article = element.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                    article_urls.append(url_article)
+                except:
+                    continue
+
+            for url_article in article_urls:
+                print("[page]: ",url_article)
+                url_type = self.check_url_type(url_article)
+
+                if url_type == URLType.HTML:
+                    result = self.get_html(PageType.ANNOUNCEMENT, url_article)
+                elif url_type == URLType.PDF:
+                    result = self.get_pdf(PageType.ANNOUNCEMENT, url_article)
+                else:
+                    result = {
+                        "url": url_article,
+                        "page_type": PageType.UNKNOWN,
+                        "hash_content": None,
+                        "status": "Success",
+                    }
+                self.db.add_lake(**result)
                 
                 #Lấy tất cả url bên trong articles đó
                 self.driver_content.get(url_article)
+                wait = WebDriverWait(self.driver_content, 10)
+                wait.until(
+                    EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, ".cmsmasters_post_content.entry-content")
+                    )
+                )
                 element_content = self.driver_content.find_element(By.CSS_SELECTOR, '.cmsmasters_post_content.entry-content')
                 links = element_content.find_elements(By.TAG_NAME, 'a')
+                href_list = []
                 for link in links:
-                    href = link.get_attribute('href')
-                    self.db.add_lake(
-                        url=href,
-                        type=Type.ANNOUNCEMENT
-                    )
+                    try:
+                        href = link.get_attribute('href')
+                        href_list.append(href)
+                    except:
+                        continue
+                for href in href_list:
+                    if any(domain in href for domain in self.black_list):
+                            continue
+                    print("[href]: ",href)
+                    url_type = self.check_url_type(href)
+                    if url_type == URLType.HTML:
+                        result = self.get_html(PageType.ANNOUNCEMENT, href)
+                    elif url_type == URLType.PDF:
+                        result = self.get_pdf(PageType.ANNOUNCEMENT, href)
+                    else:
+                        result = {
+                            "url": href,
+                            "page_type": PageType.ANNOUNCEMENT,
+                            "url_type": URLType.UNKNOWN,
+                            "hash_content": None,
+                            "status": "Success",
+                        }
+                    self.db.add_lake(**result)
+
     @override
-    def crawl(self, url= "https://hcmus.edu.vn/category/da-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:
+    def crawl(self, url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/") -> str:
         """
             Chỉ viết 1 hàm này, (do nó là abstract method)
             Có thế viết nhiều hàm helper hỗ trợ cho hàm này.
         """
         # self.db.add_lake(
         #     url=url,
-        #     type=Type.ANNOUNCEMENT,
+        #     type=PageType.ANNOUNCEMENT,
         #     hash_content="Huhu haha",
         #     status="Done"
         # )
@@ -98,5 +147,5 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
         
         url= "https://hcmus.edu.vn/category/dao-tao/dai-hoc/thong-tin-danh-cho-sinh-vien/"
 
-        #Get all urls
-        # self.get_all_url(url_base=url)
+        # Get all urls
+        self.get_all_url(url_base=url)

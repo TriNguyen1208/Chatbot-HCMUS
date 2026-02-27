@@ -10,7 +10,6 @@ class CrawlerController:
             try:
                 crawler_instance.crawl()
                 print(f"Crawl {name} successfully")
-                crawler_instance.close()
             except Exception as e:
                 print(e)
             finally:

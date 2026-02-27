@@ -1,4 +1,6 @@
 import hashlib
+import requests
+from datetime import datetime
 
 def generate_hash_content(content)->str:
     '''
