@@ -8,6 +8,7 @@ from models.lake_saving_model import LakeSavingModel
 from models.text_saving_model import TextSavingModel
 from models.sheet_records_saving_model import SheetRecordsSavingModel
 from sqlalchemy import or_
+from constant.type import URLType
 
 load_dotenv()
 
@@ -50,12 +51,13 @@ class Database:
     #     finally:
     #         session.close()
 
-    def add_lake(self, url, type, hash_content=None, status="Pending"):
+    def add_lake(self, url, page_type, url_type = URLType.UNKNOWN, hash_content=None, status="Pending"):
         session = self.SessionLocal()
         try:
             stmt = insert(LakeSavingModel).values(
                 url=url,
-                type=type,
+                page_type=page_type,
+                url_type=url_type,
                 hash_content=hash_content,
                 status=status
             )
@@ -63,7 +65,6 @@ class Database:
             stmt = stmt.on_conflict_do_update(
                 index_elements=['url'],
                 set_={
-                    "type": stmt.excluded.type,
                     "hash_content": stmt.excluded.hash_content,
                     "status": stmt.excluded.status
                 },

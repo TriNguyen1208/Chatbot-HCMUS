@@ -14,8 +14,8 @@ class LakeSavingModel(Base):
         unique=True,
         index=True
     )
-    type = Column(Integer)
+    page_type = Column(Integer)
+    url_type = Column(Integer)
     hash_content = Column(Text, nullable=True)
     status = Column(String)
     created_at = Column(Date, server_default=text("CURRENT_DATE"))
-    
