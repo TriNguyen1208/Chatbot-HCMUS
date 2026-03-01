@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
+from sqlalchemy import or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -7,8 +8,7 @@ from db.base import Base
 from models.lake_saving_model import LakeSavingModel
 from models.text_saving_model import TextSavingModel
 from models.sheet_records_saving_model import SheetRecordsSavingModel
-from sqlalchemy import or_
-from constant.type import URLType
+from constant.type import PageType, URLType
 
 load_dotenv()
 
@@ -112,3 +112,59 @@ class Database:
             print(f"[Error][add_text_warehouse]: Saving into text warehouse: {e}")
         finally:
             session.close()
+            
+    def get_unprocessed_data(self, page_type=None, url_type=None):
+        '''
+        Fetches records from LakeSavingModel that haven't been processed into TextSavingModel.
+    
+        Args:
+            page_type(str, optional): Filter by PageType enum.
+            url_type(str, optional): Filter by URLType enum.
+            
+        Returns:
+            list[dict]: A list of dictionaries representing the unprocessed records.
+        '''
+        
+        if page_type is not None and not isinstance(page_type, PageType):
+            raise ValueError(f"page_type must be an instance of PageType Enum, got {type(page_type)}")
+        
+        if url_type is not None and not isinstance(url_type, URLType):
+            raise ValueError(f"url_type must be an instance of URLType Enum, got {type(url_type)}")
+        
+        session = self.SessionLocal()
+        try:
+            stmt = (
+                select(LakeSavingModel)
+                .outerjoin(TextSavingModel, LakeSavingModel.id == TextSavingModel.lake_id)
+                .where(TextSavingModel.id == None)
+                .where(LakeSavingModel.status == "Success")
+            )
+            
+            if page_type is not None:
+                stmt = stmt.where(LakeSavingModel.page_type == page_type)
+                
+            if url_type is not None:
+                stmt = stmt.where(LakeSavingModel.url_type == url_type)
+                
+            results = session.execute(stmt).scalars().all()
+            
+            converted_results = [
+                {
+                    "id": row.id,
+                    "url": row.url,
+                    "page_type": row.page_type,
+                    "url_type": row.url_type,
+                    "hash_content": row.hash_content,
+                    "status": row.status,
+                    "created_at": row.created_at
+                }
+                for row in results
+            ]
+            
+        except Exception as e:
+            print(f'[ERROR][get_unprocessed_data]: Error when query database - {e}')
+            
+        finally:
+            session.close()
+        
+        return converted_results
