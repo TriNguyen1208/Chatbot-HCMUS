@@ -25,16 +25,16 @@ class CrawlerBaseServices(ABC):
 
         
     @abstractmethod
-    def crawl(self) -> str:
+    def crawl(self):
         """
             Crawl all the contents in url until all the urls are visited.
         """
         pass
 
     @abstractmethod
-    def extract_text(self, html_content: str) -> str:
+    def preprocess(self):
         """
-            Transform raw HTML into clean text.
+            Extract all unprocessed urls and extract text html, pdf.
         """
         pass
 

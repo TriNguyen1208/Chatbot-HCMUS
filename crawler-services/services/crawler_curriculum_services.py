@@ -1,12 +1,14 @@
 from selenium.webdriver.common.by import By
 from services.crawler_base_services import CrawlerBaseServices
 from constant.type import PageType
+from typing import override
 
 
 class CrawlerCurriculumServices(CrawlerBaseServices):
     def __init__(self):
         super().__init__()
     
+    @override
     def crawl(self, url= "https://www.ctda.hcmus.edu.vn/vi/educational-program/") -> str:
         self.driver.get(url)
         
@@ -36,3 +38,7 @@ class CrawlerCurriculumServices(CrawlerBaseServices):
                     continue
                 
                 self.db.add_lake(**pdf_result)
+
+    @override
+    def preprocess(self):
+        pass

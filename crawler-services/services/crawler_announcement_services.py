@@ -117,3 +117,7 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                             "status": "Success",
                         }
                     self.db.add_lake(**result)
+
+    @override
+    def preprocess(self):
+        pass

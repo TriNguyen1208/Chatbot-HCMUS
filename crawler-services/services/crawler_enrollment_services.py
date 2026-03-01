@@ -1,5 +1,6 @@
 from services.crawler_base_services import CrawlerBaseServices
 from selenium.webdriver.common.by import By
+from typing import override
 
 class CrawlerEnrollmentServices(CrawlerBaseServices):
     def __init__(self):
@@ -12,4 +13,8 @@ class CrawlerEnrollmentServices(CrawlerBaseServices):
             Có thế viết nhiều hàm helper hỗ trợ cho hàm này.
         """
         print("Enrollment Crawler")
+        pass
+
+    @override
+    def preprocess(self):
         pass
