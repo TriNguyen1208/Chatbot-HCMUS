@@ -35,21 +35,30 @@ class Database:
             cls._instance._init_connection()
         return cls._instance
     
-    # def check_is_existed_url(self, url):
-    #     session = self.SessionLocal()
-    #     try:
-    #         result = session.query(LakeSavingModel).filter(
-    #             LakeSavingModel.url == url
-    #         ).first()
+    def is_url_existed(self, url: str, hash_html: str) -> bool:
+        '''
+        Checks if a URL exists in the Data Lake and verifies if its content has changed.
+        
+        Args:
+            url (str): The full web address (URL) of the page being checked.
+            hash_html (str): The MD5 hash of the current 'live' HTML content.
 
-    #         return result is not None
+        Returns:
+            bool: 
+                - True: If the URL exists AND the hash matches (no changes).
+                - False: If the URL is new OR the content has been updated.
+        '''
+        
+        session = self.SessionLocal()
+        stmt = select(LakeSavingModel.hash_content).where(LakeSavingModel.url == url)
+        stored_hash = session.execute(stmt).scalar_one_or_none()
+        
+        session.close()
 
-    #     except Exception as e:
-    #         print(f"Error when checking url existence: {e}")
-    #         return False
-
-    #     finally:
-    #         session.close()
+        if stored_hash is None:
+            return False
+        
+        return stored_hash == hash_html
 
     def add_lake(self, url, page_type, url_type = URLType.UNKNOWN, hash_content=None, status="Pending"):
         session = self.SessionLocal()
