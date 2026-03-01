@@ -3,7 +3,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from db.db import Database
 import requests
-from datetime import datetime
 from utils.utils import generate_hash_content
 from constant.type import URLType
 
@@ -29,6 +28,13 @@ class CrawlerBaseServices(ABC):
     def crawl(self) -> str:
         """
             Crawl all the contents in url until all the urls are visited.
+        """
+        pass
+
+    @abstractmethod
+    def extract_text(self, html_content: str) -> str:
+        """
+            Transform raw HTML into clean text.
         """
         pass
 
