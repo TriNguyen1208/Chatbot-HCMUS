@@ -6,7 +6,7 @@ from services.crawler_fitInfo_services import CrawlerFitInfoServices
 
 class CrawlerFactory:
     @staticmethod
-    def get_crawler(name: str):
+    def get_crawler(name: str) -> CrawlerBaseServices:
         crawlers: dict[str, CrawlerBaseServices] = {
             "curriculum": CrawlerCurriculumServices, #https://www.ctda.hcmus.edu.vn/vi/educational-program/
             "fit_info": CrawlerFitInfoServices, #https://www.fit.hcmus.edu.vn/ (lấy thông tin khoa)

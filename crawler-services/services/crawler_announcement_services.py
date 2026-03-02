@@ -120,4 +120,45 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
 
     @override
     def preprocess(self):
-        pass
+        #Dùng hàm get_unprocessed để lấy hết url
+        page_list = self.db.get_unprocessed_data(page_type=PageType.ANNOUNCEMENT)
+        for page in page_list:
+            url = page.get("url", None)
+            lake_id = page.get("id", None)
+            if url is None or lake_id is None:
+                continue
+            if self.check_url_type(url) == URLType.HTML and "https://hcmus.edu.vn" in url:
+                result = self.__extract_text_html(lake_id, url)
+                self.db.add_text_warehouse(**result)
+            else:
+                continue
+
+        #Dùng vòng lặp for để lấy hết, nên có thêm hàm phụ là extract cho html(truyền vào url) và extract cho pdf. Trả về dictionary
+        #Sau đó push lên database
+
+    def __extract_text_html(self, lake_id, url):
+        def __remove_attribute(element, attribute):
+            for attri in element.find_elements(By.TAG_NAME, attribute):
+                self.driver_content.execute_script('''
+                    var element = arguments[0];
+                    element.parentNode.removeChild(element);
+                ''', attri)
+        def __remove_last_line(element):
+                self.driver_content.execute_script("""
+                    var el = arguments[0];
+                    var divs = el.getElementsByTagName('div');
+                    if (divs.length > 0) {
+                        divs[divs.length - 1].remove();
+                    }
+                """, element)
+        # Mục tiêu lấy được nội dung thẻ article.
+        self.driver_content.get(url)
+        element_article = self.driver_content.find_element(By.TAG_NAME, 'article')
+        element_content = element_article.find_element(By.CSS_SELECTOR, '.cmsmasters_post_content.entry-content')
+        __remove_attribute(element_content, 'img')
+        __remove_attribute(element_content, 'a')
+        __remove_last_line(element_content)
+        return {
+            "lake_id": lake_id,
+            "content": element_content.text.strip(),
+        }
