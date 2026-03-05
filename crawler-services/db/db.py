@@ -60,7 +60,7 @@ class Database:
         
         return stored_hash == hash_html
 
-    def add_lake(self, url, page_type, url_type = URLType.UNKNOWN, hash_content=None, status="Pending"):
+    def add_lake(self, url, page_type, url_type = URLType.UNKNOWN, hash_content=None, status="Pending", title=None, description=None):
         session = self.SessionLocal()
         try:
             stmt = insert(LakeSavingModel).values(
@@ -68,7 +68,9 @@ class Database:
                 page_type=page_type,
                 url_type=url_type,
                 hash_content=hash_content,
-                status=status
+                status=status,
+                title=title,
+                description=description
             )
             
             stmt = stmt.on_conflict_do_update(

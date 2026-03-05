@@ -14,6 +14,8 @@ class LakeSavingModel(Base):
         unique=True,
         index=True
     )
+    title = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
     page_type = Column(Integer)
     url_type = Column(Integer)
     hash_content = Column(Text, nullable=True)

@@ -77,7 +77,6 @@ class CrawlerAnnouncementServices(CrawlerBaseServices):
                     result = {
                         "url": url_article,
                         "page_type": PageType.UNKNOWN,
-                        "hash_content": None,
                         "status": "Success",
                     }
                 self.db.add_lake(**result)
