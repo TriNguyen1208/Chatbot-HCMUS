@@ -6,3 +6,9 @@ psycopg2-binary
 python-dotenv
 requests
 beautifulsoup4
+gspread 
+pandas 
+gspread-dataframe 
+google-auth
+google-auth-oauthlib 
+google-auth-httplib2
