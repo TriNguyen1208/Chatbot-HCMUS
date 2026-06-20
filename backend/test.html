@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Google Login with Backend</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h2>Test Đăng nhập Google + Kết nối Backend (Port 3001)</h2>
+    
+    <div id="g_id_onload"
+         data-client_id="231220850115-bvbnbvr1h8gb2j4ep8jqgm405tvk50lq.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <hr>
+    <h3>Trạng thái gửi Backend:</h3>
+    <div id="status" style="color: blue; font-weight: bold;">Chưa đăng nhập...</div>
+    <pre id="backend-response" style="background: #f4f4f4; padding: 10px; border: 1px solid #ddd; max-height: 300px; overflow: auto;"></pre>
+
+    <script>
+        function handleCredentialResponse(response) {
+            const idToken = response.credential;
+            
+            // 1. Vẫn log ra console để bạn kiểm tra nếu cần
+            console.log("ID Token từ Google:", idToken);
+            document.getElementById("status").innerText = "Đang gửi token sang Backend...";
+            document.getElementById("status").style.color = "orange";
+
+            // 2. Gửi idToken sang Backend ở localhost:3001 bằng fetch API
+            // Thay đổi đường dẫn '/api/auth/google' thành endpoint chính xác của bạn nếu cần
+            const BACKEND_URL = "http://localhost:3001/api/v1/auth/google"; 
+
+            fetch(BACKEND_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ idToken: idToken }) // Gửi object chứa token lên backend
+            })
+            .then(async (res) => {
+                const data = await res.json();
+                
+                if (res.ok) {
+                    document.getElementById("status").innerText = "✅ Backend xử lý THÀNH CÔNG!";
+                    document.getElementById("status").style.color = "green";
+                } else {
+                    document.getElementById("status").innerText = `❌ Backend báo LỖI (${res.status})`;
+                    document.getElementById("status").style.color = "red";
+                }
+                
+                // Hiển thị kết quả trả về từ Backend lên màn hình để dễ debug
+                document.getElementById("backend-response").innerText = JSON.stringify(data, null, 2);
+            })
+            .catch((error) => {
+                console.error("Lỗi kết nối:", error);
+                document.getElementById("status").innerText = "❌ Lỗi kết nối đến Backend (Có thể do CORS hoặc trùng Port)";
+                document.getElementById("status").style.color = "red";
+                document.getElementById("backend-response").innerText = error.message;
+            });
+        }
+    </script>
+</body>
+</html>

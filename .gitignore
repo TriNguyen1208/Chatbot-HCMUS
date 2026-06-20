@@ -208,3 +208,9 @@ __marimo__/
 client_secret.json
 token.json
 .DS_Store
+.bin
+node_modules
+package-lock.json
+Login_Signup.md
+.vscode
+backend/note.md
