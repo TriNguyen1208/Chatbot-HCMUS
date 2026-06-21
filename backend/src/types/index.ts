@@ -10,7 +10,7 @@
 export type AuthResult = {
     tokens: TokenPair;
     user: Pick<UserProfile, "id" | "name" | "email"> & {
-        studentID?: string | undefined; 
+        student_id?: string | undefined; 
     };
 };
 
@@ -29,7 +29,7 @@ export type UserProfile = {
     id: string,
     name: string,
     email: string,
-    studentID?: string | undefined,
+    student_id?: string | undefined,
     phone?: string | undefined,
     avatarUrl?: string | undefined,
     createdAt: Date,

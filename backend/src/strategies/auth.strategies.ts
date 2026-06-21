@@ -43,7 +43,7 @@ export class GoogleAuthStrategy implements IAuthStrategy{
         const googlePayload = await this.verifyGoogleToken(idToken);
         if(!this.isAllowDomain(googlePayload.email)){
             throw createHttpError.Unauthorized("Email domain not allowed")
-        }
+        }   
         
         //Neu da dang nhap roi thi tra ve luon, khong suy nghi nhieu
         const foundUser = await this.userRepository.findByEmail(googlePayload.email)
@@ -55,10 +55,11 @@ export class GoogleAuthStrategy implements IAuthStrategy{
                 email: foundUser?.email,
                 name: foundUser?.name,
                 avatarUrl: googlePayload.picture,
-                student_id: foundUser?.studentID,
+                student_id: foundUser?.student_id,
             }
             userID = foundUser.id
-            studentID = foundUser?.studentID
+            studentID = foundUser?.student_id
+            // console.log("Found user: ", user, userID, studentID)
         }
         else{
             //Neu nhu chua dang nhap
@@ -84,6 +85,7 @@ export class GoogleAuthStrategy implements IAuthStrategy{
                         avatarUrl: googlePayload.picture
                     }
                 }
+                // console.log("Without studentID: ", user, studentID)
             }else{
                 user = {
                     email: googlePayload.email,
@@ -95,17 +97,18 @@ export class GoogleAuthStrategy implements IAuthStrategy{
             }
             const createUser = await this.userRepository.create(user)
             userID = createUser.id
+            // console.log("After creating", user, userID, studentID)
         }
 
         //Neu nhu user da ton tai ma phai dang nhap bang google => tuc la khong co access va refresh
-        const tokens = await tokenHelper.createPairToken({id: userID, email: user.email!});
+        const tokens = tokenHelper.createPairToken({id: userID, email: user.email!});
         return {
             tokens,
             user: {
                 id: userID,
                 email: user.email,
                 name: user.name,
-                studentID: studentID
+                student_id: studentID
             }
         }
     }

@@ -5,7 +5,7 @@ import type { IUser } from "#@/models/user.model.js";
 export interface IUserRepository{
     findByEmail(email: string): Promise<UserProfile | null>
     findByID(id: string): Promise<UserProfile | null>
-    create({ email, name, avatarUrl, student_id }: { email: string; name: string; avatarUrl: string | undefined, student_id ?: string }) : Promise<UserProfile>;
+    create({ email, name, avatarUrl, student_id }: { email: string; name: string; avatarUrl: string | undefined, student_id ?: string | undefined }) : Promise<UserProfile>;
 }   
 
 export class UserRepository implements IUserRepository{
@@ -14,7 +14,7 @@ export class UserRepository implements IUserRepository{
             id:        doc._id.toString(),
             email:     doc.email,
             name:      doc.name,
-            studentID: doc.studentID,
+            student_id: doc.student_id,
             phone:     doc.phone,
             avatarUrl: doc.avatarUrl,
             createdAt: doc.createdAt,
@@ -29,8 +29,8 @@ export class UserRepository implements IUserRepository{
         const doc = await UserModel.findById(id).lean()
         return doc ? this.toProfile(doc) : null
     }
-    async create({ email, name, avatarUrl }: { email: string; name: string; avatarUrl: string; }): Promise<UserProfile> {
-        const doc = await UserModel.create({email, name, avatarUrl})
+    async create({ email, name, avatarUrl, student_id }: { email: string; name: string; avatarUrl: string; student_id?: string | undefined}): Promise<UserProfile> {
+        const doc = await UserModel.create({email, name, avatarUrl, student_id})
         return this.toProfile(doc)
     }
 
