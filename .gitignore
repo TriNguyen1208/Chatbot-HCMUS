@@ -208,3 +208,5 @@ __marimo__/
 client_secret.json
 token.json
 .DS_Store
+
+.vscode/
