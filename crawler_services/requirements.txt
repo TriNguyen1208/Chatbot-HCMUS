@@ -5,6 +5,7 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
 click==8.1.7
+dotenv
 
 # Web scraping
 playwright==1.40.0
@@ -16,6 +17,7 @@ aiohttp==3.9.1
 markitdown==0.6.0
 PyMuPDF==1.23.8
 llama-parse==0.3.1
+llama-cloud>=2.1
 
 # Vector store & embeddings
 qdrant-client==2.7.0
