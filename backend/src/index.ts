@@ -1,10 +1,10 @@
 import app from "#@/app.js"
-import {config} from "#@/config/index.js"
-import { database } from "./database/index.js"
-import { redisClient } from "./database/redis.js"
+import {config} from "#@/shared/config/config.js"
+import { mongoDB } from "#@/shared/database/mongoDB.js"
+import { redisClient } from "#@/shared/database/redis.js"
 
 const start = async(): Promise<void> => {
-    await database.connect()
+    await mongoDB.connect()
     await redisClient.connect()
     app.listen(config.port, () => {
         console.log(`Server is running on port ${config.port}`)
