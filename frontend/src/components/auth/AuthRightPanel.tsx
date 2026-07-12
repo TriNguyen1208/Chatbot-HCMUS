@@ -1,6 +1,6 @@
 "use client"
 import { GoogleLogin } from "@react-oauth/google";
-import { useGoogleAuth } from "../hooks/useGoogleAuth";
+import { useGoogleAuth } from "@/features/auth";
 import { ALLOWED_DOMAINS } from "@/config/constant";
 
 export function AuthRightPanel(){

@@ -26,7 +26,7 @@ export function useGoogleAuth(){
             const result = await authApi.googleLogin(idToken);
             setTokens(result.tokens);
             setUser(result.user)
-            router.push("/home")
+            router.push("/chat")
         }catch(err){
             if (axios.isAxiosError(err)) {
                 setErrorMsg(err.response?.status === 401 
