@@ -1,22 +1,53 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+
+    --surface: #faf9ff;
+    --secondary: #e9edff;
+    --hover: #e1e8ff;
+
+    --txt-primary: #051a3e;
+    --txt-extra: #434654;
+    --txt-on-brand: #FFFFFF
+
+    --icon-primary: #434654;
+    
+    --extra: #737685;
+  }
+
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    --surface: #101419;
+    --secondary: #191c21;
+    --hover: #282a2f;
+    --txt-primary: #ffffff;
+    --txt-normal: #e5e7eb;
+    --txt-extra: #8e9099;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-primary: #003d9b;
+  --color-border-primary: #c3c6d6;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-surface: var(--surface);
+  --color-secondary: var(--secondary);
+  --color-hover: var(--hover);
+
+  --color-txt-primary: var(--txt-primary);
+  --color-txt-normal: var(--txt-normal);
+  --color-txt-extra: var(--txt-extra);
 }
 
 body {
