@@ -29,7 +29,7 @@ const TabButton = ({
       />
       <p
         className={cn(
-          "text-sm text-txt-extra font-semibold",
+          "text-xs text-txt-extra font-semibold",
           isEntering && "text-brand-primary",
         )}
       >

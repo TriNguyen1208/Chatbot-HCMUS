@@ -34,7 +34,7 @@ const TabButtonList = () => {
   const pathname = usePathname();
 
   return (
-    <ul className="w-full px-3 py-2 flex flex-col gap-2 justify-center items-center border-b-[1.35] border-b-border-primary/70">
+    <ul className="w-full px-3 py-1 flex flex-col gap-1 justify-center items-center border-b-[1.35] border-b-border-primary/70">
       {tabButtons.map(({ index, href, icon, label }) => (
         <li key={index} className="w-full">
           <TabButton            
