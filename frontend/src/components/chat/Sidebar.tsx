@@ -3,12 +3,11 @@ import TabButtonList from "./TabButtonList";
 
 const Sidebar = () => {
   return (
-    <aside>
+    <aside className="bg-secondary flex flex-col h-screen border-r border-r-border-primary">
       <Header />
-      <div className="h-0.5 w-full bg-black/20"></div>
       <TabButtonList />
     </aside>
-  )
+  );
 }
 
 export default Sidebar;

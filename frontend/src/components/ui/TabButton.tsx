@@ -1,19 +1,42 @@
-'use client';
-import { TabButtonInterface } from "./types";
+"use client";
+import { TabButtonComponent } from "./types";
 import { useState } from "react";
+import Link from "next/link";
+import { cn } from "@/utils/cn";
 
-const TabButton = ({ index, icon: Icon, label }: TabButtonInterface) => {
+const TabButton = ({
+  href,
+  icon: Icon,
+  label,
+  isEntering,
+}: TabButtonComponent) => {
   const [isHovered, setHover] = useState(false);
   return (
-    <div
+    <Link
+      href={href}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className="w-full flex flex-row gap-3 pl-3 py-2 justify-start items-center hover:cursor-pointer hover:bg-blue-300 rounded-lg"
+      className={cn(
+        "w-full flex flex-row gap-3 pl-3 py-2 justify-start items-center hover:cursor-pointer hover:bg-hover rounded-lg",
+        isEntering &&
+          "bg-hover border-l-5 border-l-brand-primary rounded-l-none",
+      )}
     >
-      <Icon size={24} color={isHovered ? "#0040A2" : "#D9D4D4"} />
-      <p className="text-xs text-black/50 font-normal">{label}</p>
-    </div>
+      <Icon
+        size={22}
+        color={isHovered || isEntering ? "#003D9B" : "#434654"}
+        strokeWidth={2.75}
+      />
+      <p
+        className={cn(
+          "text-sm text-txt-extra font-semibold",
+          isEntering && "text-brand-primary",
+        )}
+      >
+        {label}
+      </p>
+    </Link>
   );
-}
+};
 
 export default TabButton;

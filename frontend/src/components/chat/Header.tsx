@@ -1,11 +1,11 @@
-import {Logo} from "../ui"
+import { Logo } from "../ui";
 
 const Header = () => {
   return (
-    <header className="w-70 h-full px-2 py-3">
+    <header className="w-70 px-2 py-3 border-b-[1.35] border-b-border-primary/70">
       <Logo />
     </header>
-  )
-}
+  );
+};
 
 export default Header;

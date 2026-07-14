@@ -11,9 +11,11 @@
 
     --txt-primary: #051a3e;
     --txt-extra: #434654;
-    --txt-on-brand: #FFFFFF
+    --txt-on-brand: #FFFFFF;
 
-    --icon-primary: #434654;
+    --ic-primary: #434654;
+
+    --input-surface: #D8E2FF;
     
     --extra: #737685;
   }
@@ -25,9 +27,14 @@
     --surface: #101419;
     --secondary: #191c21;
     --hover: #282a2f;
-    --txt-primary: #ffffff;
-    --txt-normal: #e5e7eb;
-    --txt-extra: #8e9099;
+
+    --txt-primary: #E2E2E9;
+    --txt-extra: #C4C6D0;
+    --txt-on-brand: #FFFFFF;
+
+    --ic-primary: #434654;
+
+    --extra: #737685;
   }
 }
 
@@ -45,9 +52,14 @@
   --color-secondary: var(--secondary);
   --color-hover: var(--hover);
 
-  --color-txt-primary: var(--txt-primary);
-  --color-txt-normal: var(--txt-normal);
+  --color-txt-primary: var(--txt-primary);  
   --color-txt-extra: var(--txt-extra);
+  --color-txt-on-brand: var(--txt-on-brand);
+
+  --color-ic-primary: var(--ic-primary);
+  --color-extra: var(--extra);
+
+  --color-input-surface: var(--input-surface);
 }
 
 body {
