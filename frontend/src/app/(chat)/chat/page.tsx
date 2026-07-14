@@ -1,8 +1,8 @@
-
+import { EmptyChatScreen } from "@/components/ui";
 
 const ChatPage = () => {
   return (
-    <div>page</div>
+    <EmptyChatScreen />
   )
 }
 
