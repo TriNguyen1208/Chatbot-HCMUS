@@ -1,6 +1,6 @@
-import mongoose, {Document, model, Schema, Types} from "mongoose";
+import mongoose, { Document, model, Schema, Types } from "mongoose";
 
-export interface IKeyStore extends Document{
+export interface IKeyStore extends Document {
     user_id: Types.ObjectId,
     refresh_token_hash: string,
     family_id: string,
@@ -28,12 +28,11 @@ const keyStoreSchema = new Schema<IKeyStore>({
     },
     family_id: {
         type: String,
-        required: true,
-        unique: true
+        required: true
     },
     parent_id: {
         type: Types.ObjectId,
-        default: null 
+        default: null
     },
     is_used: {
         type: Boolean,
@@ -56,6 +55,6 @@ const keyStoreSchema = new Schema<IKeyStore>({
 //Tự động xoá document sau expires_at lớn hơn 30 ngày (Có thể bỏ để tối ưu bộ nhớ - Dùng cron job)
 keyStoreSchema.index(
     { expires_at: 1 },
-    { expireAfterSeconds: 0}
+    { expireAfterSeconds: 0 }
 )
 export const keyStoreModel = model<IKeyStore>("KeyStore", keyStoreSchema);

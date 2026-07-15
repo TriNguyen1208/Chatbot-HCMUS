@@ -1,9 +1,9 @@
 "use client"
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/features/auth";
+import { useAuthStore } from "../stores/authStore";
 import { useState } from "react";
-import { authApi } from "@/features/auth";
-import { setTokens } from "@/features/auth";
+import { authApi } from "../services/authApi";
+
 import axios from "axios";
 
 export function useGoogleAuth(){
@@ -24,8 +24,7 @@ export function useGoogleAuth(){
 
         try{
             const result = await authApi.googleLogin(idToken);
-            setTokens(result.tokens);
-            setUser(result.user)
+            setUser(result)
             router.push("/home")
         }catch(err){
             if (axios.isAxiosError(err)) {

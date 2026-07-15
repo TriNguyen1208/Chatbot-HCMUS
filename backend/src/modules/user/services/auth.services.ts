@@ -27,7 +27,8 @@ export class AuthService{
         rawRefreshToken,
         device_info,
         family_id,
-        parent_id
+        parent_id,
+        expires_at
     }: {
         userID: string,
         rawRefreshToken: string,
@@ -37,15 +38,18 @@ export class AuthService{
         } | undefined,
         family_id?: string | undefined,
         parent_id?: string,
+        expires_at?: Date 
         
     }): Promise<void>{
         //Luu vao mongoDB va luu vao redis
         //Hash refreshToken
         const hashRefreshToken = sha256(rawRefreshToken)
-        const expiresTime = new Date(
-            Date.now() + parseDurationMs(config.jwt.refreshExpires as string)
-        )
-        
+        //Neu nhu chua 
+        if(!expires_at){
+            expires_at = new Date(
+                Date.now() + parseDurationMs(config.jwt.refreshExpires as string)
+            )
+        }
         //Lưu vào database mongoDB
         const payloadDatabase: KeyStore = {
             user_id: userID,
@@ -54,7 +58,7 @@ export class AuthService{
             parent_id: parent_id ?? null,
             is_used: false,
             device_info: device_info,
-            expires_at: expiresTime
+            expires_at: expires_at
         } 
         await this.keyStoreRepository.create(payloadDatabase)
     }
@@ -67,7 +71,7 @@ export class AuthService{
         rawRefreshToken: string,
         deviceInfo?: { user_agent?: string | undefined; ip?: string | undefined },
         user: JWTPayload
-    }): Promise<TokenPair>{
+    }){
         //Hash rawRefreshToken trước
         const hashRefreshToken = sha256(rawRefreshToken)
         //Tim keyStore trong database
@@ -85,19 +89,24 @@ export class AuthService{
             await this.keyStoreRepository.revokeFamily(keyStore.family_id)
             throw createHttpError.Unauthorized("Phát hiện bất thường, vui lòng đăng nhập lại");
         }
+        const expiresTime = keyStore.expires_at
         //Đánh dầu refreshToken đó đã dùng rồi, lần sau mà dùng lại thì cook
         await this.keyStoreRepository.markUsed(keyStore._id as any);
         
         //Tạo tokens mới
         const newTokens = jwtService.createPairToken({ id: user.userID, email: user.email });
-        this.saveRefreshToken({
+        await this.saveRefreshToken({
             userID: user.userID,
             rawRefreshToken: newTokens.refreshToken,
             device_info: deviceInfo,
             family_id: keyStore.family_id,
-            parent_id: keyStore._id.toString()
+            parent_id: keyStore._id.toString(),
+            expires_at: expiresTime
         })
-        return newTokens;    
+        return {
+            tokens: newTokens,
+            expires_refresh_token: expiresTime
+        }
     }
     async logout(rawRefreshToken: string){
         const hashRefreshToken = sha256(rawRefreshToken)
@@ -105,5 +114,13 @@ export class AuthService{
     }
     async logoutAll(user_id: string){
         await this.keyStoreRepository.revokeAllByUser(user_id);
+    }
+    
+    async getMe(userID: string) {
+        const user = await this.userRepository.findByID(userID);
+        if (!user) {
+            throw createHttpError.NotFound("User not found");
+        }
+        return user;
     }
 }

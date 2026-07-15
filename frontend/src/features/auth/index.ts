@@ -1,6 +1,6 @@
 export type * from "./types";
 
-export * from "./utils/token"
+
 
 export * from "./stores/authStore"
 

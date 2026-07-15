@@ -1,4 +1,4 @@
-import type { TokenPair } from "#@/shared/types/index.js";
+import type { TokenPair, UserProfile } from "#@/shared/types/index.js";
 
 export interface AuthResult {
     tokens: TokenPair;
@@ -30,3 +30,6 @@ export type KeyStore = {
     expires_at: Date
 }
 
+export type UpdateUserProfileDto = Partial<
+    Omit<UserProfile, "id" | "createdAt" | "updatedAt">
+>;

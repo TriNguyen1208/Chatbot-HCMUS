@@ -1,11 +1,17 @@
 import type { UserProfile } from "#@/shared/types/index.js";
 import { UserModel } from "#@/modules/user/models/user.model.js";
 import type { IUser } from "#@/modules/user/models/user.model.js";
+import type { UpdateUserProfileDto } from "../types/index.js";
+import type { Types } from "mongoose";
 
 export interface IUserRepository{
     findByEmail(email: string): Promise<UserProfile | null>
     findByID(id: string): Promise<UserProfile | null>
     create({ email, name, avatarUrl, student_id }: { email: string; name: string; avatarUrl: string | undefined, student_id ?: string | undefined }) : Promise<UserProfile>;
+    update(
+        userID: string,
+        payload: UpdateUserProfileDto
+    ): Promise<UserProfile | null>
 }   
 
 export class UserRepository implements IUserRepository{
@@ -31,6 +37,18 @@ export class UserRepository implements IUserRepository{
     }
     async create({ email, name, avatarUrl, student_id }: { email: string; name: string; avatarUrl: string; student_id?: string | undefined}): Promise<UserProfile> {
         const doc = await UserModel.create({email, name, avatarUrl, student_id})
+        return this.toProfile(doc)
+    }
+    async update(
+        userID: string,
+        payload: UpdateUserProfileDto
+    ){
+        const doc = await UserModel.findByIdAndUpdate(userID, payload, {
+            new: true   
+        });
+        if(doc == null){
+            return null
+        }
         return this.toProfile(doc)
     }
 }

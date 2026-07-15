@@ -1,18 +1,19 @@
 "use client";
 
-import { AuthResult } from "@/features/auth";
 import { ApiResponse } from "@/types/type";
-import { env } from "@/config/env";
-import axios from "axios";
-
-const BASE_URL = env.apiUrl;
+import { api } from "@/lib/api";
+import { UserProfile } from "../types";
 
 export const authApi = {
-    googleLogin: async (idToken: string): Promise<AuthResult> => {
-        const res = await axios.post<ApiResponse<AuthResult>>(`${BASE_URL}/auth/google`, { idToken });
+    googleLogin: async (idToken: string): Promise<Pick<UserProfile, "id" | "name" | "email">> => {
+        const res = await api.post<ApiResponse<Pick<UserProfile, "id" | "name" | "email">>>(`/auth/google`, { idToken });
         return res.data.data;
     },
-    logout: async (refreshToken: string): Promise<void> => {
-        await axios.post(`${BASE_URL}/auth/logout`, { refreshToken: refreshToken });
+    logout: async (): Promise<void> => {
+        await api.post(`/auth/logout`);
     },
+    getMe: async (): Promise<Pick<UserProfile, "id" | "name" | "email"> & { studentID?: string }> => {
+        const res = await api.get<ApiResponse<Pick<UserProfile, "id" | "name" | "email"> & { studentID?: string }>>(`/auth/me`);
+        return res.data.data;
+    }
 };

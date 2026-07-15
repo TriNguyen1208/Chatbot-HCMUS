@@ -1,38 +1,30 @@
 "use client"
 
-import { authApi, clearTokens, useAuthStore } from "@/features/auth";
+import { authApi } from "../services/authApi";
+
+import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Cookies from "js-cookie";
 
-export function useLogout(){
-    const {user, isAuthenticated, clearUser} = useAuthStore()
+export function useLogout() {
+    const { user, isAuthenticated, isCheckingAuth, clearUser } = useAuthStore()
     const router = useRouter()
-    const [hydrated, setHydrated] = useState(false); //Da san sang de check chua
 
     useEffect(() => {
-        setHydrated(true)
-    }, [])
-
-    useEffect(() => {
-        if (hydrated && (!isAuthenticated || !Cookies.get("accessToken"))) { //Neu nhu khong co accessToken hoac khong authenticate thi ve root
+        console.log(`[useLogout] Effect run. isCheckingAuth=${isCheckingAuth}, isAuthenticated=${isAuthenticated}`);
+        if (!isCheckingAuth && !isAuthenticated) { 
+            console.log(`[useLogout] REDIRECTING TO /`);
             router.replace("/");
         }
-    }, [isAuthenticated, hydrated, user])
+    }, [isAuthenticated, isCheckingAuth, user, router])
 
-    const handleLogout = () => {
-        const refreshToken = Cookies.get("refreshToken");
-        clearTokens();
+    const handleLogout = async () => {
         clearUser();
-
-        if(refreshToken){
-            authApi.logout(refreshToken).catch(() => {})
-        }
-
+        await authApi.logout()
         router.replace("/");
     }
     return {
-        user: hydrated ? user : null,
+        user: !isCheckingAuth ? user : null,
         handleLogout
     }
 }

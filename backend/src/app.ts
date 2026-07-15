@@ -6,13 +6,18 @@ import morgan from "morgan"
 import rateLimit from "express-rate-limit"
 import routes from "#@/routes.js"
 import { errorHandler } from "#@/shared/middlewares/error.middleware.js"
+import cookieParser from "cookie-parser"
 
 const app = express()
 
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+    origin: "http://localhost:3000",
+    credentials: true 
+}));
 app.use(express.json())
 
+app.use(cookieParser())
 app.use(rateLimit(config.rateLimit))
 app.use(express.urlencoded({extended: true}))
 app.use(morgan("dev"))

@@ -3,11 +3,21 @@ import type { JWTPayload, TokenPair } from "#@/shared/types/index.js";
 import jwt from "jsonwebtoken";
 
 class JWTService{
-    verifyAccessToken = (token: string) : JWTPayload => {
-        return jwt.verify(token, config.jwt.accessSecret) as JWTPayload
+    verifyAccessToken = (token: string) : JWTPayload | null => {
+        try {
+            return jwt.verify(token, config.jwt.accessSecret) as JWTPayload
+        } catch (error) {
+            console.error("AccessToken Error:", error);
+            return null;
+        }
     }
-    verifyRefreshToken = (token: string) : JWTPayload => {
-        return jwt.verify(token, config.jwt.refreshSecret) as JWTPayload
+    verifyRefreshToken = (token: string) : JWTPayload | null => {
+        try {
+            return jwt.verify(token, config.jwt.refreshSecret) as JWTPayload
+        } catch (error) {
+            console.error("RefreshToken Error:", error);
+            return null;
+        }
     }
     createAccessToken(userID: string, email: string): string {
         const payload: JWTPayload = { userID, email };
