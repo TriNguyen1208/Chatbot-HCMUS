@@ -1,12 +1,12 @@
 "use client"
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/features/auth";
+import { useAuthStore } from "../stores/authStore";
 import { useState } from "react";
-import { authApi } from "@/features/auth";
-import { setTokens } from "@/features/auth";
+import { authApi } from "../services/authApi";
+
 import axios from "axios";
 
-export function useGoogleAuth(){
+export function useGoogleAuth() {
     const router = useRouter()
     const setUser = useAuthStore((s) => s.setUser)
     const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -14,7 +14,7 @@ export function useGoogleAuth(){
 
     const handleGoogleSuccess = async (credentialResponse: any) => {
         const idToken = credentialResponse.credential;
-        if(!idToken){
+        if (!idToken) {
             setStatus("error")
             setErrorMsg("Không nhận được thông tin xác thực từ Google.")
         }
@@ -22,18 +22,17 @@ export function useGoogleAuth(){
         setStatus("loading");
         setErrorMsg("");
 
-        try{
+        try {
             const result = await authApi.googleLogin(idToken);
-            setTokens(result.tokens);
-            setUser(result.user)
+            setUser(result)
             router.push("/chat")
-        }catch(err){
+        } catch (err) {
             if (axios.isAxiosError(err)) {
-                setErrorMsg(err.response?.status === 401 
-                    ? "Email của bạn không thuộc trường. Vui lòng dùng email trường để đăng nhập." 
+                setErrorMsg(err.response?.status === 401
+                    ? "Email của bạn không thuộc trường. Vui lòng dùng email trường để đăng nhập."
                     : err.response?.data?.message || "Đăng nhập thất bại"
                 );
-            }else {
+            } else {
                 setErrorMsg("Có lỗi xảy ra, vui lòng thử lại.");
             }
             setStatus("error")
@@ -48,6 +47,5 @@ export function useGoogleAuth(){
         setStatus("idle");
         setErrorMsg("");
     };
-    return {status, errorMsg, handleGoogleSuccess, handleGoogleError, resetStatus}
+    return { status, errorMsg, handleGoogleSuccess, handleGoogleError, resetStatus }
 }
-
