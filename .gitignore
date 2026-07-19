@@ -211,5 +211,5 @@ token.json
 
 .vscode/
 
-# Personal
-temp.txt
+# Data
+backend/data
