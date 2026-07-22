@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+from typing import Literal
 
 class Settings(BaseSettings):
     # Paths
@@ -18,8 +19,10 @@ class Settings(BaseSettings):
     CRAWLER_NETWORK_IDLE_TIMEOUT_MS: int = 5000 # milliseconds
     MAX_CONCURRENT_DOWNLOADS: int = 5
     
-    # Parser
+    # LlamaParse
     LLAMA_CLOUD_API_KEY: str
+    LLAMA_CLOUD_TIER: Literal["fast", "cost_effective", "agentic", "agentic_plus"] = "cost_effective"
+    LLAMA_CLOUD_MAX_WORKERS: int = 5
     
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

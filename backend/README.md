@@ -58,5 +58,5 @@ python -m execution.run_crawler
 To process the collected files from the raw storage data lake, extract document layouts, chunk text structures, generate embeddings, and sync them to your vector storage, execute the ingestion engine:
 
 ```bash
-<updating>
+python -m execution.run_ingestion
 ```
