@@ -8,6 +8,7 @@ class Config{
 
     readonly port: number
     readonly mongoUri: string;
+    readonly mongoAtlasUri: string;
     readonly jwt: {
         accessSecret: string,
         refreshSecret: string,
@@ -32,6 +33,7 @@ class Config{
     private constructor(){
         this.port = parseInt(process.env.PORT ?? "3001")
         this.mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017"
+        this.mongoAtlasUri = process.env.MONGO_ATLAS_URI || "";
         this.jwt = {
             accessSecret: process.env.JWT_ACCESS_SECRET as string || "your_access_secret",
             refreshSecret: process.env.JWT_REFRESH_SECRET as string || "your_refresh_secret",
