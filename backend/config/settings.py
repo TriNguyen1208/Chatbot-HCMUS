@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     DATA_RAW_DIR: Path = DATA_DIR / "raw"
     DATA_PROCESSED_DIR: Path = DATA_DIR / "processed"
     DATA_CACHE_DIR: Path = DATA_DIR / "cache"
+    DATA_CHUNK_DIR: Path = DATA_DIR / "chunks"
     
     # FastAPI 
     PORT: int = 8000

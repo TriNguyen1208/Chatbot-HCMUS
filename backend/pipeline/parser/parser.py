@@ -1,7 +1,8 @@
+from config.settings import settings
+
 from llama_cloud import LlamaCloud, AsyncLlamaCloud
 from dotenv import load_dotenv
 import time
-
 import asyncio
 
 load_dotenv()
@@ -41,7 +42,7 @@ class FileParser:
             f.write(full_markdown)
 
     @staticmethod
-    def toMd(input_path: str, output_path: str, tier: str = "cost_effective"):
+    def to_md(input_path: str, output_path: str, tier: str = "cost_effective"):
         """
         Parse a single file with LlamaParse and save the result as markdown
 
@@ -65,7 +66,7 @@ class FileParser:
             await FileParser._parse_single_file_async(client, input_path, output_path, tier)
 
     @staticmethod
-    def toMdBatch(file_pairs: list[tuple[str, str]], tier: str = "cost_effective"):
+    def to_md_batch(file_pairs: list[tuple[str, str]], tier: str = "cost_effective"):
         """
         Parse multiple files parallelly with LLama-Parser and save the results as Markdown.
 
@@ -86,12 +87,33 @@ class FileParser:
             await asyncio.gather(*tasks)
         asyncio.run(parallel_tasks())
 
+    @staticmethod
+    def parse_folder(folder: str = 'all', tier: str = "cost_effective"):
+        if folder == 'all':
+            site_folders = ['curriculum', 'information', 'announcement']
+            for sf in site_folders:
+                FileParser.parse_folder(sf, tier)
+            return
+
+        folder_path = settings.DATA_RAW_DIR / folder
+        output_folder_path = settings.DATA_PROCESSED_DIR / folder
+        output_folder_path.mkdir(parents=True, exist_ok=True)
+
+        file_pairs = []
+        for file in folder_path.iterdir():
+            if file.is_file():
+                output_path = output_folder_path / f"{file.stem}.md"
+                file_pairs.append((str(file), str(output_path)))
+
+        if file_pairs:
+            FileParser.to_md_batch(file_pairs, tier)
+
 # Test code ----------
 if __name__ == "__main__":
     start = time.time()
 
     # FileParser.toMd('test_files/congvan.jpg', 'test_files/congvan.md')
-    FileParser.toMdBatch(
+    FileParser.to_md_batch(
         [
             ('test_files/congvan.jpg', 'test_files/congvan.md'),
             ('test_files/data_mining.pdf', 'test_files/data_mining.md'),

@@ -213,3 +213,7 @@ token.json
 
 # Data
 backend/data
+
+# Personal
+temp.txt
+test_files/
