@@ -73,7 +73,7 @@ class Chunker:
             and chunk_file_path.exists()
             and chunk_file_path.stat().st_mtime >= processed_file_path.stat().st_mtime
         ):
-            print("Skip chunking file:", file_hash)
+            print(". Skip chunking file:", file_hash)
             return
 
         # 2. Split into chunks

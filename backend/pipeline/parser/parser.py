@@ -88,11 +88,11 @@ class FileParser:
         asyncio.run(parallel_tasks())
 
     @staticmethod
-    def parse_folder(folder: str = 'all', tier: str = "cost_effective"):
+    def parse_folder(folder: str = 'all', force: bool = False, tier: str = "cost_effective"):
         if folder == 'all':
             site_folders = ['curriculum', 'information', 'announcement']
             for sf in site_folders:
-                FileParser.parse_folder(sf, tier)
+                FileParser.parse_folder(sf, force, tier)
             return
 
         folder_path = settings.DATA_RAW_DIR / folder
@@ -103,6 +103,16 @@ class FileParser:
         for file in folder_path.iterdir():
             if file.is_file():
                 output_path = output_folder_path / f"{file.stem}.md"
+
+                # Skip files that are already parsed
+                if (
+                    not force
+                    and output_path.exists()
+                    and output_path.stat().st_mtime >= file.stat().st_mtime
+                ):
+                    print(". Skip parsing file:", file.stem)
+                    continue
+                
                 file_pairs.append((str(file), str(output_path)))
 
         if file_pairs:
