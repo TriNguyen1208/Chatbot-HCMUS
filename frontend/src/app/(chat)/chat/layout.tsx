@@ -5,11 +5,11 @@ const layout = ({
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
-  return <main className="grid grid-cols-5 w-screen h-screen">
-    <div className="bg-white col-span-1 w-full h-full">
+  return <main className="grid grid-cols-9 w-screen h-screen">
+    <div className="bg-white col-span-2 w-full h-full">
       <Sidebar/>
     </div>
-    <div className="bg-white col-span-4 w-full h-full">{children}</div>
+    <div className="bg-white col-span-7 w-full h-full">{children}</div>
   </main>;
 };
 

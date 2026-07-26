@@ -5,7 +5,7 @@ import { redisClient } from "#@/shared/database/redis.js"
 
 const start = async(): Promise<void> => {
     await mongoDB.connect()
-    await redisClient.connect()
+    await redisClient.connect()    
     app.listen(config.port, () => {
         console.log(`Server is running on port ${config.port}`)
     })
@@ -13,3 +13,5 @@ const start = async(): Promise<void> => {
 
 await start()
 
+// (db) 
+// findUser() => db.insert();
