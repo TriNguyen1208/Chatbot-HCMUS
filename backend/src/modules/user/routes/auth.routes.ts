@@ -1,5 +1,5 @@
-import {Router} from "express"
-import {UserRepository} from "#@/modules/user/repositories/user.repository.js"
+import { Router } from "express"
+import { UserRepository } from "#@/modules/user/repositories/user.repository.js"
 import { AuthController } from "#@/modules/user/controllers/auth.controller.js"
 import { AuthService } from "#@/modules/user/services/auth.services.js"
 import { GoogleAuthStrategy } from "#@/modules/user/strategies/auth.strategies.js"
@@ -7,7 +7,7 @@ import asyncHandler from "#@/shared/middlewares/asyncHandler.js"
 import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js"
 import { KeyStoreRepository } from "#@/modules/user/repositories/keystore.repository.js"
 import { StudentDirectoryRepository } from "#@/modules/user/repositories/student-directory.repository.js"
-import { GoogleLoginSchema, RefreshTokenSchema, LogoutSchema } from "#@/modules/user/user.validator.js";
+import { GoogleLoginSchema } from "#@/modules/user/user.validator.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
 
 const router = Router()
@@ -21,7 +21,7 @@ const router = Router()
 const userRepository = new UserRepository()
 const studentDirectoryRepository = new StudentDirectoryRepository()
 const keyStoreRepository = new KeyStoreRepository()
-const authService = new AuthService(userRepository, keyStoreRepository) 
+const authService = new AuthService(userRepository, keyStoreRepository)
 const authStrategy = new GoogleAuthStrategy(userRepository, studentDirectoryRepository)
 
 const authController = new AuthController(authService, authStrategy)
@@ -29,10 +29,12 @@ const authController = new AuthController(authService, authStrategy)
 //Login lần đầu vào google (Có thể là lần đầu, có thể là do hết refreshToken)
 router.post("/google", validate(GoogleLoginSchema), asyncHandler(authController.googleLogin))
 
-router.post("/refresh-token", validate(RefreshTokenSchema), AuthMiddleware.verifyRefreshToken, authController.refreshToken)
+router.post("/refresh-token", AuthMiddleware.verifyRefreshToken, authController.refreshToken)
 
-router.post("/logout", validate(LogoutSchema), AuthMiddleware.verifyAccessToken, authController.logout)
+router.post("/logout", AuthMiddleware.verifyAccessToken, asyncHandler(authController.logout))
 
-router.post("/logout-all", AuthMiddleware.verifyAccessToken, authController.logoutAll)
+router.post("/logout-all", AuthMiddleware.verifyAccessToken, asyncHandler(authController.logoutAll))
+
+router.get("/me", AuthMiddleware.verifyAccessToken, asyncHandler(authController.getMe))
 
 export default router

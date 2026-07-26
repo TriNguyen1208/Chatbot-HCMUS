@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
-const string2ObjectID = (id: string): Types.ObjectId | null => {
+const string2ObjectID = (id: string | null | undefined): Types.ObjectId | null => {
+    if (!id) return null;
     if(!Types.ObjectId.isValid(id)){
         console.error("Error happen with id: ", id)
         return null

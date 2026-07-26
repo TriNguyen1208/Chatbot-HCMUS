@@ -1,0 +1,26 @@
+@baseUrl = http://localhost:3001/api/user
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2YTRmNzRlYWI5MDdiZTc2NmQ0ODE5ZTEiLCJlbWFpbCI6Im5kdHJpMjNAY2xjLmZpdHVzLmVkdS52biIsImlhdCI6MTc4NDExMTc1MCwiZXhwIjoxNzg0MTEyNjUwfQ.cfwjUl21ev2R3N5-lGrOl-ezHGHIfOuIaYbKSNknpnM
+@userId = 6a4f74eab907be766d4819e1
+
+### Lấy thông tin cá nhân (Get Me)
+GET {{baseUrl}}/me
+Cookie: accessToken={{token}}
+
+### Lấy thông tin User theo ID
+GET {{baseUrl}}/{{userId}}
+Cookie: accessToken={{token}}
+
+### Cập nhật thông tin (Update Profile)
+# Lưu ý: Hiện tại route của bạn đang là PATCH / nhưng schema UpdateProfileSchema lại yêu cầu params.id
+# và controller đang lấy req.params.id, do đó api này sẽ bị lỗi.
+# Gợi ý: Nếu là "Update Me", bạn nên lấy `req.user.userID` thay vì `req.params.id`.
+# Còn nếu update theo ID thì route phải là PATCH /:id
+PATCH {{baseUrl}}/
+# PATCH {{baseUrl}}/{{userId}}
+Cookie: accessToken={{token}}
+Content-Type: application/json
+
+{
+    "phone": "123123213",
+    "avatarUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuDGi1_AVK3XUdN5cS9tUBuYhgg9UhK3zN0hA_3b6M-Q&s=10"
+}

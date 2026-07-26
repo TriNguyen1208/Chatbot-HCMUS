@@ -11,17 +11,17 @@ export interface IAuthStrategy {
     authenticate(credential: string): Promise<AuthResult>
 }
 
-export class GoogleAuthStrategy implements IAuthStrategy{
+export class GoogleAuthStrategy implements IAuthStrategy {
     private readonly googleClient: OAuth2Client;
     constructor(
         private readonly userRepository: IUserRepository,
         private readonly studentDirectoryRepository: IStudentDirectoryRepository,
-    ){
+    ) {
         this.googleClient = new OAuth2Client(config.google.clientId)
         this.userRepository = userRepository
         this.studentDirectoryRepository = studentDirectoryRepository
     }
-    private async verifyGoogleToken(idToken: string): Promise<GoogleTokenPayload>{
+    private async verifyGoogleToken(idToken: string): Promise<GoogleTokenPayload> {
         const ticket = await this.googleClient.verifyIdToken({
             idToken,
             audience: config.google.clientId
@@ -35,22 +35,22 @@ export class GoogleAuthStrategy implements IAuthStrategy{
             sub: payload.sub
         }
     }
-    private isAllowDomain(email: string): boolean{
+    private isAllowDomain(email: string): boolean {
         return config.allowedDomains.some((domain: string) => email.endsWith(domain));
     }
     async authenticate(idToken: string): Promise<AuthResult> {
         //Need to verify idToken
         const googlePayload = await this.verifyGoogleToken(idToken);
-        if(!this.isAllowDomain(googlePayload.email)){
+        if (!this.isAllowDomain(googlePayload.email)) {
             throw createHttpError.Unauthorized("Email domain not allowed")
-        }   
-        
+        }
+
         //Neu da dang nhap roi thi tra ve luon, khong suy nghi nhieu
         const foundUser = await this.userRepository.findByEmail(googlePayload.email)
         let user;
         let userID;
         let studentID;
-        if(foundUser){
+        if (foundUser) {
             user = {
                 email: foundUser?.email,
                 name: foundUser?.name,
@@ -61,15 +61,15 @@ export class GoogleAuthStrategy implements IAuthStrategy{
             studentID = foundUser?.student_id
             // console.log("Found user: ", user, userID, studentID)
         }
-        else{
+        else {
             //Neu nhu chua dang nhap
             const email_processed = extractEmail(googlePayload.email)
             //TH1: Neu nhu trong gmail co student id thi extract ra luon
             const student_id = extractStudentID(googlePayload.email)
-            if(!student_id){
+            if (!student_id) {
                 //Tim user trong studentDirectory, neu tra ve lon hon 2 thi 
                 const users = await this.studentDirectoryRepository.findByEmail(email_processed)
-                if(users.length == 1){
+                if (users.length == 1) {
                     //Dam bao co thi create luon
                     user = {
                         email: googlePayload.email,
@@ -78,7 +78,7 @@ export class GoogleAuthStrategy implements IAuthStrategy{
                         student_id: users[0]?.student_id!
                     }
                     studentID = users[0]?.student_id!
-                }else{
+                } else {
                     user = {
                         email: googlePayload.email,
                         name: googlePayload.name,
@@ -86,7 +86,7 @@ export class GoogleAuthStrategy implements IAuthStrategy{
                     }
                 }
                 // console.log("Without studentID: ", user, studentID)
-            }else{
+            } else {
                 user = {
                     email: googlePayload.email,
                     name: googlePayload.name,
@@ -101,7 +101,7 @@ export class GoogleAuthStrategy implements IAuthStrategy{
         }
 
         //Neu nhu user da ton tai ma phai dang nhap bang google => tuc la khong co access va refresh
-        const tokens = jwtService.createPairToken({id: userID, email: user.email!});
+        const tokens = jwtService.createPairToken({ id: userID, email: user.email! });
         return {
             tokens,
             user: {
