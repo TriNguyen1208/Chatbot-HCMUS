@@ -1,4 +1,4 @@
-import { config } from "#@/shared/config/config.js";
+import { config } from "#@/config/config.js";
 import type { AuthResult, GoogleTokenPayload } from "#@/modules/user/types/index.js";
 import { OAuth2Client } from "google-auth-library";
 import createHttpError from "http-errors";
@@ -39,13 +39,11 @@ export class GoogleAuthStrategy implements IAuthStrategy {
         return config.allowedDomains.some((domain: string) => email.endsWith(domain));
     }
     async authenticate(idToken: string): Promise<AuthResult> {
-        //Need to verify idToken
         const googlePayload = await this.verifyGoogleToken(idToken);
         if (!this.isAllowDomain(googlePayload.email)) {
             throw createHttpError.Unauthorized("Email domain not allowed")
         }
 
-        //Neu da dang nhap roi thi tra ve luon, khong suy nghi nhieu
         const foundUser = await this.userRepository.findByEmail(googlePayload.email)
         let user;
         let userID;
@@ -59,7 +57,6 @@ export class GoogleAuthStrategy implements IAuthStrategy {
             }
             userID = foundUser.id
             studentID = foundUser?.student_id
-            // console.log("Found user: ", user, userID, studentID)
         }
         else {
             //Neu nhu chua dang nhap
@@ -74,7 +71,7 @@ export class GoogleAuthStrategy implements IAuthStrategy {
                     user = {
                         email: googlePayload.email,
                         name: users[0]?.full_name ?? googlePayload.name,
-                        avatarUrl: googlePayload.picture,
+                        avatar_url: googlePayload.picture,
                         student_id: users[0]?.student_id!
                     }
                     studentID = users[0]?.student_id!
@@ -82,22 +79,20 @@ export class GoogleAuthStrategy implements IAuthStrategy {
                     user = {
                         email: googlePayload.email,
                         name: googlePayload.name,
-                        avatarUrl: googlePayload.picture
+                        avatar_url: googlePayload.picture
                     }
                 }
-                // console.log("Without studentID: ", user, studentID)
             } else {
                 user = {
                     email: googlePayload.email,
                     name: googlePayload.name,
-                    avatarUrl: googlePayload.picture,
+                    avatar_url: googlePayload.picture,
                     student_id: student_id
                 }
                 studentID = student_id
             }
             const createUser = await this.userRepository.create(user)
             userID = createUser.id
-            // console.log("After creating", user, userID, studentID)
         }
 
         //Neu nhu user da ton tai ma phai dang nhap bang google => tuc la khong co access va refresh

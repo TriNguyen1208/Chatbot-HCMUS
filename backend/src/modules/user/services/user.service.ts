@@ -1,7 +1,6 @@
 import createHttpError from "http-errors";
 import { UserRepository, type IUserRepository } from "../repositories/user.repository.js";
-import type { UserProfile } from "#@/shared/types/index.js";
-import type { UpdateUserProfileDto } from "../types/index.js";
+import type { UpdateUserProfileDto } from "#@/modules/user/user.dto.js";
 import type { Types } from "mongoose";
 
 export class UserService{

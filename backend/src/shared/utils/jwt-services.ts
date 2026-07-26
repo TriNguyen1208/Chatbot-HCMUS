@@ -1,4 +1,4 @@
-import { config } from "#@/shared/config/config.js";
+import { config } from "#@/config/config.js";
 import type { JWTPayload, TokenPair } from "#@/shared/types/index.js";
 import jwt from "jsonwebtoken";
 

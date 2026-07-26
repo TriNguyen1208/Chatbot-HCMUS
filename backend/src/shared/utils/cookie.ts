@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { parseDurationMs } from "./time.utils.js";
-import { config } from "../config/config.js";
+import { config } from "#@/config/config.js";
 
 export const setCookie = (
     res: Response,

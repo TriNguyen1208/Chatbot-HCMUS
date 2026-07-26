@@ -1,5 +1,4 @@
 import { UserRepository } from "#@/modules/user/repositories/user.repository.js";
-import type { UserProfile } from "#@/shared/types/index.js";
 
 export class UserFacade {
     constructor(

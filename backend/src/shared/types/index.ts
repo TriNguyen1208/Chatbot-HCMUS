@@ -8,14 +8,3 @@ export type TokenPair = {
     accessToken: string, 
     refreshToken: string
 }
-
-export type UserProfile = {
-    id: string,
-    name: string,
-    email: string,
-    student_id?: string | undefined,
-    phone?: string | undefined,
-    avatarUrl?: string | undefined,
-    createdAt: Date,
-    updatedAt: Date
-}

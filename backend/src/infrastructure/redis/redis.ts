@@ -1,5 +1,5 @@
 import {Redis} from "ioredis";
-import { config } from "#@/shared/config/config.js";
+import { config } from "#@/config/config.js";
 
 class RedisClient{
     private static _instance: RedisClient;

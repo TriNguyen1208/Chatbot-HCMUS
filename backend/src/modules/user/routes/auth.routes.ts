@@ -1,15 +1,15 @@
 import { Router } from "express"
 import { UserRepository } from "#@/modules/user/repositories/user.repository.js"
 import { AuthController } from "#@/modules/user/controllers/auth.controller.js"
-import { AuthService } from "#@/modules/user/services/auth.services.js"
-import { GoogleAuthStrategy } from "#@/modules/user/strategies/auth.strategies.js"
+import { AuthService } from "#@/modules/user/services/auth.service.js"
+import { GoogleAuthStrategy } from "#@/modules/user/strategies/auth.strategy.js"
 import asyncHandler from "#@/shared/middlewares/asyncHandler.js"
 import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js"
 import { KeyStoreRepository } from "#@/modules/user/repositories/keystore.repository.js"
 import { StudentDirectoryRepository } from "#@/modules/user/repositories/student-directory.repository.js"
-import { GoogleLoginSchema } from "#@/modules/user/user.validator.js";
+import { GoogleLoginSchema } from "#@/modules/user/user.dto.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
-
+import { supabaseDB } from "#@/infrastructure/database/supabaseClient.js"
 const router = Router()
 
 //TODO: 
@@ -18,9 +18,10 @@ const router = Router()
 //Services sử dụng repository và strategy (strategy ở đây là login bằng google hoặc bằng email)
 //Controller sử dụng services và repository luôn
 
-const userRepository = new UserRepository()
-const studentDirectoryRepository = new StudentDirectoryRepository()
-const keyStoreRepository = new KeyStoreRepository()
+const userRepository = new UserRepository(supabaseDB)
+const studentDirectoryRepository = new StudentDirectoryRepository(supabaseDB)
+const keyStoreRepository = new KeyStoreRepository(supabaseDB)
+
 const authService = new AuthService(userRepository, keyStoreRepository)
 const authStrategy = new GoogleAuthStrategy(userRepository, studentDirectoryRepository)
 

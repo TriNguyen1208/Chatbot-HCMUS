@@ -1,12 +1,14 @@
 import { apiResponse } from "#@/shared/utils/api-response.js";
-import type { AuthService } from "#@/modules/user/services/auth.services.js";
-import type { IAuthStrategy } from "#@/modules/user/strategies/auth.strategies.js";
+import type { AuthService } from "#@/modules/user/services/auth.service.js";
+import type { IAuthStrategy } from "#@/modules/user/strategies/auth.strategy.js";
 import { type Request, type Response, type NextFunction } from "express";
 import createHttpError from "http-errors";
-import type { GoogleLoginInput } from "../user.validator.js";
-import { config } from "#@/shared/config/config.js";
+import type { GoogleLoginInput } from "#@/modules/user/user.dto.js";
+import { config } from "#@/config/config.js";
 import { parseDurationMs } from "#@/shared/utils/time.utils.js";
 import { clearCookie, setCookie } from "#@/shared/utils/cookie.js";
+import { UserMapper } from "../user.dto.js";
+
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
@@ -32,7 +34,6 @@ export class AuthController {
             parseDurationMs(config.jwt.refreshExpires as string),
             "/api/auth"
         )
-        //TODO: Ở đây phải có bước lưu refreshToken vào keyStore trong mongo và bước lưu refreshToken vào redis
         await this.authService.saveRefreshToken({
             userID: result.user.id,
             rawRefreshToken: result.tokens.refreshToken,
@@ -41,7 +42,7 @@ export class AuthController {
                 ip: req.ip
             }
         })
-        return apiResponse.success(res, result.user)
+        return apiResponse.success(res, UserMapper.toUserResponse(result.user))
     }
 
     refreshToken = async (req: Request, res: Response, next: NextFunction) => {
@@ -56,7 +57,6 @@ export class AuthController {
             user: req.user!
         })
         if (!result.tokens) {
-            console.log("5")
             throw createHttpError.Unauthorized("Vui lòng đăng nhập lại");
         }
         setCookie(
@@ -78,7 +78,6 @@ export class AuthController {
     }
 
     logout = async (req: Request, res: Response, next: NextFunction) => {
-        //Khi logout thi phai xoa
         const refreshToken = req.cookies.refreshToken
         if (!refreshToken) {
             throw createHttpError.BadRequest("refreshToken is required");
@@ -89,7 +88,6 @@ export class AuthController {
         return apiResponse.success(res, { message: "Đăng xuất thành công" });
     }
     logoutAll = async (req: Request, res: Response, next: NextFunction) => {
-        //Dung user da duoc gan trong req
         const user_id = req.user!.userID
         clearCookie(res, "accessToken")
         clearCookie(res, "refreshToken", "/api/auth")
@@ -100,6 +98,6 @@ export class AuthController {
     getMe = async (req: Request, res: Response, next: NextFunction) => {
         const user_id = req.user!.userID;
         const user = await this.authService.getMe(user_id);
-        return apiResponse.success(res, user);
+        return apiResponse.success(res, UserMapper.toUserResponse(user));
     }
 }
