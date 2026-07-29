@@ -25,7 +25,7 @@ export class MongoDBAtlas implements IDatabase {
         try {
             await mongoose.connect(uri, clientOptions);
             this.connected = true;
-            console.log("MongoDB connected ", uri)
+            console.log("MongoDB connected")
             mongoose.connection.on("disconnected", () => {
                 this.connected = false;
                 console.warn("⚠️  MongoDB disconnected");

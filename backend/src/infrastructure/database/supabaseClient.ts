@@ -27,7 +27,7 @@ export class SupabaseDatabase implements IDatabase {
         if (error && error.code !== "42P01" && error.code !== "PGRST116") {
             throw new Error(`Supabase connection failed: ${error.message}`);
         }
-        console.log("Supabase connected ", this.supabaseURL)
+        console.log("Supabase connected ")
         this.connected = true;
     }
 
