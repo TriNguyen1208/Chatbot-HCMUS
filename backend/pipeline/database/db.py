@@ -257,11 +257,6 @@ class QdrantVectorDB:
         rerank_threshold: float = 0.3,
         reranker_url: str = "http://localhost:8081/rerank"
     ) -> List[PointStruct]:
-        """
-        Hàm tìm kiếm hoàn chỉnh dành cho Production RAG:
-        Hybrid Search (Qdrant) -> Reranker (TEI) -> Threshold Filter -> Output LLM Context
-        """
-        # Bước 1: Sơ loại lấy 15 ứng viên tốt nhất từ Hybrid Search (Dense + Sparse RRF)
         candidate_points = self.hybrid_search(
             collection_name=collection_name, 
             query_text=query_text, 
@@ -269,21 +264,17 @@ class QdrantVectorDB:
             dense_threshold=0.45
         )
 
-        # Nếu không qua được vòng sơ loại của Qdrant thì dừng ngay
         if not candidate_points:
             return []
 
-        # Bước 2: Chấm điểm lại 15 ứng viên bằng Alibaba GTE Reranker
         reranked_points = self._rerank_points(
             query_text=query_text, 
             points=candidate_points, 
             reranker_url=reranker_url
         )
 
-        # Bước 3: Lọc bỏ các tài liệu có điểm Reranker thấp hơn ngưỡng an toàn (Chặn rác)
         filtered_points = [p for p in reranked_points if p.score >= rerank_threshold]
 
-        # Bước 4: Lấy ra top_k tài liệu chất lượng nhất để gửi sang Gemini LLM
         return filtered_points[:top_k]
 
 # Testing ==========================
