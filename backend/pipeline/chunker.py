@@ -19,8 +19,8 @@ class Chunker:
         )
 
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,    
-            chunk_overlap=150,  
+            chunk_size=500,    
+            chunk_overlap=75,  
         )
 
         with open(settings.DATA_CACHE_DIR / "manifest.json", 'r', encoding='utf-8') as f:

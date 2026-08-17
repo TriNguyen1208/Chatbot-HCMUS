@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  tei-embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    container_name: tei-e5
+    ports:
+      - "8080:80"
+    shm_size: '1g'
+    environment:
+      - PORT=80
+    volumes:
+      - tei-e5-data:/data
+    command:
+      - "--model-id"
+      - "intfloat/multilingual-e5-small"
+
+  tei-reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:86-1.9
+    container_name: tei-reranker
+    ports:
+      - "8081:80"
+    shm_size: '1g'
+    environment:
+      - PORT=80
+    volumes:
+      - tei-reranker-data:/data
+    command:
+      - "--model-id"
+      - "Alibaba-NLP/gte-multilingual-reranker-base"
+      - "--dtype"
+      - "float16"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  tei-e5-data:
+  tei-reranker-data:
