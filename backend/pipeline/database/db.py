@@ -177,17 +177,18 @@ class QdrantVectorDB:
             limit=limit
         ).points
 
-    def hybrid_search(self, collection_name: str, query_text: str, prefetch_limit=20, limit: int = 10, dense_threshold: float = 0.45) -> List[PointStruct]:
+    def hybrid_search(self, collection_name: str, query_text: str, prefetch_limit=20, fusion_limit: int = 10, dense_threshold: float = 0.45) -> List[PointStruct]:
             """
-            Semantic search.
-    
+            Hybrid search combining dense (semantic) and sparse (keyword) retrievals using Reciprocal Rank Fusion (RRF).
+
             Args:
-                collection_name (str)
-                query_text (str)
-                score_threshold (float): A point is matched if its matching score exceeds this threshold.
-                limit (int): maximum number of returned points
-    
-            Return:
+                collection_name (str): The name of the Qdrant collection to search in.
+                query_text (str): The raw search query provided by the user.
+                prefetch_limit (int): Max number of points to retrieve in the Prefetch phase for each modality (Dense/Sparse)
+                fusion_limit (int): Max number of points to return after fusing the results via RRF.
+                dense_threshold (float): A point is semantically matched if its matching score exceeds this threshold.
+
+            Returns:
                 List[PointStruct]
             """
             dense_query = self._get_dense_embeddings_batch([f"query: {query_text}"])[0]
@@ -213,7 +214,7 @@ class QdrantVectorDB:
                 ],
                 # Union of Dense and Sparse results, filter with RRF score
                 query=FusionQuery(fusion=Fusion.RRF),
-                limit=limit 
+                limit=fusion_limit 
             )
             
             return response.points
@@ -249,19 +250,39 @@ class QdrantVectorDB:
 
         return reranked_points
 
-    def search_with_rerank(
+    def hybrid_search_with_rerank(
         self, 
         collection_name: str, 
         query_text: str, 
+        prefetch_limit=20, 
+        fusion_limit: int = 10, 
+        dense_threshold: float = 0.45,
         top_k: int = 5, 
         rerank_threshold: float = 0.3,
-        reranker_url: str = "http://localhost:8081/rerank"
+        reranker_url: str = RERANKER_URL
     ) -> List[PointStruct]:
+        """
+        Hybrid search, with Reranking (Cross-Encoder) at the end to filter and re-rank chunks.
+
+        Args:
+            collection_name (str): The name of the Qdrant collection to search in.
+            query_text (str): The raw search query provided by the user.
+            prefetch_limit (int): Max number of points to retrieve in the Prefetch phase for each modality (Dense/Sparse)
+            fusion_limit (int): Max number of points to return after fusing the results via RRF.
+            dense_threshold (float): A point is semantically matched if its matching score exceeds this threshold.
+            top_k (int): The final max number of points to return.
+            rerank_threshold (float): After reranking, only chunks with score exceeding this threshold are chosen.
+            reranker_url (str): The HTTP endpoint URL for the TEI Reranker container. 
+
+        Returns:
+            List[PointStruct]
+        """
         candidate_points = self.hybrid_search(
             collection_name=collection_name, 
             query_text=query_text, 
-            limit=15, 
-            dense_threshold=0.45
+            prefetch_limit=prefetch_limit,
+            fusion_limit=fusion_limit, 
+            dense_threshold=dense_threshold,
         )
 
         if not candidate_points:
