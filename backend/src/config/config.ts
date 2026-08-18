@@ -3,9 +3,7 @@ import jwt from "jsonwebtoken";
 
 dotenv.config()
 
-class Config{
-    private static _instance: Config
-
+class Config {
     readonly port: number
     readonly mongoUri: string;
     readonly mongoAtlasUri: string;
@@ -23,6 +21,7 @@ class Config{
         clientId: string;
     }
     readonly allowedDomains: string[];
+    readonly corsOrigins: string[];
     readonly rateLimit: {
         windowMs: number,
         limit: number,
@@ -34,7 +33,18 @@ class Config{
         password?: string
     }
 
-    private constructor(){
+    readonly cloudflare: {
+        bucket_name: string,
+        access_key_id: string,
+        secret_access_key: string,
+        account_id: string,
+        public_url: string,
+        customer_id: string,
+        api_key: string,
+        webhook_secret: string
+    }
+
+    constructor() {
         this.port = parseInt(process.env.PORT ?? "3001")
         this.mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017"
         this.mongoAtlasUri = process.env.MONGO_ATLAS_URI || "mongodb://localhost:27017";
@@ -47,7 +57,6 @@ class Config{
             refreshSecret: process.env.JWT_REFRESH_SECRET as string || "your_refresh_secret",
             accessExpires: (process.env.JWT_ACCESS_EXPIRES_IN || "15m") as jwt.SignOptions['expiresIn'],
             refreshExpires: (process.env.JWT_REFRESH_SECRET_IN || "7d") as jwt.SignOptions['expiresIn'],
-            
         }
         this.google = {
             clientId: process.env.GOOGLE_CLIENT_ID || ""
@@ -59,8 +68,15 @@ class Config{
             "@fitus.edu.vn",
             "@fit.hcmus.edu.vn",
             "@apcs.fitus.edu.vn",
-            "@vp.fitus.edu.vn"
+            "@vp.fitus.edu.vn",
+            "@gmail.com" //for testing
         ] as string[]
+        this.corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
+            "http://localhost:3000",
+            "http://localhost:5500",
+            "http://127.0.0.1:5500",
+            "https://triunitarian-ethelyn-slushier.ngrok-free.dev"
+        ];
         this.rateLimit = {
             windowMs: 15 * 60 * 1000,
             limit: 100,
@@ -71,13 +87,16 @@ class Config{
             port: parseInt(process.env.REDIS_PORT ?? "6379"),
             password: process.env.REDIS_PASSWORD || ""
         }
-    }
-
-    static getInstance(): Config {
-        if(!Config._instance){
-            Config._instance = new Config()
+        this.cloudflare = {
+            bucket_name: process.env.R2_BUCKET_NAME as string,
+            access_key_id: process.env.R2_ACCESS_KEY_ID as string,
+            secret_access_key: process.env.R2_SECRET_ACCESS_KEY as string,
+            account_id: process.env.R2_ACCOUNT_ID as string,
+            public_url: process.env.R2_PUBLIC_URL as string,
+            customer_id: process.env.R2_CUSTOMER_ID as string,
+            api_key: process.env.R2_API_KEY as string,
+            webhook_secret: process.env.R2_WEBHOOK_SECRET as string
         }
-        return Config._instance
     }
 }
-export const config = Config.getInstance()
+export const config = new Config()

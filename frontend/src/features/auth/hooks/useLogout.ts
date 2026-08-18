@@ -1,6 +1,6 @@
 "use client"
 
-import { authApi } from "../services/authApi";
+import { authApi } from "../api/authApi";
 
 import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "next/navigation";

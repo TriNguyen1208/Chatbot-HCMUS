@@ -8,12 +8,19 @@ import routes from "#@/routes.js"
 import { errorHandler } from "#@/shared/middlewares/error.middleware.js"
 import cookieParser from "cookie-parser"
 import "dotenv/config"
+import http from "http";
+import { initSocket } from "./infrastructure/websocket/socket-manager.js"
+
+import { conversationContainer } from "#@/modules/conversation/conversation.container.js"
 
 const app = express()
+app.set("trust proxy", 1);
+const server = http.createServer(app)
+initSocket(server, conversationContainer.conversationService);
 
 app.use(helmet())
 app.use(cors({
-    origin: "http://localhost:3000",
+    origin: config.corsOrigins,
     credentials: true
 }));
 app.use(express.json())
@@ -29,5 +36,5 @@ app.get("/health", (_req, res) => {
 })
 app.use(errorHandler)
 
-
-export default app
+export { server };
+export default app;

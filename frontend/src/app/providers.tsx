@@ -3,59 +3,84 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { env } from "@/config/env";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useRouter, usePathname } from "next/navigation";
+import { authApi } from "@/features/auth/api/authApi";
+import { QueryProvider } from "@/providers/QueryProvider";
+import { SocketProvider } from "@/providers/SocketProvider";
+import { ThemeProvider } from "next-themes";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { setCheckingAuth } = useAuthStore();
+  const { isCheckingAuth, isAuthenticated, setCheckingAuth, setUser, clearUser } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    const checkAuth = () => {
-      try {
-        const authDataStr = localStorage.getItem("auth");
-        let hasUser = false;
-        
-        if (authDataStr) {
-          const authData = JSON.parse(authDataStr);
-          if (authData?.state?.user) {
-            hasUser = true;
-          }
-        }
+    setMounted(true);
+  }, []);
 
+  // 1. Kiểm tra xác thực (gọi API /user/me) duy nhất 1 lần khi App khởi tạo
+  useEffect(() => {
+    let isMounted = true;
+    const initAuth = async () => {
+      try {
+        const user = await authApi.getMe();
         if (isMounted) {
-          if (hasUser) {
-            if (pathname === "/") {
-              router.push("/chat");
-            }
-          } else {
-            if (pathname !== "/") {
-              router.push("/");
-            }
-          }
-          setCheckingAuth(false);
+          setUser(user);
         }
       } catch (err) {
         if (isMounted) {
+          clearUser();
+        }
+      } finally {
+        if (isMounted) {
           setCheckingAuth(false);
-          if (pathname !== "/") {
-            router.push("/");
-          }
         }
       }
     };
-    checkAuth();
+    
+    initAuth();
     
     return () => {
       isMounted = false;
     };
-  }, [router, pathname, setCheckingAuth]);
+    // Chỉ chạy 1 lần khi mount
+  }, [setUser, clearUser, setCheckingAuth]);
+
+  // 2. Lắng nghe thay đổi trạng thái xác thực để điều hướng (Routing)
+  useEffect(() => {
+    // Đợi check xong mới thực hiện điều hướng
+    if (isCheckingAuth) return;
+
+    if (isAuthenticated) {
+      if (pathname === "/") {
+        router.push("/chat");
+      }
+    } else {
+      if (pathname !== "/") {
+        router.push("/");
+      }
+    }
+  }, [isAuthenticated, isCheckingAuth, pathname, router]);
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <GoogleOAuthProvider clientId={env.googleClientId}>
-      <div className="text-gray-900 antialiased">{children}</div>
-    </GoogleOAuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <GoogleOAuthProvider clientId={env.googleClientId}>
+        <QueryProvider>
+          <SocketProvider>
+            <div className="text-foreground antialiased w-full h-full">
+              {/* Nếu muốn màn hình loading lúc check auth thì có thể check isCheckingAuth ở đây */}
+              {children}
+            </div>
+          </SocketProvider>
+        </QueryProvider>
+      </GoogleOAuthProvider>
+    </ThemeProvider>
   );
 }

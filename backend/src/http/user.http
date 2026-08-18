@@ -2,19 +2,19 @@
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2NzEzYjI0MS0yNTc0LTQxZTQtOGM4Yi03ZWEwN2Q2NGVjZWUiLCJlbWFpbCI6Im5kdHJpMjNAY2xjLmZpdHVzLmVkdS52biIsImlhdCI6MTc4NTE1NzE3OSwiZXhwIjoxNzg1MTU4MDc5fQ.gXN4Ekg57HBZUsoYmS5lK47bmJtmPkAc-4HgEPvPqAQ
 @userId = 6713b241-2574-41e4-8c8b-7ea07d64ecee
 
-### Lấy thông tin cá nhân (Get Me)
+### Get personal information (Get Me)
 GET {{baseUrl}}/me
 Cookie: accessToken={{token}}
 
-### Lấy thông tin User theo ID
+### Get User information by ID
 GET {{baseUrl}}/{{userId}}
 Cookie: accessToken={{token}}
 
-### Cập nhật thông tin (Update Profile)
-# Lưu ý: Hiện tại route của bạn đang là PATCH / nhưng schema UpdateProfileSchema lại yêu cầu params.id
-# và controller đang lấy req.params.id, do đó api này sẽ bị lỗi.
-# Gợi ý: Nếu là "Update Me", bạn nên lấy `req.user.userID` thay vì `req.params.id`.
-# Còn nếu update theo ID thì route phải là PATCH /:id
+### Update Profile
+# Note: Currently your route is PATCH / but the UpdateProfileSchema schema requires params.id
+# and the controller is getting req.params.id, so this api will fail.
+# Hint: If "Update Me", you should get `req.user.userID` instead of `req.params.id`.
+# If updating by ID, the route must be PATCH /:id
 PATCH {{baseUrl}}/
 Cookie: accessToken={{token}}
 Content-Type: application/json

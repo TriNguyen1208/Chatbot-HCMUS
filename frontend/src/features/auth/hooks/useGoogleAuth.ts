@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../stores/authStore";
 import { useState } from "react";
-import { authApi } from "../services/authApi";
+import { authApi } from "../api/authApi";
 
 import axios from "axios";
 

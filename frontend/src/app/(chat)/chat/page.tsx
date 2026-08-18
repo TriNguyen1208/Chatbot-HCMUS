@@ -1,9 +1,5 @@
-import { EmptyChatScreen } from "@/components/ui";
+import { ChatScreen } from "@/features/chat/components";
 
-const ChatPage = () => {
-  return (
-    <EmptyChatScreen />
-  )
+export default function ChatPage() {
+  return <ChatScreen type="all" />;
 }
-
-export default ChatPage;

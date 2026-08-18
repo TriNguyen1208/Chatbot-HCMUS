@@ -5,7 +5,7 @@ import { useAuthStore } from "@/features/auth/stores/authStore"
 const BASE_URL = env.apiUrl;
 
 export const api = axios.create({
-    baseURL: BASE_URL,
+    baseURL: BASE_URL + "/api",
     headers: { "Content-Type": "application/json" },
     withCredentials: true
 })
@@ -54,7 +54,7 @@ api.interceptors.response.use((response) => response, async (error) => {
 
         try {
             // Trình duyệt tự gửi HttpOnly refreshToken đi
-            await axios.post(`${BASE_URL}/auth/refresh-token`, {}, {
+            await axios.post(`${BASE_URL}/api/auth/refresh-token`, {}, {
                 withCredentials: true
             });
             // Báo cho các request đang chờ biết là refresh xong rồi

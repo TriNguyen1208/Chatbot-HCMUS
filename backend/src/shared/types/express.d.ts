@@ -1,4 +1,4 @@
-import type { JWTPayload } from "#@/shared/types/index.ts";
+import type { JWTPayload } from "./index.ts";
 
 declare global {
     namespace Express {
@@ -8,4 +8,4 @@ declare global {
     }
 }
 
-export {};
+export { };

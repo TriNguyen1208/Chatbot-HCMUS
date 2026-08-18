@@ -8,8 +8,8 @@
     "#@/*": "./src/*"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec tsx src/index.ts",
+    "test": "vitest",
+    "dev": "nodemon --ext ts,js,json --exec tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
@@ -17,13 +17,19 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1096.0",
+    "@aws-sdk/s3-request-presigner": "^3.1104.0",
     "@supabase/supabase-js": "^2.110.8",
+    "@types/multer": "^2.2.0",
+    "bullmq": "^5.81.2",
+    "cookie": "^2.0.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
+    "fluent-ffmpeg": "^2.1.3",
     "google-auth-library": "^10.9.0",
     "helmet": "^8.2.0",
     "http-errors": "^2.0.1",
@@ -32,6 +38,9 @@
     "mongodb": "^7.5.0",
     "mongoose": "^9.7.3",
     "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "sharp": "^0.35.3",
+    "socket.io": "^4.8.3",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
@@ -39,6 +48,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/fluent-ffmpeg": "^2.1.28",
     "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
@@ -47,6 +57,7 @@
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

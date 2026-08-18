@@ -18,10 +18,9 @@ export class AuthMiddleware {
         next()
     }
 
-    //Verify refreshToken (Kiểm tra xem refreshToken có đầy đủ payload không, có chứa refreshToken hay không)
+    //Verify refreshToken (Check if refreshToken has full payload, contains refreshToken or not)
     static verifyRefreshToken = (req: Request, res: Response, next: NextFunction) => {
         const refreshToken = req.cookies.refreshToken
-        // console.log(refreshToken)
         if (!refreshToken) {
             throw createHttpError.Unauthorized("Missing refreshToken")
         }

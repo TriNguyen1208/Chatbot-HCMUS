@@ -10,9 +10,15 @@ export const validate = (schema: z.ZodType<any, any, any>): RequestHandler => {
                 query: req.query,
                 params: req.params,
             });
-            if (parsed.body) req.body = parsed.body;
-            if (parsed.query) req.query = parsed.query;
-            if (parsed.params) req.params = parsed.params;
+            if (parsed.body) {
+                Object.defineProperty(req, 'body', { value: parsed.body, writable: true, configurable: true });
+            }
+            if (parsed.query) {
+                Object.defineProperty(req, 'query', { value: parsed.query, writable: true, configurable: true });
+            }
+            if (parsed.params) {
+                Object.defineProperty(req, 'params', { value: parsed.params, writable: true, configurable: true });
+            }
             return next()
         }catch(error){
             if (error instanceof ZodError) {

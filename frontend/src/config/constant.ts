@@ -1,7 +1,3 @@
-export const constant = {
-    accessExpires: 1 / 96,
-    refreshExpires: 7
-}
 export const ALLOWED_DOMAINS = [
     "@student.hcmus.edu.vn", 
     "@hcmus.edu.vn", 

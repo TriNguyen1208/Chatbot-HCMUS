@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "../assets/styles/globals.css";
 import { Providers } from "./providers";
+
+const inter = Inter({ subsets: ["latin", "vietnamese"], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -13,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
-      <body className="min-h-screen bg-gray-50 antialiased font-sans">
+    <html lang="vi" suppressHydrationWarning>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased transition-colors duration-300`}>
         <Providers>{children}</Providers>
       </body>
     </html>

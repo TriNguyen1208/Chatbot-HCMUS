@@ -1,11 +1,26 @@
-import { UserRepository } from "#@/modules/user/repositories/user.repository.js";
+import { userContainer } from "./user.container.js";
 
 export class UserFacade {
-    constructor(
-        private readonly userRepository: UserRepository,
-        // private readonly authService: AuthService // Nếu sau này cần dùng service
-    ) {}
-    
-    //Cái nào cần public API cho các modules khác sử dụng thì viết ở đây
-    //Tuyệt đối không được import repository hoặc là services
+    private get userRepository() {
+        return userContainer.userRepository;
+    }
+    async findByID(id: string) {
+        return this.userRepository.findByID(id);
+    }
+
+    async findByEmail(email: string) {
+        return this.userRepository.findByEmail(email);
+    }
+
+    async create(
+        payload: {
+            email: string;
+            name: string;
+            avatar_url?: string;
+            student_id?: string
+        }) {
+        return this.userRepository.create(payload);
+    }
 }
+
+export const userFacade = new UserFacade()

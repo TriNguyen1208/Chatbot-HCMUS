@@ -4,7 +4,7 @@ import { config } from "#@/config/config.js";
 class RedisClient{
     private static _instance: RedisClient;
     private client: Redis
-    private constructor(){
+    constructor(){
         this.client = new Redis({
             host: config.redis.host,
             port: config.redis.port,
@@ -19,18 +19,12 @@ class RedisClient{
         })
     }
 
-    static getInstance(): RedisClient {
-        if(!RedisClient._instance){
-            RedisClient._instance = new RedisClient()
-        }
-        return RedisClient._instance
-    }
-
     async connect(): Promise<void>{
         await this.client.connect()
     }
     async get(key: string): Promise<string | null>{
         try{
+            console.log(`[Redis] GET: ${key}`);
             return await this.client.get(key)
         }catch(error){
             return null
@@ -38,18 +32,55 @@ class RedisClient{
     }
     async set(key: string, value: string, ttlSeconds: number): Promise<void>{
         try{
+            console.log(`[Redis] SET: ${key}`);
             await this.client.set(key, value, "EX", ttlSeconds)
+        }catch{
+            return
+        }
+    }
+    async getJSON<T = any>(key: string): Promise<T | null>{
+        try{
+            console.log(`[Redis] GET JSON: ${key}`);
+            const data = await this.client.get(key)
+            return data ? JSON.parse(data) as T : null;
+        }catch(error){
+            return null
+        }
+    }
+    async setJSON(key: string, value: any, ttlSeconds: number = 3600): Promise<void>{
+        try{
+            console.log(`[Redis] SET JSON: ${key}`);
+            await this.client.set(key, JSON.stringify(value), "EX", ttlSeconds)
         }catch{
             return
         }
     }
     async del(...keys: string[]): Promise<void>{
         try{
-            await this.client.del(...keys)
+            if (keys.length > 0) {
+                console.log(`[Redis] DEL: ${keys.join(', ')}`);
+                await this.client.del(...keys)
+            }
         }catch{
             return
         }
     }
+    async delByPattern(pattern: string): Promise<void> {
+        try {
+            console.log(`[Redis] DEL PATTERN: ${pattern}`);
+            let cursor = '0';
+            do {
+                const [newCursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
+                cursor = newCursor;
+                if (keys.length > 0) {
+                    console.log(`[Redis] DEL (from pattern): ${keys.join(', ')}`);
+                    await this.client.del(...keys);
+                }
+            } while (cursor !== '0');
+        } catch(error) {
+            console.error("[Redis] delByPattern error", error);
+        }
+    }
 }
 
-export const redisClient = RedisClient.getInstance()
+export const redisClient = new RedisClient();

@@ -15,6 +15,7 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
+    "outDir": "./dist"
   },
   "include": [
     "src/**/*.ts",

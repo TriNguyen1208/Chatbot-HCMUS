@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 
-export interface AppError extends Error{
+export interface AppError extends Error {
     statusCode?: number,
     code?: string
 }
@@ -8,9 +8,12 @@ export interface AppError extends Error{
 export const errorHandler = (
     err: AppError,
     _req: Request,
-    res: Response, 
+    res: Response,
     next: NextFunction
 ): void => {
+    if (!err.statusCode || err.statusCode === 500) {
+        console.error("Bắt được lỗi 500:", err);
+    }
     const statusCode = err.statusCode || 500
     const code = err.code || "Internal_Error"
 

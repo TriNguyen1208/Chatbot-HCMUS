@@ -15,13 +15,13 @@ const TabButton = ({
     <>
       <Icon
         size={22}
-        color={isHovered || isEntering ? "#003D9B" : "#434654"}
+        className={cn(isHovered || isEntering ? "text-brand-primary" : "text-ic-primary")}
         strokeWidth={2.75}
       />
       <p
         className={cn(
-          "text-xs text-txt-extra font-semibold",
-          isEntering && "text-brand-primary text-sm",
+          "text-xs font-semibold",
+          isEntering ? "text-brand-primary text-sm" : "text-txt-extra",
         )}
       >
         {label}

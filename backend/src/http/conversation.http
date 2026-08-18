@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:3001/api/conversation
+# Share Token with user.http file for testing
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2NzEzYjI0MS0yNTc0LTQxZTQtOGM4Yi03ZWEwN2Q2NGVjZWUiLCJlbWFpbCI6Im5kdHJpMjNAY2xjLmZpdHVzLmVkdS52biIsImlhdCI6MTc4NTE1NzE3OSwiZXhwIjoxNzg1MTU4MDc5fQ.gXN4Ekg57HBZUsoYmS5lK47bmJtmPkAc-4HgEPvPqAQ
+@userId2 = 91823912-1231-4a11-babc-123412341234
+@conversationId = thay-bang-id-cuoc-tro-chuyen-sau-khi-tao
+
+### 1. Create a new 1-1 conversation (utu)
+POST {{baseUrl}}/
+Cookie: accessToken={{token}}
+Content-Type: application/json
+
+{
+    "type": "utu",
+    "member_ids": ["{{userId2}}"]
+}
+
+### 2. Create a new Group Chat
+POST {{baseUrl}}/
+Cookie: accessToken={{token}}
+Content-Type: application/json
+
+{
+    "type": "group",
+    "name": "Group of Eight Stories",
+    "member_ids": ["{{userId2}}", "91823912-1231-4a11-babc-999999999999"]
+}
+
+### 3. Get information about a conversation by ID
+GET {{baseUrl}}/{{conversationId}}
+Cookie: accessToken={{token}}

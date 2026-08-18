@@ -1,0 +1,41 @@
+@baseUrl = http://localhost:3001/api/message
+# Share Token with user.http file for testing
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2NzEzYjI0MS0yNTc0LTQxZTQtOGM4Yi03ZWEwN2Q2NGVjZWUiLCJlbWFpbCI6Im5kdHJpMjNAY2xjLmZpdHVzLmVkdS52biIsImlhdCI6MTc4NTE1NzE3OSwiZXhwIjoxNzg1MTU4MDc5fQ.gXN4Ekg57HBZUsoYmS5lK47bmJtmPkAc-4HgEPvPqAQ
+@conversationId = thay-bang-id-cuoc-tro-chuyen-cua-ban
+
+### 1. Send plain text messages (Using JSON)
+POST {{baseUrl}}/
+Cookie: accessToken={{token}}
+Content-Type: application/json
+
+{
+    "conversation_id": "{{conversationId}}",
+    "content": "Hello, this is a test message from the REST Client!",
+    "type": "text"
+}
+
+### 2. Send a message with an Image (Using Multipart Form Data)
+# NOTE: Must create an image file named `sample.jpg` in the same directory as this `message.http` file, 
+# or edit the path `< ./sample.jpg` below to point to an image file available on your computer.
+POST {{baseUrl}}/
+Cookie: accessToken={{token}}
+Content-Type: multipart/form-data; boundary=BoundaryMessage123
+
+--BoundaryMessage123
+Content-Disposition: form-data; name="conversation_id"
+
+{{conversationId}}
+--BoundaryMessage123
+Content-Disposition: form-data; name="content"
+
+Look at this picture!
+--BoundaryMessage123
+Content-Disposition: form-data; name="type"
+
+image
+--BoundaryMessage123
+Content-Disposition: form-data; name="file"; filename="sample.jpg"
+Content-Type: image/jpeg
+
+< ./sample.jpg
+--BoundaryMessage123--

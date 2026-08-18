@@ -2,7 +2,7 @@ export type * from "./types";
 
 export * from "./stores/authStore"
 
-export * from "./services/authApi"
+export * from "./api/authApi"
 
 export * from "./hooks/useGoogleAuth"
 export * from "./hooks/useLogout"
