@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 from typing import AsyncIterator
 
-from config.settings import settings
+from ingestion.config.settings import settings
 
 # ================================================== #
 DEFAULT_USER_AGENT = (

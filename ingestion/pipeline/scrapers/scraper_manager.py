@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from typing import Any
 import asyncio
 
-from config.settings import settings
-from pipeline.downloader import DocumentDownloader
-from pipeline.scrapers.base_scraper import BaseScraper
+from ingestion.config.settings import settings
+from ingestion.pipeline.downloader import DocumentDownloader
+from ingestion.pipeline.scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 

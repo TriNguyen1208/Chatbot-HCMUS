@@ -3,7 +3,7 @@ import hashlib
 import logging
 from typing import Any
 
-from config.settings import settings
+from ingestion.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

@@ -209,10 +209,9 @@ client_secret.json
 token.json
 .DS_Store
 
-.vscode/
-
 # Data
-backend/data
+ingestion/data
+ingestion/models
 
 # Personal
 temp.txt

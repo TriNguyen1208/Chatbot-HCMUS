@@ -1,4 +1,4 @@
-from config.settings import settings
+from ingestion.config.settings import settings
 
 from llama_cloud import LlamaCloud, AsyncLlamaCloud
 from dotenv import load_dotenv

@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from logger_config import setup_logging
-from pipeline.scrapers.scraper_manager import ScraperManager
+from ingestion.logger_config import setup_logging
+from ingestion.pipeline.scrapers.scraper_manager import ScraperManager
 
 setup_logging(level=logging.INFO)
 

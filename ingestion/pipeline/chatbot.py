@@ -4,15 +4,16 @@ from google import genai
 from dotenv import load_dotenv
 import os
 
-from pipeline.database.db import QdrantVectorDB
+from ingestion.pipeline.database.db import QdrantVectorDB
 
 db = QdrantVectorDB()
 
 # Run
-user_query = "Khi nào thì sinh viên được miễn các học phần tiếng Anh?"
+# user_query = "Khi nào thì sinh viên được miễn các học phần tiếng Anh?"
+user_query = "Mục tiêu chung của chương trình đào tạo chính quy?"
 
 # -- 1. search chunks for LLM context
-search_results = db.semantic_search("MyCollection", user_query, 0.7, 2)
+search_results = db.semantic_search("hcmus_documents", user_query, 0.4, 10)
 print(len(search_results))
 
 context = "\n---\n".join([item.payload["content"] for item in search_results])

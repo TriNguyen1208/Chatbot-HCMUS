@@ -5,7 +5,7 @@ import logging
 from typing import AsyncIterator, List
 from urllib.parse import urlparse, unquote
 
-from pipeline.scrapers.base_scraper import BaseScraper
+from ingestion.pipeline.scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 

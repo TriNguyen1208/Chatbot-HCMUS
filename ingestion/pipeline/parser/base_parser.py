@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Sequence
 from tqdm.asyncio import tqdm_asyncio
 
-from config.settings import settings
+from ingestion.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

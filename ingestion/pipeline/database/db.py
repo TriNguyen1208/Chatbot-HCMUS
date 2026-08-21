@@ -9,7 +9,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, SparseVector, Prefetch, Fusion, FusionQuery
 from fastembed import SparseTextEmbedding, SparseEmbedding
 
-from config.settings import settings
+from ingestion.config.settings import settings
 
 load_dotenv()
 QDRANT_URL = os.getenv("QDRANT_URL")

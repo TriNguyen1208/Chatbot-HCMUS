@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 from llama_cloud import AsyncLlamaCloud
 
-from config.settings import settings
-from pipeline.parser.base_parser import BaseParser
+from ingestion.config.settings import settings
+from ingestion.pipeline.parser.base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
 
