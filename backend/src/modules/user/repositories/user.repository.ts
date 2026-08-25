@@ -1,18 +1,17 @@
 import type { UpdateUserProfileDto } from "#@/modules/user/dto/user.dto.js";
 import { type IDatabase } from "#@/infrastructure/database/database.interface.js";
-import { type User } from "#@/modules/user/entities/user.entity.js";
+import { type User, type UserDB } from "#@/modules/user/entities/user.entity.js";
+import { Types } from "mongoose";
 
 export interface IUserRepository {
-    
+
     findByEmail(email: string): Promise<User | null>;
 
     findByID(id: string): Promise<User | null>;
-
-    create({ email, name, avatar_url, student_id }: { email: string; name: string; avatar_url?: string | undefined, student_id?: string | undefined }): Promise<User>;
-
+    create(payload: User): Promise<User>
     update(
         id: string,
-        payload: UpdateUserProfileDto
+        payload: Partial<User>
     ): Promise<User | null>;
 
     getList(limit: number, cursorId?: string): Promise<User[]>;
@@ -20,14 +19,23 @@ export interface IUserRepository {
 
 export class UserRepository implements IUserRepository {
     constructor(private readonly db: IDatabase) { }
+
+    private mapToDomain(doc: UserDB | null): User | null {
+        if (!doc) return null;
+        const { _id, __v, ...rest } = doc;
+        return {
+            id: _id?.toString(),
+            ...rest
+        } as User;
+    }
     /**
      * Finds a user by their email address.
      * @param email The user's email.
      * @returns The user object, or null if not found.
      */
     async findByEmail(email: string): Promise<User | null> {
-        const row = await this.db.findOne<User>('users', { email: email.toLowerCase() });
-        return row
+        const row = await this.db.findOne<UserDB>('users', { email: email.toLowerCase() });
+        return this.mapToDomain(row);
     }
     /**
      * Finds a user by their unique ID.
@@ -35,33 +43,36 @@ export class UserRepository implements IUserRepository {
      * @returns The user object, or null if not found.
      */
     async findByID(id: string): Promise<User | null> {
-        const row = await this.db.findOne<User>('users', { id });
-        return row
+        if (!Types.ObjectId.isValid(id)) return null;
+        const row = await this.db.findOne<UserDB>('users', { _id: new Types.ObjectId(id) });
+        return this.mapToDomain(row);
     }
     /**
      * Creates a new user record in the database.
      * @param param0 Object containing email, name, avatar_url, and student_id.
      * @returns The created user object.
      */
-    async create({ email, name, avatar_url, student_id }: { email: string; name: string; avatar_url?: string | undefined, student_id?: string | undefined }): Promise<User> {
-        const row = await this.db.insert<User>('users', { email, name, avatar_url, student_id })
-        return row as User
+    async create(payload: User): Promise<User>{
+        const row = await this.db.insert<UserDB>('users', payload)
+        return this.mapToDomain(row as UserDB | null) as User;
     }
-     /**
-     * Updates an existing user's profile information.
-     * @param id The user's ID.
-     * @param payload The fields to update.
-     * @returns The updated user object, or null if update fails.
-     */
+    /**
+    * Updates an existing user's profile information.
+    * @param id The user's ID.
+    * @param payload The fields to update.
+    * @returns The updated user object, or null if update fails.
+    */
     async update(
         id: string,
-        payload: UpdateUserProfileDto
+        payload: Partial<User>
     ): Promise<User | null> {
-        const rows = await this.db.update<User>('users', { id }, payload)
+        if (!Types.ObjectId.isValid(id)) return null;
+        const rows = await this.db.update<UserDB>('users', { _id: new Types.ObjectId(id) }, payload)
         if (!rows || (Array.isArray(rows) && rows.length === 0)) {
             return null;
         }
-        return Array.isArray(rows) ? rows[0] as User : rows as User
+        const doc = Array.isArray(rows) ? rows[0] : rows;
+        return this.mapToDomain(doc as UserDB | null);
     }
     /**
      * Retrieves a paginated list of users.
@@ -70,15 +81,17 @@ export class UserRepository implements IUserRepository {
      * @returns An array of user objects.
      */
     async getList(limit: number = 20, cursorId?: string): Promise<User[]> {
-        const client = this.db.getClient<any>();
-        let query = client.from('users').select('*').order('id', { ascending: false }).limit(limit);
-        
-        if (cursorId) {
-            query = query.lt('id', cursorId);
+        let options: any = {
+            limit: limit,
+            orderBy: { field: '_id', ascending: false }
+        };
+        let conditions: any = {};
+
+        if (cursorId && Types.ObjectId.isValid(cursorId)) {
+            conditions._id = { $lt: new Types.ObjectId(cursorId) };
         }
-        
-        const { data, error } = await query;
-        if (error) throw new Error(error.message);
-        return data as User[];
+
+        const data = await this.db.query<UserDB>('users', conditions, options);
+        return data.map(doc => this.mapToDomain(doc as UserDB) as User);
     }
 }

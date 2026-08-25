@@ -10,7 +10,7 @@ export interface AuthResult {
     };
 }
 
-export type GoogleTokenPayload = {
+export type OAuthTokenPayload = {
     email: string;
     name: string;
     picture?: string | undefined;

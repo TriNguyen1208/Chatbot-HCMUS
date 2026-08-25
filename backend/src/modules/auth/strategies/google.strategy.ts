@@ -1,9 +1,8 @@
 import { config } from "#@/config/config.js";
-import type { AuthResult, GoogleTokenPayload } from "#@/modules/auth/types/index.js";
+import type { AuthResult, OAuthTokenPayload } from "#@/modules/auth/types/index.js";
 import { OAuth2Client } from "google-auth-library";
 import createHttpError from "http-errors";
 import { jwtService } from "#@/shared/utils/jwt-services.js";
-import type { IStudentDirectoryRepository } from "#@/modules/auth/repositories/student_directory.repository.js";
 import { extractEmail, extractStudentID } from "#@/modules/auth/utils/student-email.js"
 import { UserFacade } from "#@/modules/user/user.facade.js"
 import { type IAuthStrategy } from "./auth.strategy.js";
@@ -11,8 +10,7 @@ import { type IAuthStrategy } from "./auth.strategy.js";
 export class GoogleAuthStrategy implements IAuthStrategy {
     private readonly googleClient: OAuth2Client;
     constructor(
-        private readonly userFacade: UserFacade,
-        private readonly studentDirectoryRepo: IStudentDirectoryRepository,
+        private readonly userFacade: UserFacade
     ) {
         this.googleClient = new OAuth2Client(config.google.clientId)
     }
@@ -22,7 +20,7 @@ export class GoogleAuthStrategy implements IAuthStrategy {
      * @returns A promise resolving to the extracted Google token payload.
      * @throws Error if the payload is invalid or email is missing.
      */
-    private async verifyGoogleToken(idToken: string): Promise<GoogleTokenPayload> {
+    private async verifyGoogleToken(idToken: string): Promise<OAuthTokenPayload> {
         const ticket = await this.googleClient.verifyIdToken({
             idToken,
             audience: config.google.clientId
@@ -51,11 +49,11 @@ export class GoogleAuthStrategy implements IAuthStrategy {
      * @param googlePayload The payload extracted from the Google ID token.
      * @returns A promise resolving to the user's basic information.
      */
-    private async getOrCreateUser(googlePayload: any) {
+    private async getOrCreateUser(googlePayload: OAuthTokenPayload) {
         const foundUser = await this.userFacade.findByEmail(googlePayload.email);
         if (foundUser) {
             return {
-                id: foundUser.id,
+                id: foundUser.id!.toString(),
                 email: foundUser.email,
                 name: foundUser.name,
                 student_id: foundUser?.student_id
@@ -72,18 +70,10 @@ export class GoogleAuthStrategy implements IAuthStrategy {
             student_id: extractedStudentId
         };
 
-        if (!extractedStudentId) {
-            const users = await this.studentDirectoryRepo.findByEmail(emailProcessed);
-            if (users.length === 1) {
-                newUserParams.name = users[0]?.full_name ?? googlePayload.name;
-                newUserParams.student_id = users[0]?.student_id!;
-            }
-        }
-
         const createdUser = await this.userFacade.create(newUserParams);
 
         return {
-            id: createdUser.id,
+            id: createdUser.id!.toString(),
             email: newUserParams.email,
             name: newUserParams.name,
             student_id: newUserParams.student_id

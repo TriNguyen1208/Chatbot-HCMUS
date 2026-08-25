@@ -1,2 +1,0 @@
-1. 1 user chỉ được phép tương ứng với 1 socket id duy nhất (socket_id bên backend bắt buộc phải giống với socket id bên frontend)
-2. Nếu như trong room đã có user (socket_id) đó rồi thì skip không cho vào room

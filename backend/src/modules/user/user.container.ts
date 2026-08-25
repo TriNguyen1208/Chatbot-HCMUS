@@ -1,10 +1,10 @@
-import { supabaseDB } from "#@/infrastructure/database/supabaseClient.js";
+import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js";
 import { UserRepository } from "./repositories/user.repository.js";
 import { UserService } from "./services/user.service.js";
 import { UserController } from "./controllers/user.controller.js";
 
 class UserContainer {
-    public userRepository = new UserRepository(supabaseDB);
+    public userRepository = new UserRepository(mongoDB);
     public userService = new UserService(this.userRepository);
     public userController = new UserController(this.userService);
 }

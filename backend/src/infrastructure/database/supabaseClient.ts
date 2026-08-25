@@ -91,10 +91,10 @@ export class SupabaseDatabase implements IDatabase {
         return (Array.isArray(payload) ? data : data[0]) as unknown as T | T[];
     }
 
-    async update<T = Record<string, unknown>>(table: string, conditions: Partial<T>, payload: Partial<T>): Promise<T | T[] | null> {
+    async update<T = Record<string, unknown>>(table: string, conditions: Partial<T>, payload: Partial<T> | Record<string, any>, options?: IQueryOptions<T>): Promise<T | T[] | null> {
         if (!this.supabase) throw new Error("Supabase client not initialized");
 
-        let queryBuilder = this.supabase.from(table).update(payload as any).select();
+        let queryBuilder = this.supabase.from(table).update(payload as any).select(options?.select || "*");
 
         for (const [key, value] of Object.entries(conditions)) {
             queryBuilder = queryBuilder.eq(key, value as unknown as string);

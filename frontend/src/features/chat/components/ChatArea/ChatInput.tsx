@@ -1,5 +1,8 @@
 "use client";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Image as ImageIcon, Smile, SendHorizontal, X, Loader2 } from "lucide-react";
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
 import { useChatInput } from "@/features/chat/hooks/useChatInput";
 
 const ChatInput = () => {
@@ -15,7 +18,11 @@ const ChatInput = () => {
     handleKeyDown,
     handleFileClick,
     handleFileChange,
-    removeSelectedFile
+    removeSelectedFile,
+    emojiPickerRef,
+    showEmojiPicker,
+    setShowEmojiPicker,
+    handleEmojiSelect
   } = useChatInput();
 
   return (
@@ -73,7 +80,27 @@ const ChatInput = () => {
             placeholder="Type a message..." 
             className="flex-1 bg-transparent outline-none text-sm text-txt-primary placeholder:text-txt-extra"
           />
-          <button className="text-ic-primary hover:text-brand-primary transition-colors"><Smile size={20} /></button>
+          <div className="relative" ref={emojiPickerRef}>
+            <button 
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="text-ic-primary hover:text-brand-primary transition-colors flex items-center justify-center h-full"
+            >
+              <Smile size={20} />
+            </button>
+            
+            {showEmojiPicker && (
+              <div className="absolute bottom-10 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden border border-glass-border">
+                <Picker 
+                  data={data} 
+                  onEmojiSelect={handleEmojiSelect}
+                  theme="light"
+                  previewPosition="none"
+                  skinTonePosition="none"
+                />
+              </div>
+            )}
+          </div>
           <button 
             onClick={handleSend}
             className="bg-gradient-primary text-white p-2 rounded-full shadow-md hover:shadow-lg disabled:opacity-50 disabled:shadow-none flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"

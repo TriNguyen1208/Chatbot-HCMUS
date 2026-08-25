@@ -3,6 +3,8 @@ import mongoose, { type ConnectOptions } from "mongoose";
 import { config } from "#@/config/config.js";
 import { ConversationModel } from "#@/modules/conversation/entities/conversation.entity.js";
 import { MessageModel } from "#@/modules/message/entities/message.entity.js";
+import { UserModel } from "#@/modules/user/entities/user.entity.js";
+import { KeyStoreModel } from "#@/modules/auth/entities/keystore.entity.js";
 
 
 export class MongoDBAtlas implements IDatabase {
@@ -30,9 +32,11 @@ export class MongoDBAtlas implements IDatabase {
             try {
                 await Promise.all([
                     ConversationModel.createCollection(),
-                    MessageModel.createCollection()
+                    MessageModel.createCollection(),
+                    UserModel.createCollection(),
+                    KeyStoreModel.createCollection(),
                 ]);
-                console.log("MongoDB collections ensured for Conversation and Message");
+                console.log("MongoDB collections ensured for all models");
             } catch (err: any) {
                 if (err.code !== 48) {
                     console.error("Error creating collections: ", err);
@@ -110,26 +114,56 @@ export class MongoDBAtlas implements IDatabase {
         return res[0] ?? null;
     }
 
-    async insert<T = Record<string, unknown>>(collection: string, data: Partial<T> | Partial<T>[]): Promise<T | T[] | null> {
+    async insert<T = Record<string, unknown>>(collection: string, data: Partial<T> | Partial<T>[], options?: IQueryOptions<T>): Promise<T | T[] | null> {
         if (!mongoose.connection.db) throw new Error("Not connected to MongoDB");
         
+        const Model = this.getMongooseModel(collection);
+        if (!Model) {
+            throw new Error(`Mongoose Model for collection '${collection}' not found.`);
+        }
+
+        let result: any;
         if (Array.isArray(data)) {
-            const result = await mongoose.connection.db.collection(collection).insertMany(data as unknown as any[]);
-            return Object.values(result.insertedIds).map((id, index) => ({ _id: id, ...data[index] })) as unknown as T[];
+            result = await Model.insertMany(data);
         } else {
-            const result = await mongoose.connection.db.collection(collection).insertOne(data as unknown as any);
-            return result.acknowledged ? ({ _id: result.insertedId, ...data } as unknown as T) : null;
+            result = await Model.create(data);
+        }
+
+        if (options?.populate) {
+            await Model.populate(result, options.populate);
+        }
+
+        if (Array.isArray(result)) {
+            return result.map(doc => doc.toObject()) as unknown as T[];
+        } else {
+            return result.toObject() as unknown as T;
         }
     }
 
-    async update<T = Record<string, unknown>>(collection: string, conditions: Partial<T>, data: Partial<T>): Promise<T | T[] | null> {
+    async update<T = Record<string, unknown>>(collection: string, conditions: Partial<T>, data: Partial<T> | Record<string, any>, options?: IQueryOptions<T>): Promise<T | T[] | null> {
         if (!mongoose.connection.db) throw new Error("Not connected to MongoDB");
         
-        const result = await mongoose.connection.db.collection(collection).updateMany(
+        // Kiểm tra xem data có chứa MongoDB operators (ví dụ: $set, $addToSet, $push) hay không
+        const isOperatorQuery = Object.keys(data).some(key => key.startsWith('$'));
+        const updateQuery = isOperatorQuery ? data : { $set: data };
+
+        // Use findOneAndUpdate to avoid a second query, returning the updated document
+        const result = await mongoose.connection.db.collection(collection).findOneAndUpdate(
             conditions,
-            { $set: data } 
+            updateQuery,
+            { returnDocument: 'after' }
         );
-        return result.acknowledged ? ({ updatedCount: result.modifiedCount } as unknown as T) : null;
+
+        if (!result) return null;
+
+        if (options?.populate) {
+            const Model = this.getMongooseModel(collection);
+            if (Model) {
+                await Model.populate(result, options.populate);
+            }
+        }
+
+        return result as unknown as T;
     }
     
     async delete<T = Record<string, unknown>>(collection: string, conditions: Partial<T>): Promise<boolean> {

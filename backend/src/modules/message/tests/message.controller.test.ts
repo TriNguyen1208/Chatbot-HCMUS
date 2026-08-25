@@ -50,7 +50,7 @@ describe("MessageController", () => {
             const mockPayload = { conversation_id: "conv_1", content: "Hello", type: "text" } as any;
             mockReq.body = mockPayload;
             
-            const mockResult = { _id: "msg_1", ...mockPayload };
+            const mockResult = { id: "msg_1", ...mockPayload };
             (mockService.handleIncomingMessage as any).mockResolvedValue(mockResult);
 
             await controller.sendMessage(mockReq as Request, mockRes as Response, mockNext);

@@ -8,7 +8,6 @@ import { config } from "#@/config/config.js";
 import { parseDurationMs } from "#@/shared/utils/time.utils.js";
 import { clearCookie, setCookie } from "#@/shared/utils/cookie.js";
 import type { KeystoreService } from "../services/keystore.service.js";
-
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
@@ -40,7 +39,6 @@ export class AuthController {
             "/api/auth"
         )
 
-        // Save refreshToken into database (helps with session tracing)
         await this.keystoreService.saveRefreshToken({
             userID: result.user.id,
             rawRefreshToken: result.tokens.refreshToken,
@@ -103,7 +101,7 @@ export class AuthController {
         clearCookie(res, "accessToken")
         clearCookie(res, "refreshToken", "/api/auth")
         await this.authService.logout(refreshToken)
-        return apiResponse.success(res, { message: "Successfully logged out" });
+        return apiResponse.success(res, null, { message: "Successfully logged out" });
     }
 
     /**
@@ -117,6 +115,6 @@ export class AuthController {
         clearCookie(res, "accessToken")
         clearCookie(res, "refreshToken", "/api/auth")
         await this.authService.logoutAll(user_id)
-        return apiResponse.success(res, { message: "Successfully logged out all devices" });
+        return apiResponse.success(res, null, { message: "Successfully logged out all devices" });
     }
 }

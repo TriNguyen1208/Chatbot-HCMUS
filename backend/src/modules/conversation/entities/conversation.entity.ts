@@ -1,10 +1,12 @@
+import type { Message } from "#@/modules/message/entities/message.entity.js";
+import type { User } from "#@/modules/user/entities/user.entity.js";
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface Conversation {
-    _id?: string;
-    member_ids: string[];
-    admin_ids?: string[];
-    last_message_id?: Types.ObjectId | string | null;
+    id?: string;
+    member_ids: string[] | Types.ObjectId[];
+    admin_ids?: string[] | Types.ObjectId[];
+    last_message?: Message | null;
     created_at: Date;
     name?: string;
     avatar_url?: string;
@@ -13,9 +15,16 @@ export interface Conversation {
     is_active: boolean;
 }
 
-export const ConversationSchema = new Schema<Conversation>({
-    member_ids: { type: [String], required: true },
-    admin_ids: { type: [String], default: [] },
+export interface ConversationDB extends Omit<Conversation, 'id' | "last_message" > {
+    last_message_id?: Types.ObjectId | null;
+    _id?: Types.ObjectId;
+    __v?: number
+}
+
+
+export const ConversationSchema = new Schema<ConversationDB>({
+    member_ids: { type: [{ type: Types.ObjectId, ref: 'User' }], required: true },
+    admin_ids: { type: [{ type: Types.ObjectId, ref: 'User' }], default: [] },
     last_message_id: { type: Types.ObjectId, default: null, ref: "Message" },
     created_at: { type: Date, default: Date.now },
     name: { type: String, required: false },
@@ -25,4 +34,4 @@ export const ConversationSchema = new Schema<Conversation>({
     is_active: { type: Boolean, default: true, required: true }
 });
 
-export const ConversationModel = mongoose.model<Conversation>('Conversation', ConversationSchema);
+export const ConversationModel = mongoose.model<ConversationDB>('Conversation', ConversationSchema);

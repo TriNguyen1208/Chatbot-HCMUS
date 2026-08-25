@@ -1,3 +1,4 @@
+import type { User } from "./entities/user.entity.js";
 import { userContainer } from "./user.container.js";
 
 export class UserFacade {
@@ -20,6 +21,10 @@ export class UserFacade {
             student_id?: string
         }) {
         return this.userRepository.create(payload);
+    }
+
+    async update(id: string, payload: Partial<User>) {
+        return this.userRepository.update(id, payload);
     }
 }
 

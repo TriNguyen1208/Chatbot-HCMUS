@@ -12,11 +12,12 @@ import http from "http";
 import { initSocket } from "./infrastructure/websocket/socket-manager.js"
 
 import { conversationContainer } from "#@/modules/conversation/conversation.container.js"
+import { userContainer } from "#@/modules/user/user.container.js"
 
 const app = express()
 app.set("trust proxy", 1);
 const server = http.createServer(app)
-initSocket(server, conversationContainer.conversationService);
+initSocket(server, conversationContainer.conversationService, userContainer.userService);
 
 app.use(helmet())
 app.use(cors({

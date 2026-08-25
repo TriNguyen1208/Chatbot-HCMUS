@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { userApi, User } from "@/features/chat/api/user.api";
+import { userApi } from "@/features/chat/api/user.api";
+import { User } from "@/features/chat/types";
 import { useRouter } from "next/navigation";
 
 export const useSearchUserModal = (isOpen: boolean, onClose: () => void) => {

@@ -56,7 +56,7 @@ class Config {
             accessSecret: process.env.JWT_ACCESS_SECRET as string || "your_access_secret",
             refreshSecret: process.env.JWT_REFRESH_SECRET as string || "your_refresh_secret",
             accessExpires: (process.env.JWT_ACCESS_EXPIRES_IN || "15m") as jwt.SignOptions['expiresIn'],
-            refreshExpires: (process.env.JWT_REFRESH_SECRET_IN || "7d") as jwt.SignOptions['expiresIn'],
+            refreshExpires: (process.env.JWT_REFRESH_EXPIRES_IN || "7d") as jwt.SignOptions['expiresIn'],
         }
         this.google = {
             clientId: process.env.GOOGLE_CLIENT_ID || ""

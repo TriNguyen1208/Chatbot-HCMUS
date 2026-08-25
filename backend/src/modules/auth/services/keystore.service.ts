@@ -48,7 +48,6 @@ export class KeystoreService {
                 Date.now() + parseDurationMs(config.jwt.refreshExpires as string)
             )
         }
-        // Save to MongoDB database
         const payloadDatabase: KeyStore = {
             user_id: userID,
             refresh_token_hash: hashRefreshToken,
@@ -84,10 +83,6 @@ export class KeystoreService {
         const keyStore = await this.keystoreRepo.findByHash(hashRefreshToken);
         if (!keyStore) {
             throw createHttpError.Unauthorized("Invalid Token");
-        }
-        if (keyStore.expires_at < new Date()) {
-            await this.keystoreRepo.markUsedByHash(hashRefreshToken);
-            throw createHttpError.Unauthorized("Login session has expired, please log in again");
         }
         if (keyStore.is_used) {
             await this.keystoreRepo.revokeFamily(keyStore.family_id)

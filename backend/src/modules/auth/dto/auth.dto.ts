@@ -5,8 +5,7 @@ export const GoogleLoginSchema = z.object({
         idToken: z
             .string({ message: "ID Token is required and must be a string" })
             .min(1, "Token ID cannot be empty"), 
-    }).strict() //Compulsory to have
+    }).strict()
 });
 
-// Extract Type from Schema if needed to use at other levels
 export type GoogleLoginInput = z.infer<typeof GoogleLoginSchema>;

@@ -7,9 +7,9 @@ export type UserProfile = {
     id: string;
     name: string;
     email: string;
-    studentID?: string;
+    student_id?: string;
     phone?: string;
-    avatarUrl?: string;
+    avatar_url?: string;
 }
 export type AuthResult = {
     tokens: TokenPair,

@@ -71,7 +71,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <GoogleOAuthProvider clientId={env.googleClientId}>
+      <GoogleOAuthProvider clientId={env.googleClientId || ""}>
         <QueryProvider>
           <SocketProvider>
             <div className="text-foreground antialiased w-full h-full">

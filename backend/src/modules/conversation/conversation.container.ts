@@ -6,7 +6,7 @@ import { supabaseDB } from "#@/infrastructure/database/supabaseClient.js";
 import { messageFacade } from "#@/modules/message/message.facade.js";
 
 class ConversationContainer {
-    public conversationRepo = new ConversationRepository(mongoDB, supabaseDB);
+    public conversationRepo = new ConversationRepository(mongoDB);
     public conversationService = new ConversationService(this.conversationRepo, messageFacade);
     public conversationController = new ConversationController(this.conversationService);
 }

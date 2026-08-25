@@ -19,9 +19,9 @@ export interface IDatabase {
     
     findOne<T = Record<string, unknown>>(collectionOrTable: string, conditions?: Partial<T>, options?: IQueryOptions<T>): Promise<T | null>
     
-    insert<T = Record<string, unknown>>(collectionOrTable: string, data: Partial<T> | Partial<T>[]): Promise<T | T[] | null>
+    insert<T = Record<string, unknown>>(collectionOrTable: string, data: Partial<T> | Partial<T>[], options?: IQueryOptions<T>): Promise<T | T[] | null>
     
-    update<T = Record<string, unknown>>(collectionOrTable: string, conditions: Partial<T>, data: Partial<T>): Promise<T | T[] | null>
+    update<T = Record<string, unknown>>(collectionOrTable: string, conditions: Partial<T>, data: Partial<T> | Record<string, any>, options?: IQueryOptions<T>): Promise<T | T[] | null>
     
     delete<T = Record<string, unknown>>(collectionOrTable: string, conditions: Partial<T>): Promise<boolean>
 

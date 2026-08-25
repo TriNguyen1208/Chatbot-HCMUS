@@ -3,6 +3,8 @@ import Image from "next/image";
 
 import { Conversation } from "@/features/chat/types";
 import { useChatCard } from "@/features/chat/hooks/useChatCard";
+import { useChatStore } from "@/features/chat/stores/chatStore";
+import { useAuthStore } from "@/features/auth/stores/authStore";
 
 interface ChatCardProps {
   conversation: Conversation;
@@ -12,6 +14,12 @@ interface ChatCardProps {
 
 const ChatCard = ({ conversation, isActive, onClick }: ChatCardProps) => {
   const { displayName, displayAvatar, timeDisplay, messagePreview } = useChatCard(conversation);
+  const { user } = useAuthStore();
+  const typingUsersMap = useChatStore(state => state.typingUsers);
+
+  const convId = conversation._id || (conversation as any).id;
+  const currentTypingUsers = (convId ? (typingUsersMap[convId] || []) : []).filter(u => u.userId !== user?.id);
+  const isTyping = currentTypingUsers.length > 0;
 
   return (
     <div 
@@ -32,7 +40,18 @@ const ChatCard = ({ conversation, isActive, onClick }: ChatCardProps) => {
           <h3 className="font-semibold text-sm truncate pr-2 text-txt-primary">{displayName}</h3>
           <p className="text-txt-extra text-[11px] font-medium uppercase whitespace-nowrap">{timeDisplay}</p>
         </div>
-        <p className="line-clamp-1 text-txt-extra text-xs w-full truncate">{messagePreview}</p>
+        {isTyping ? (
+          <p className="text-brand-primary text-xs w-full font-medium italic flex items-center gap-1">
+            {currentTypingUsers.map(u => u.name).join(', ')} đang gõ
+            <span className="flex gap-0.5 items-center">
+                <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1 h-1 bg-brand-primary rounded-full animate-bounce"></span>
+            </span>
+          </p>
+        ) : (
+          <p className="line-clamp-1 text-txt-extra text-xs w-full truncate">{messagePreview}</p>
+        )}
       </div>
     </div>
   );

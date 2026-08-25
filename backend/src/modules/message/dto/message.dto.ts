@@ -49,8 +49,19 @@ export const GetMessageListQuerySchema = z.object({
     })
 });
 
-export type SendMessageDto = z.infer<typeof SendMessageSchema>;
+export type SendMessageDto = z.infer<typeof SendMessageSchema>['body'];
 export type EditMessageDto = z.infer<typeof EditMessageSchema>['body'];
 export type MessageIdParamDto = z.infer<typeof MessageIdParamSchema>['params'];
 export type GetMessageListQueryDto = z.infer<typeof GetMessageListQuerySchema>['query'];
 export type GetMessageListParamDto = z.infer<typeof GetMessageListQuerySchema>['params'];
+
+export const ToggleReactionSchema = z.object({
+    params: z.object({
+        id: objectIdSchema
+    }),
+    body: z.object({
+        emoji: z.string().min(1, "Emoji cannot be empty")
+    })
+});
+
+export type ToggleReactionDto = z.infer<typeof ToggleReactionSchema>['body'];

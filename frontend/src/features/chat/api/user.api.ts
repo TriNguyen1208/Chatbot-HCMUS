@@ -1,16 +1,5 @@
 import { api } from "@/lib/api";
 
-export interface User {
-    id: string; 
-    email: string; 
-    name: string; 
-    student_id?: string; 
-    phone?: string; 
-    is_online?: boolean; 
-    avatar_url?: string; 
-    created_at?: string; 
-}
-
 export const userApi = {
     getUsers: async (limit: number = 20, cursorId?: string) => {
         const params: Record<string, any> = { limit };

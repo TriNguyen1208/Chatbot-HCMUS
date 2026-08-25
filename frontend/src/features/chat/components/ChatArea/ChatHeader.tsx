@@ -85,9 +85,9 @@ const ChatHeader = () => {
                 {activeConversation.type === "utu" && (
                   <button
                     onClick={handleOpenCreateGroup}
-                    className="flex items-center gap-2.5 px-4 py-2 text-gray-700 hover:bg-gray-100 text-left w-full transition-colors cursor-pointer"
+                    className="flex items-center gap-2.5 px-4 py-2 text-green-500 hover:bg-green-500/10 text-left w-full transition-colors cursor-pointer"
                   >
-                    <UserPlus size={16} /> Tạo nhóm từ chat này
+                    <UserPlus size={16} /> Tạo nhóm từ cuộc trò chuyện này
                   </button>
                 )}
 
@@ -95,7 +95,7 @@ const ChatHeader = () => {
                   <>
                     <button
                       onClick={handleOpenCreateGroup}
-                      className="flex items-center gap-2.5 px-4 py-2 text-gray-700 hover:bg-gray-100 text-left w-full transition-colors cursor-pointer"
+                      className="flex items-center gap-2.5 px-4 py-2 text-green-500 hover:bg-green-500/10 text-left w-full transition-colors cursor-pointer"
                     >
                       <UserPlus size={16} /> Thêm thành viên
                     </button>
@@ -104,24 +104,24 @@ const ChatHeader = () => {
                       <>
                         <button
                           onClick={handleOpenAssignAdminModal}
-                          className="flex items-center gap-2.5 px-4 py-2 text-brand-primary hover:bg-blue-50 text-left w-full transition-colors cursor-pointer"
+                          className="flex items-center gap-2.5 px-4 py-2 text-blue-500 hover:bg-blue-500/10 text-left w-full transition-colors cursor-pointer"
                         >
                           <ShieldCheck size={16} /> Cấp quyền Admin
                         </button>
                         <button
                           onClick={handleOpenKickModal}
-                          className="flex items-center gap-2.5 px-4 py-2 text-orange-600 hover:bg-orange-50 text-left w-full transition-colors cursor-pointer"
+                          className="flex items-center gap-2.5 px-4 py-2 text-orange-500 hover:bg-orange-500/10 text-left w-full transition-colors cursor-pointer"
                         >
                           <UserMinus size={16} /> Xóa thành viên
                         </button>
                       </>
                     )}
 
-                    <div className="my-1 border-t border-gray-100" />
+                    <div className="my-1 border-t border-glass-border" />
 
                     <button
                       onClick={handleLeaveGroup}
-                      className="flex items-center gap-2.5 px-4 py-2 text-red-600 hover:bg-red-50 text-left w-full transition-colors cursor-pointer"
+                      className="flex items-center gap-2.5 px-4 py-2 text-red-500 hover:bg-red-500/10 text-left w-full transition-colors cursor-pointer"
                     >
                       <LogOut size={16} /> Rời khỏi nhóm
                     </button>

@@ -3,6 +3,8 @@ import { messageApi } from "../api/message.api";
 import { mediaApi } from "../api/media.api";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { useEffect, useCallback } from "react";
+import { useSocketContext } from "@/providers/SocketProvider";
 
 export const useChatInput = () => {
   const [content, setContent] = useState("");
@@ -17,6 +19,42 @@ export const useChatInput = () => {
 
   const activeConversation = useChatStore(state => state.activeConversation);
   const { user } = useAuthStore();
+  const { socket } = useSocketContext();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const emitTyping = useCallback(() => {
+    if (!socket || !activeConversation || !user) return;
+    const convId = activeConversation._id || (activeConversation as any).id;
+    if (!convId) return;
+
+    socket.emit('typing', { conversationId: convId, name: user.name });
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('stop_typing', { conversationId: convId });
+    }, 2000);
+  }, [socket, activeConversation, user]);
+
+  const emitStopTyping = useCallback(() => {
+    if (!socket || !activeConversation) return;
+    const convId = activeConversation._id || (activeConversation as any).id;
+    if (!convId) return;
+    socket.emit('stop_typing', { conversationId: convId });
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+  }, [socket, activeConversation]);
+
+  const handleContentChange = (val: string) => {
+    setContent(val);
+    if (val.trim()) {
+      emitTyping();
+    } else {
+      emitStopTyping();
+    }
+  };
 
   const uploadVideoMultipart = async (file: File) => {
     const CHUNK_SIZE = 5 * 1024 * 1024; 
@@ -61,6 +99,7 @@ export const useChatInput = () => {
     const currentMedia = uploadedMedia;
     
     setContent("");
+    emitStopTyping();
     setUploadedMedia(null);
     setPreviewUrl(null);
     setIsUploading(true);
@@ -144,9 +183,28 @@ export const useChatInput = () => {
     setPreviewUrl(null);
   };
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleEmojiSelect = (emoji: any) => {
+    setContent((prev) => prev + emoji.native);
+  };
   return {
     content,
-    setContent,
+    setContent: handleContentChange,
     fileInputRef,
     uploadedMedia,
     previewUrl,
@@ -156,6 +214,10 @@ export const useChatInput = () => {
     handleKeyDown,
     handleFileClick,
     handleFileChange,
-    removeSelectedFile
+    removeSelectedFile,
+    emojiPickerRef,
+    showEmojiPicker,
+    setShowEmojiPicker,
+    handleEmojiSelect
   };
 };

@@ -2,7 +2,7 @@ import { Router } from "express";
 import asyncHandler from "#@/shared/middlewares/asyncHandler.js";
 import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
-import { SendMessageSchema, EditMessageSchema, MessageIdParamSchema, GetMessageListQuerySchema } from "../dto/message.dto.js";
+import { SendMessageSchema, EditMessageSchema, MessageIdParamSchema, GetMessageListQuerySchema, ToggleReactionSchema } from "../dto/message.dto.js";
 import { messageContainer } from "../message.container.js";
 
 const router = Router();
@@ -37,6 +37,14 @@ router.delete(
     AuthMiddleware.verifyAccessToken,
     validate(MessageIdParamSchema),
     asyncHandler(messageContainer.messageController.recallMessage)
+);
+
+// API toggle a reaction
+router.post(
+    "/:id/reactions",
+    AuthMiddleware.verifyAccessToken,
+    validate(ToggleReactionSchema),
+    asyncHandler(messageContainer.messageController.toggleReaction)
 );
 
 export default router;

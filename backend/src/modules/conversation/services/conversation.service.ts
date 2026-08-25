@@ -1,10 +1,11 @@
 import { type IConversationRepository } from "../repositories/conversation.repository.js";
 import type { CreateConversationDto } from "../dto/conversation.dto.js";
-import type { Conversation } from "../entities/conversation.entity.js";
+import type { Conversation, ConversationDB } from "../entities/conversation.entity.js";
 import createError from "http-errors";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
+import { userContainer } from "#@/modules/user/user.container.js";
 
 export class ConversationService {
     constructor(
@@ -31,33 +32,29 @@ export class ConversationService {
             const existing = await this.conversationRepo.findDirectConversation(arr[0]!, arr[1]!);
             if (existing) return existing;
         }
-        const newConversation: Conversation = {
+        const newConversation: Partial<ConversationDB> = {
             ...data,
             member_ids: Array.from(members),
             admin_ids: data.type === 'group' ? [userId] : [],
             created_at: new Date(),
             is_active: true
         };
-
         const created = await this.conversationRepo.create(newConversation);
 
-        // Invalidate conversation list caches
-        await redisClient.delByPattern('user:*:conversations:*');
-
         // Force all members to join the new room via SocketManager
-        const new_members = (created as any).members || [];
-        new_members.forEach((member: any) => {
-            socketManager.joinGroup(member.id, created._id!.toString());
+        const new_members = created.member_ids || [];
+        new_members.forEach((memberId) => {
+            socketManager.joinGroup(memberId.toString(), created.id!);
         });
 
         socketManager.emitToGroup(
-            created._id!.toString(),
+            created.id!,
             "new_conversation",
             created
         );
 
         if (data.type === 'group') {
-            await this.sendSystemMessage(created._id!.toString(), "Nhóm đã được tạo");
+            await this.sendSystemMessage(created.id!, "Nhóm đã được tạo");
         }
 
         return created;
@@ -70,12 +67,11 @@ export class ConversationService {
      * @returns The conversation object.
      * @throws HttpError 404 if not found, 403 if the user is not a member.
      */
-    async getConversationById(conversationId: string, userId: string): Promise<any> {
+    async getConversationById(conversationId: string, userId: string): Promise<Conversation> {
         const cacheKey = `conversation:${conversationId}`;
         let conversation = await redisClient.getJSON(cacheKey);
-
         if (!conversation) {
-            conversation = await this.conversationRepo.findByID(conversationId) as any;
+            conversation = await this.conversationRepo.findByID(conversationId);
             if (conversation) {
                 await redisClient.setJSON(cacheKey, conversation, 3600);
             }
@@ -84,8 +80,9 @@ export class ConversationService {
         if (!conversation) {
             throw createError(404, "This conversation was not found");
         }
-
-        if (!conversation.members?.some((m: any) => m.id === userId)) {
+        
+        const memberIds = conversation.member_ids?.map((id: any) => id.toString()) || [];
+        if (!memberIds.includes(userId)) {
             throw createError(403, "You do not have permission to view this conversation");
         }
 
@@ -101,12 +98,7 @@ export class ConversationService {
      * @returns An array of conversations.
      */
     async getConversationList(userId: string, limit: number = 20, cursorId?: string, type?: 'utu' | 'group'): Promise<any[]> {
-        const cacheKey = `user:${userId}:conversations:${type || 'all'}:${limit}:${cursorId || 'start'}`;
-        const cached = await redisClient.getJSON<any[]>(cacheKey);
-        if (cached) return cached;
-
         const conversations = await this.conversationRepo.getConversationsByUser(userId, limit, cursorId, type);
-        await redisClient.setJSON(cacheKey, conversations, 3600);
         return conversations;
     }
 
@@ -130,17 +122,18 @@ export class ConversationService {
     async addMember(adminId: string, conversationId: string, newMemberIds: string[]) {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only add members to a group");
-        if (!conv.admins?.some((a: any) => a.id === adminId)) throw createError(403, "Only admins can add members");
+        const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
+        if (!adminIds.includes(adminId)) throw createError(403, "Only admins can add members");
 
         // Filter out members that are already in the group
-        const membersToAdd = newMemberIds.filter(id => !conv.members?.some((m: any) => m.id === id));
+        const currentMemberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
+        const membersToAdd = newMemberIds.filter(id => !currentMemberIds.includes(id));
         if (membersToAdd.length === 0) throw createError(400, "All users are already members");
 
-        await this.conversationRepo.addMembers(conversationId, membersToAdd);
+        const updatedConv = await this.conversationRepo.addMembers(conversationId, membersToAdd);
         
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(conversationId, "members_added", { conversationId, newMemberIds: membersToAdd });
 
@@ -149,7 +142,6 @@ export class ConversationService {
             socketManager.joinGroup(memberId, conversationId);
         });
 
-        const updatedConv = await this.getConversationById(conversationId, adminId);
         socketManager.emitToUsers(membersToAdd, "new_conversation", updatedConv);
 
         await this.sendSystemMessage(conversationId, `${membersToAdd.length} user(s) added to group`);
@@ -166,12 +158,13 @@ export class ConversationService {
     async removeMembers(adminId: string, conversationId: string, memberIds: string[]) {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only remove members from a group");
-        if (!conv.admins?.some((a: any) => a.id === adminId)) throw createError(403, "Only admins can remove members");
+        const adminIdsSet = new Set(conv.admin_ids?.map((id: any) => id.toString()) || []);
+        if (!adminIdsSet.has(adminId)) throw createError(403, "Only admins can remove members");
 
         // Filter out members that are not in the group, self, or admins
-        const adminIdsSet = new Set(conv.admins?.map((a: any) => a.id) || conv.admin_ids || []);
+        const currentMemberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
         const validMemberIds = memberIds.filter(id =>
-            conv.members?.some((m: any) => m.id === id) &&
+            currentMemberIds.includes(id) &&
             !adminIdsSet.has(id)
         );
 
@@ -179,7 +172,7 @@ export class ConversationService {
             throw createError(400, "Không thể xóa Admin khỏi nhóm. Chỉ có thể xóa thành viên thường.");
         }
 
-        const remainingCount = (conv.members?.length || 0) - validMemberIds.length;
+        const remainingCount = currentMemberIds.length - validMemberIds.length;
         if (remainingCount < 2) {
             throw createError(400, "Nhóm phải duy trì tối thiểu 2 thành viên");
         }
@@ -188,7 +181,6 @@ export class ConversationService {
 
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         validMemberIds.forEach(memberId => {
             socketManager.leaveGroup(memberId, conversationId);
@@ -209,16 +201,17 @@ export class ConversationService {
     async assignAdmins(adminId: string, conversationId: string, newAdminIds: string[]) {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only assign admins in a group");
-        if (!conv.admins?.some((a: any) => a.id === adminId)) throw createError(403, "Only admins can assign admin status");
+        const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
+        if (!adminIds.includes(adminId)) throw createError(403, "Only admins can assign admin status");
 
-        const validAdminIds = newAdminIds.filter(id => conv.members?.some((m: any) => m.id === id));
+        const currentMemberIds = conv.member_ids?.map((id) => id.toString()) || [];
+        const validAdminIds = newAdminIds.filter(id => currentMemberIds.includes(id));
         if (validAdminIds.length === 0) throw createError(400, "No valid group members selected to promote to admin");
 
         await this.conversationRepo.addAdmins(conversationId, validAdminIds);
 
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(conversationId, "admins_updated", { conversationId, adminIds: validAdminIds });
         await this.sendSystemMessage(conversationId, `Admin đã cấp quyền Quản trị viên cho thành viên mới`);
@@ -235,22 +228,23 @@ export class ConversationService {
         const conv = await this.getConversationById(conversationId, userId);
         if (conv.type !== 'group') throw createError(400, "Can only leave a group");
 
-        const isAdmin = conv.admins?.some((a: any) => a.id === userId);
-        const adminCount = conv.admin_ids?.length || conv.admins?.length || 0;
-        const memberCount = conv.member_ids?.length || conv.members?.length || 0;
+        const adminIds = conv.admin_ids?.map((id) => id.toString()) || [];
+        const memberIds = conv.member_ids?.map((id) => id.toString()) || [];
+        
+        const isAdmin = adminIds.includes(userId);
+        const adminCount = adminIds.length;
+        const memberCount = memberIds.length;
 
         if (isAdmin && adminCount <= 1 && memberCount > 1) {
             throw createError(400, "Bạn là Admin duy nhất. Vui lòng chuyển quyền Admin trước khi rời nhóm");
         }
 
-        const userObj = conv.members?.find((m: any) => m.id === userId);
-        const userName = userObj?.name || "Thành viên";
+        const userName = "Một thành viên";
 
         await this.conversationRepo.removeMember(conversationId, userId);
 
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(conversationId, "member_left", { conversationId, userId });
         socketManager.leaveGroup(userId, conversationId);

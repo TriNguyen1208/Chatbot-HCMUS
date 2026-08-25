@@ -1,4 +1,5 @@
 import { Conversation } from "@/features/chat/types";
+import { DEFAULT_AVATAR } from "@/utils/constants";
 import { formatDistanceToNow, isToday, format } from "date-fns";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 
@@ -8,7 +9,7 @@ export const useChatCard = (conversation: Conversation) => {
   // Calculate display name and avatar
   const otherMember = conversation.members?.find(m => m.id !== user?.id);
   const displayName = conversation.name || otherMember?.name || "Unknown";
-  const displayAvatar = conversation.avatar_url || otherMember?.avatar_url || "/CR_LM_Chess.jpg";
+  const displayAvatar = conversation.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR;
 
   // Calculate time display
   const timeToUse = conversation.last_message?.created_at || conversation.created_at;
@@ -29,7 +30,7 @@ export const useChatCard = (conversation: Conversation) => {
       messagePreview = `[${conversation.last_message.type}]`;
     }
   }
-  const lastSenderId = conversation.last_message?.sender?.id || conversation.last_message?.sender_id;
+  const lastSenderId = conversation.last_message?.sender?.id;
   if (conversation.type === 'group' && conversation.last_message?.sender && lastSenderId !== 'system') {
     const isMe = conversation.last_message.sender.id === user?.id;
     messagePreview = `${isMe ? "Bạn" : conversation.last_message.sender.name}: ${messagePreview}`;

@@ -1,11 +1,12 @@
 import createHttpError from "http-errors";
 import type { ConversationFacade } from "../../conversation/conversation.facade.js";
 import type { MessageRepository } from "../repositories/message.repository.js";
-import type { Message } from "../entities/message.entity.js";
+import type { Message, MessageDB } from "../entities/message.entity.js";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 import { queueService } from "#@/modules/queue/queue.service.js";
 import { checkSystemLoad } from "#@/shared/utils/system-monitor.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
+import type { SendMessageDto } from "../dto/message.dto.js";
 
 // This class contains all message processing logic (Business Logic)
 export class MessageService {
@@ -24,24 +25,15 @@ export class MessageService {
      */
     async handleIncomingMessage(
         sender_id: string,
-        payload: {
-            conversation_id?: string;
-            receiver_id?: string;
-            content?: string;
-            type: 'text' | 'file' | 'link' | 'image' | 'video' | 'ai' | 'system';
-            tag_ids?: string[];
-            image?: { url: string; file_key?: string };
-            video?: { url?: string; file_key: string; thumbnail_url?: string };
-            status?: 'sent' | 'received' | 'recalled' | 'removed';
-        }
+        payload: SendMessageDto
     ) {
         let conversation_id = payload.conversation_id;
         if (!conversation_id && payload.receiver_id) {
             const conv = await this.conversationFacade.createConversation(sender_id, {
                 type: 'utu',
-                member_ids: [sender_id, payload.receiver_id]
+                member_ids: [sender_id, payload.receiver_id.toString()]
             });
-            conversation_id = conv._id!.toString();
+            conversation_id = conv.id!.toString();
         }
 
         if (!conversation_id) {
@@ -49,13 +41,13 @@ export class MessageService {
         }
 
         // Step 1: Check permissions - Does the user really belong to this group?
-        const isMember = await this.conversationFacade.isUserInConversation(conversation_id, sender_id);
+        const isMember = await this.conversationFacade.isUserInConversation(conversation_id.toString(), sender_id);
         if (!isMember) {
             throw createHttpError.Forbidden("You are not a member of this conversation");
         }
 
         // Step 2: Create the base Message object
-        const messageData: Message = {
+        const messageData: MessageDB = {
             sender_id,
             conversation_id: conversation_id,
             content: payload.content,
@@ -82,16 +74,19 @@ export class MessageService {
         const savedMessage = await this.messageRepo.create(messageData);
 
         // Update last message id in conversation
-        await this.conversationFacade.updateLastMessage(conversation_id, savedMessage._id!);
+        await this.conversationFacade.updateLastMessage(conversation_id.toString(), savedMessage.id!);
 
         // Invalidate caches
-        await redisClient.delByPattern(`conversation:${conversation_id}:messages:*`);
         await redisClient.del(`conversation:${conversation_id}`);
-        await redisClient.delByPattern('user:*:conversations:*');
+
+        // Lazy join members before emitting
+        const members = await this.conversationFacade.getConversationMembers(conversation_id.toString(), sender_id);
+        members.forEach(memberId => {
+            socketManager.joinGroup(memberId, conversation_id.toString());
+        });
 
         // Step 5: Fire SocketIO to notify everyone in the chat room (conversation_id)
-        socketManager.emitToGroup(conversation_id, "new_message", savedMessage);
-
+        socketManager.emitToGroup(conversation_id.toString(), "new_message", savedMessage);
         return {
             status: 'success',
             data: savedMessage
@@ -112,19 +107,13 @@ export class MessageService {
         if (!isMember) {
             throw createHttpError.Forbidden("You are not a member of this conversation");
         }
-
-        const cacheKey = `conversation:${conversationId}:messages:${limit || 20}:${cursorId || 'start'}`;
-        const cached = await redisClient.getJSON<any[]>(cacheKey);
-        if (cached) return cached;
-
         const messages = await this.messageRepo.getMessages(conversationId, limit, cursorId);
 
         const result = messages.map(m => ({
             ...m,
-            sender: m.sender_id === 'system' ? { id: 'system', name: 'System' } : (m as any).sender
+            sender: m.type === 'system' ? { id: 'system', name: 'System' } : m.sender_id?.toString()
         }));
 
-        await redisClient.setJSON(cacheKey, result, 3600);
         return result;
     }
 
@@ -138,17 +127,15 @@ export class MessageService {
     async editMessage(messageId: string, userId: string, newContent: string) {
         const message = await this.messageRepo.findByID(messageId);
         if (!message) throw createHttpError.NotFound("Message not found");
-        if (message.sender_id !== userId) throw createHttpError.Forbidden("You can only edit your own messages");
+        if (message.sender_id?.toString() !== userId) throw createHttpError.Forbidden("You can only edit your own messages");
         if (message.type !== 'text') throw createHttpError.BadRequest("Only text messages can be edited");
 
         const updatedAt = new Date();
         await this.messageRepo.updateContent(messageId, newContent, updatedAt);
 
         // Invalidate caches
-        const convIdStr = message.conversation?._id?.toString() as string;
-        await redisClient.delByPattern(`conversation:${convIdStr}:messages:*`);
+        const convIdStr = message.conversation_id.toString();
         await redisClient.del(`conversation:${convIdStr}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(convIdStr, "message_edited", { messageId, content: newContent, updated_at: updatedAt, conversation_id: convIdStr });
     }
@@ -159,17 +146,15 @@ export class MessageService {
      * @param userId The ID of the user attempting to recall.
      */
     async recallMessage(messageId: string, userId: string) {
-        const message = await this.messageRepo.findByID(messageId) as any;
+        const message = await this.messageRepo.findByID(messageId);
         if (!message) throw createHttpError.NotFound("Message not found");
-        if (message.sender.id !== userId) throw createHttpError.Forbidden("You can only recall your own messages");
+        if (message.sender_id?.toString() !== userId) throw createHttpError.Forbidden("You can only recall your own messages");
 
         await this.messageRepo.updateStatus(messageId, 'recalled');
 
         // Invalidate caches
-        const convIdStr = message.conversation?._id?.toString() as string;
-        await redisClient.delByPattern(`conversation:${convIdStr}:messages:*`);
+        const convIdStr = message.conversation_id?.toString() as string;
         await redisClient.del(`conversation:${convIdStr}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(convIdStr, "message_recalled", { messageId, conversation_id: convIdStr });
     }
@@ -180,8 +165,7 @@ export class MessageService {
      * @param content The system message text.
      */
     async createSystemMessage(conversationId: string, content: string) {
-        const messageData: Message = {
-            sender_id: 'system',
+        const messageData: MessageDB = {
             conversation_id: conversationId,
             content,
             type: 'system',
@@ -189,12 +173,10 @@ export class MessageService {
             created_at: new Date()
         };
         const savedMessage = await this.messageRepo.create(messageData);
-        await this.conversationFacade.updateLastMessage(conversationId, savedMessage._id!);
+        await this.conversationFacade.updateLastMessage(conversationId, savedMessage.id!);
 
         // Invalidate caches
-        await redisClient.delByPattern(`conversation:${conversationId}:messages:*`);
         await redisClient.del(`conversation:${conversationId}`);
-        await redisClient.delByPattern('user:*:conversations:*');
 
         socketManager.emitToGroup(conversationId, "new_message", savedMessage);
     }
@@ -217,14 +199,40 @@ export class MessageService {
         });
 
         if (updatedMessage && updatedMessage.conversation_id) {
-            const convIdStr = updatedMessage.conversation_id.toString();
+            const convIdStr = updatedMessage.conversation_id!.toString();
 
             // Invalidate caches
-            await redisClient.delByPattern(`conversation:${convIdStr}:messages:*`);
             await redisClient.del(`conversation:${convIdStr}`);
-            await redisClient.delByPattern('user:*:conversations:*');
 
             socketManager.emitToGroup(convIdStr, "new_message", updatedMessage);
         }
+    }
+
+    /**
+     * Toggles a reaction for a message.
+     * Checks if the user is part of the conversation before allowing the reaction.
+     * Emits socket event to notify other users.
+     */
+    async toggleReaction(messageId: string, userId: string, emoji: string): Promise<Message> {
+        // First get the message to verify conversation membership
+        const message = await this.messageRepo.findByID(messageId);
+        if (!message) {
+            throw createHttpError(404, 'Message not found');
+        }
+
+        // Toggle the reaction
+        const updatedMessage = await this.messageRepo.toggleReaction(message, userId, emoji);
+
+        // Invalidate caches
+
+        const convIdStr = message.conversation_id.toString()
+        // Emit socket event
+        socketManager.emitToGroup(convIdStr, "message_reaction_updated", {
+            message_id: updatedMessage.id,
+            reactions: updatedMessage.reactions,
+            conversation_id: convIdStr
+        });
+
+        return updatedMessage;
     }
 }

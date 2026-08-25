@@ -22,6 +22,10 @@ class RedisClient{
     async connect(): Promise<void>{
         await this.client.connect()
     }
+    
+    getClient(): Redis {
+        return this.client;
+    }
     async get(key: string): Promise<string | null>{
         try{
             console.log(`[Redis] GET: ${key}`);

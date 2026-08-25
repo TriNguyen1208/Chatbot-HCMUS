@@ -19,8 +19,17 @@ export class ConversationFacade {
         }
     }
 
-    async updateLastMessage(conversationId: string, messageId: string): Promise<void> {
-        return await this.conversationRepo.updateLastMessage(conversationId, messageId);
+    async getConversationMembers(conversationId: string, userId: string): Promise<string[]> {
+        try {
+            const conv = await this.conversationService.getConversationById(conversationId, userId);
+            return conv.member_ids.map((id: any) => id.toString());
+        } catch {
+            return [];
+        }
+    }
+
+    async updateLastMessage(conversationId: string, messageId: string): Promise<Conversation> {
+        return this.conversationRepo.updateLastMessage(conversationId, messageId);
     }
 
     async createConversation(

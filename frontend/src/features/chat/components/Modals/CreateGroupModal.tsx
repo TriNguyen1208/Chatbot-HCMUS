@@ -1,6 +1,7 @@
 "use client";
 import { X, Search, Users, Check } from "lucide-react";
 import Image from "next/image";
+import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useCreateGroupModal } from "@/features/chat/hooks/useCreateGroupModal";
 
 interface CreateGroupModalProps {
@@ -71,7 +72,7 @@ export default function CreateGroupModal({
                     className="flex items-center gap-1.5 bg-surface px-2.5 py-1.5 rounded-full text-xs border border-glass-border shadow-sm text-txt-primary font-medium"
                   >
                     <Image
-                      src={m.avatar_url || "/CR_LM_Chess.jpg"}
+                      src={m.avatar_url || DEFAULT_AVATAR}
                       alt={m.name || "User"}
                       width={18}
                       height={18}
@@ -126,7 +127,7 @@ export default function CreateGroupModal({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Image
-                        src={u.avatar_url || "/CR_LM_Chess.jpg"}
+                        src={u.avatar_url || DEFAULT_AVATAR}
                         alt="avatar"
                         width={32}
                         height={32}

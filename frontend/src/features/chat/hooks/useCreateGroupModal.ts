@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { userApi, User } from "@/features/chat/api/user.api";
+import { userApi } from "@/features/chat/api/user.api";
+import { User } from "@/features/chat/types";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";

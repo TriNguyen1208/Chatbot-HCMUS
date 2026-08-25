@@ -16,7 +16,7 @@ export class ConversationController {
         const data = req.body as CreateConversationDto;
 
         const conversation = await this.conversationService.createConversation(userId, data);
-
+        console.log("Controller: ", conversation)
         return apiResponse.success(res, conversation, {
             statusCode: 201,
             message: "Conversation created successfully"
@@ -48,9 +48,9 @@ export class ConversationController {
      */
     getList = async (req: Request, res: Response) => {
         const userId = req.user!.userID;
-        const query = req.query as unknown as GetListQueryDto;
+        const {limit, cursor_id, type} = req.query as unknown as GetListQueryDto;
         
-        const list = await this.conversationService.getConversationList(userId, query.limit, query.cursor_id, query.type);
+        const list = await this.conversationService.getConversationList(userId, limit, cursor_id, type);
         
         return apiResponse.success(res, list, {
             statusCode: 200,

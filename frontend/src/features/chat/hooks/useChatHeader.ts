@@ -3,7 +3,8 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
-import { conversationApi } from "../api/conversation.api";
+import { conversationApi } from "@/features/chat/api/conversation.api";
+import { DEFAULT_AVATAR } from "@/utils/constants";
 
 export const useChatHeader = () => {
     const { activeConversation, setActiveConversation } = useChatStore();
@@ -31,7 +32,7 @@ export const useChatHeader = () => {
 
     const otherMember = activeConversation?.members?.find(m => m.id !== user?.id);
     const displayName = activeConversation?.name || otherMember?.name || "Unknown";
-    const displayAvatar = activeConversation?.avatar_url || otherMember?.avatar_url || "/CR_LM_Chess.jpg";
+    const displayAvatar = activeConversation?.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR;
     
     const isAdmin = activeConversation?.admins?.some(admin => (admin.id || (admin as any)._id) === user?.id);
     const adminCount = activeConversation?.admins?.length || 0;

@@ -1,7 +1,7 @@
 import { apiResponse } from "#@/shared/utils/api-response.js";
 import type { Request, Response, NextFunction } from "express";
 import type { MessageService } from "../services/message.service.js";
-import type { SendMessageDto, EditMessageDto, MessageIdParamDto, GetMessageListParamDto, GetMessageListQueryDto } from "../dto/message.dto.js";
+import type { SendMessageDto, EditMessageDto, MessageIdParamDto, GetMessageListParamDto, GetMessageListQueryDto, ToggleReactionDto } from "../dto/message.dto.js";
 
 export class MessageController {
     constructor(private readonly messageService: MessageService) { }
@@ -14,7 +14,7 @@ export class MessageController {
      */
     sendMessage = async (req: Request, res: Response, next: NextFunction) => {
         const userID = req.user!.userID;
-        const payload = req.body as SendMessageDto["body"];
+        const payload = req.body as SendMessageDto;
         const result = await this.messageService.handleIncomingMessage(userID, payload);
         if(result.status == "queued"){
             return apiResponse.success(res, null, {
@@ -69,5 +69,18 @@ export class MessageController {
         await this.messageService.recallMessage(params.id, userID);
 
         return apiResponse.success(res, null, { message: "Message recalled successfully" });
+    }
+
+    /**
+     * Toggles a reaction on a message.
+     */
+    toggleReaction = async (req: Request, res: Response, next: NextFunction) => {
+        const userID = req.user!.userID;
+        const params = req.params as MessageIdParamDto;
+        const body = req.body as ToggleReactionDto;
+
+        const updatedMessage = await this.messageService.toggleReaction(params.id, userID, body.emoji);
+
+        return apiResponse.success(res, updatedMessage, { message: "Reaction toggled successfully" });
     }
 }

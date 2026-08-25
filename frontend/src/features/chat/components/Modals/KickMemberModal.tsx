@@ -4,9 +4,10 @@ import { X, Search, UserMinus, Check, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/features/chat/stores/chatStore";
+import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
-import { User } from "@/features/chat/api/user.api";
+import { User } from "@/features/chat/types";
 
 interface KickMemberModalProps {
   isOpen: boolean;
@@ -194,7 +195,7 @@ export default function KickMemberModal({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Image
-                        src={m.avatar_url || "/CR_LM_Chess.jpg"}
+                        src={m.avatar_url || DEFAULT_AVATAR}
                         alt="avatar"
                         width={32}
                         height={32}

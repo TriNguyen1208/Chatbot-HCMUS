@@ -7,7 +7,7 @@ import { messageApi } from "../api/message.api";
 export const useMessageItem = (message: Message) => {
   const { user } = useAuthStore();
 
-  const senderId = message.sender?.id || message.sender_id;
+  const senderId = message.sender?.id;
   const isMe = senderId === user?.id;
 
   const isSystem = message.type === 'system' || senderId === 'system';
@@ -17,10 +17,18 @@ export const useMessageItem = (message: Message) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const [showReactMenu, setShowReactMenu] = useState(false);
+  const reactMenuRef = useRef<HTMLDivElement>(null);
+
+  const [showReactionList, setShowReactionList] = useState(false);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
+      }
+      if (reactMenuRef.current && !reactMenuRef.current.contains(event.target as Node)) {
+        setShowReactMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -41,6 +49,15 @@ export const useMessageItem = (message: Message) => {
     setShowMenu(false);
   };
 
+  const handleReact = async (emoji: string) => {
+    setShowReactMenu(false);
+    try {
+      await messageApi.toggleReaction(message._id || (message as any).id, emoji);
+    } catch (error) {
+      console.error("Failed to toggle reaction", error);
+    }
+  };
+
   return {
     isMe,
     isSystem,
@@ -48,7 +65,13 @@ export const useMessageItem = (message: Message) => {
     showMenu,
     setShowMenu,
     menuRef,
+    showReactMenu,
+    setShowReactMenu,
+    reactMenuRef,
+    showReactionList,
+    setShowReactionList,
     handleRecall,
-    handleForward
+    handleForward,
+    handleReact
   };
 };

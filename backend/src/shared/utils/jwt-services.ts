@@ -2,8 +2,8 @@ import { config } from "#@/config/config.js";
 import type { JWTPayload, TokenPair } from "#@/shared/types/index.js";
 import jwt from "jsonwebtoken";
 
-class JWTService{
-    verifyAccessToken = (token: string) : JWTPayload | null => {
+class JWTService {
+    verifyAccessToken = (token: string): JWTPayload | null => {
         try {
             return jwt.verify(token, config.jwt.accessSecret) as JWTPayload
         } catch (error) {
@@ -11,7 +11,7 @@ class JWTService{
             return null;
         }
     }
-    verifyRefreshToken = (token: string) : JWTPayload | null => {
+    verifyRefreshToken = (token: string): JWTPayload | null => {
         try {
             return jwt.verify(token, config.jwt.refreshSecret) as JWTPayload
         } catch (error) {
@@ -31,7 +31,7 @@ class JWTService{
             expiresIn: config.jwt.refreshExpires as number,
         });
     }
-    createPairToken = ({id, email}: {id: string, email: string}): TokenPair => {
+    createPairToken = ({ id, email }: { id: string, email: string }): TokenPair => {
         return {
             accessToken: this.createAccessToken(id, email),
             refreshToken: this.createRefreshToken(id, email)

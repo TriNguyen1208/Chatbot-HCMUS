@@ -22,12 +22,55 @@ export const useChatSocket = () => {
 
         socket.on('connect', () => {
             console.log('Connected to Chat Socket');
+            
+            // Advanced Heartbeat mechanism with jitter to avoid simultaneous pings
+            const pingInterval = setInterval(() => {
+                const jitter = Math.random() * 2000; // 0 to 2 seconds jitter
+                setTimeout(() => {
+                    if (socket.connected) {
+                        socket.emit('ping');
+                    }
+                }, jitter);
+            }, 29000); // Ping every 29 seconds
+            
+            socket.once('disconnect', () => {
+                clearInterval(pingInterval);
+            });
+        });
+
+        socket.on('user_status_changed', (data: { userId: string, isOnline: boolean, lastActive?: string }) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: any) => {
+                        if (conv.members) {
+                            const newMembers = conv.members.map((m: any) => {
+                                if (m.id === data.userId) {
+                                    return { ...m, last_active: data.isOnline ? "online" : data.lastActive };
+                                }
+                                return m;
+                            });
+                            return { ...conv, members: newMembers };
+                        }
+                        return conv;
+                    })
+                );
+                return { ...oldData, pages: newPages };
+            });
+        });
+
+        socket.on('user_typing', (data: { conversationId: string, userId: string, name: string }) => {
+            useChatStore.getState().addTypingUser(data.conversationId, data.userId, data.name);
+        });
+
+        socket.on('user_stop_typing', (data: { conversationId: string, userId: string }) => {
+            useChatStore.getState().removeTypingUser(data.conversationId, data.userId);
         });
 
         // 4. LẮNG NGHE SỰ KIỆN: CÓ TIN NHẮN MỚI
         socket.on('new_message', (message: Message) => {
             console.log("Frontend received new_message:", message);
-            queryClient.setQueryData(['messages', message.conversation_id], (oldData: any) => {
+            queryClient.setQueryData(['messages', message.conversation?._id], (oldData: any) => {
                 // Nếu chưa có cache (trường hợp tạo mới), tự tạo một cache ảo
                 console.log()
                 if (!oldData) {
@@ -49,18 +92,27 @@ export const useChatSocket = () => {
             queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
                 if (!oldData) return oldData;
 
-                const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((conv: any) => {
+                let updatedConv: any = null;
+                const newPages = oldData.pages.map((page: any[]) => {
+                    return page.filter((conv: any) => {
                         // Nếu tìm thấy đúng cuộc hội thoại mà tin nhắn mới vừa bay tới
-                        if (conv._id === message.conversation_id || (conv as any).id === message.conversation_id) {
-                            return {
+                        if (conv._id === message.conversation?._id || (conv as any).id === message.conversation?._id) {
+                            updatedConv = {
                                 ...conv,
-                                last_message: message
+                                last_message: message,
+                                updated_at: message.created_at || new Date().toISOString()
                             };
+                            return false; // Bỏ qua khỏi vị trí hiện tại
                         }
-                        return conv;
-                    })
-                );
+                        return true;
+                    });
+                });
+
+                if (updatedConv && newPages.length > 0) {
+                    // Chèn lên đầu trang đầu tiên
+                    newPages[0] = [updatedConv, ...newPages[0]];
+                }
+
                 return { ...oldData, pages: newPages };
             });
         });
@@ -85,6 +137,35 @@ export const useChatSocket = () => {
                             return {
                                 ...conv,
                                 last_message: { ...conv.last_message, content: data.content, updated_at: data.updated_at, is_edited: true }
+                            };
+                        }
+                        return conv;
+                    })
+                );
+                return { ...oldData, pages: newPages };
+            });
+        });
+
+        socket.on('message_reaction_updated', (data: any) => {
+            console.log(data)
+            queryClient.setQueryData(['messages', data.conversation_id], (oldData: any) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((msg: any) => (msg._id === data.message_id || msg.id === data.message_id) ? { ...msg, reactions: data.reactions } : msg)
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: any) => {
+                        if ((conv._id === data.conversation_id || (conv as any).id === data.conversation_id) &&
+                            conv.last_message &&
+                            (conv.last_message._id === data.message_id || conv.last_message.id === data.message_id)) {
+                            return {
+                                ...conv,
+                                last_message: { ...conv.last_message, reactions: data.reactions }
                             };
                         }
                         return conv;

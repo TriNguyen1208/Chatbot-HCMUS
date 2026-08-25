@@ -2,6 +2,7 @@
 import { X } from "lucide-react";
 import Image from "next/image";
 import { useSearchUserModal } from "@/features/chat/hooks/useSearchUserModal";
+import { DEFAULT_AVATAR } from "@/utils/constants";
 
 interface Props {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export default function SearchUserModal({ isOpen, onClose }: Props) {
               onClick={() => handleUserClick(u.id || (u as any)._id as string)}
             >
               <Image 
-                src={u.avatar_url || '/CR_LM_Chess.jpg'} 
+                src={u.avatar_url || DEFAULT_AVATAR} 
                 alt="avatar" 
                 width={36} 
                 height={36} 

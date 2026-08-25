@@ -32,5 +32,10 @@ export const messageApi = {
     recallMessage: async (id: string) => {
         const response = await api.delete(`/message/${id}/recall`);
         return response.data;
+    },
+
+    toggleReaction: async (id: string, emoji: string) => {
+        const response = await api.post(`/message/${id}/reactions`, { emoji });
+        return response.data;
     }
 };
