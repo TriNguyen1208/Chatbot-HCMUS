@@ -13,5 +13,5 @@ export type UserProfile = {
 }
 export type AuthResult = {
     tokens: TokenPair,
-    user: Pick<UserProfile, "id" | "name" | "email">
+    user: Pick<UserProfile, "id" | "name" | "email" | "avatar_url">
 }

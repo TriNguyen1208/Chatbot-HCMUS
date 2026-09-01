@@ -5,7 +5,7 @@ import { useMessagesQuery } from "./useChatQueries";
 
 export const useMessageList = () => {
     const { activeConversation } = useChatStore();
-    const activeConversationId = activeConversation?._id || (activeConversation as any)?.id;
+    const activeConversationId = activeConversation?.id || activeConversation?.id;
     
     const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useMessagesQuery(activeConversationId);
     

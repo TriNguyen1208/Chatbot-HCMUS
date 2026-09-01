@@ -27,9 +27,9 @@ export default function SearchUserModal({ isOpen, onClose }: Props) {
           {users.length === 0 && <p className="text-center text-sm text-txt-extra my-4">Đang tải...</p>}
           {users.map(u => (
             <div 
-              key={u.id || (u as any)._id} 
+              key={u.id} 
               className="flex items-center gap-3 p-3 hover:bg-hover rounded-xl cursor-pointer transition-colors border border-transparent hover:border-glass-border shadow-sm hover:shadow"
-              onClick={() => handleUserClick(u.id || (u as any)._id as string)}
+              onClick={() => handleUserClick(u.id)}
             >
               <Image 
                 src={u.avatar_url || DEFAULT_AVATAR} 

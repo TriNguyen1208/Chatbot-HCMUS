@@ -20,16 +20,16 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
 
   useEffect(() => {
     if (cId) {
-        const currentActiveId = activeConversation?._id || (activeConversation as any)?.id;
+        const currentActiveId = activeConversation?.id;
         if (currentActiveId !== cId) {
-            const allCaches = queryClient.getQueriesData<any>({ queryKey: ['conversations'] });
+            const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
             let conversations: Conversation[] = [];
             allCaches.forEach(([_, data]) => {
                 if (data?.pages) {
                     conversations = conversations.concat(data.pages.flat());
                 }
             });
-            const found = conversations.find(c => (c._id === cId || (c as any).id === cId));
+            const found = conversations.find(c => (c.id === cId || c.id === cId));
             
             if (found) {
                 setActiveConversation(found);
@@ -45,10 +45,10 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         }
     } 
     else if (receiverId) {
-        const currentActiveReceiverId = (activeConversation as any)?.receiver_id;
+        const currentActiveReceiverId = activeConversation?.receiver_id;
         
         // Find in all possible conversation caches ('utu', 'group', or undefined)
-        const allCaches = queryClient.getQueriesData<any>({ queryKey: ['conversations'] });
+        const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
         let conversations: Conversation[] = [];
         allCaches.forEach(([_, data]) => {
             if (data?.pages) {
@@ -56,11 +56,11 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
             }
         });
         
-        const found = conversations.find(c => c.type === 'utu' && c.members?.some(m => m.id === receiverId));
+        const found = conversations.find(c => c.type === 'utu' && c.member_ids?.some(m => m === receiverId));
         
         if (found) {
-            const currentActiveId = activeConversation?._id || (activeConversation as any)?.id;
-            if (currentActiveId !== (found._id || (found as any).id)) {
+            const currentActiveId = activeConversation?.id;
+            if (currentActiveId !== found.id) {
                 setActiveConversation(found);
             }
         } else if (currentActiveReceiverId !== receiverId) {

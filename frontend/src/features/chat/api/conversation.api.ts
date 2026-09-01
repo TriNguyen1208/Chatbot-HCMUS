@@ -10,7 +10,7 @@ export const conversationApi = {
         if (type) params.type = type;
         
         const response = await api.get('/conversation', { params });
-        
+
         return response.data;
     },
     createGroup: async (name: string, member_ids: string[]) => {
@@ -38,5 +38,9 @@ export const conversationApi = {
     leaveGroup: async (id: string) => {
         const response = await api.post(`/conversation/${id}/leave`);        
         return response.data;
-    }
+    },
+    addMembers: async (id: string, member_ids: string[]) => {
+        const response = await api.post(`/conversation/${id}/members`, { member_ids });
+        return response.data;
+    },
 };

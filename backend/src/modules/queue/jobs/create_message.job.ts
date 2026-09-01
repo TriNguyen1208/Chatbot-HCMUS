@@ -1,6 +1,7 @@
 import { Job } from "bullmq";
 import { messageContainer } from "#@/modules/message/message.container.js";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
+import { conversationFacade } from "#@/modules/conversation/conversation.facade.js";
 
 /**
  * Background job handler for creating messages.
@@ -14,5 +15,6 @@ export const handleCreateMessage = async (job: Job) => {
     const savedMessage = await messageContainer.messageRepo.create(messageData);
     
     console.log(`[QueueWorker] Saved successfully, fired socket to notify group ${messageData.conversation_id}`);
-    socketManager.emitToGroup(messageData.conversation_id, "new_message", savedMessage);
+    const members = await conversationFacade.getConversation(messageData.conversation_id);
+    socketManager.emitToUsers(members, "new_message", savedMessage);
 };

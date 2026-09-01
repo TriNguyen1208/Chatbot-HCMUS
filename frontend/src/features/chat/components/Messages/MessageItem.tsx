@@ -1,7 +1,9 @@
 "use client";
 import { DEFAULT_AVATAR } from "@/utils/constants";
 import { Message } from "@/features/chat/types";
+import { useEffect, useState } from "react";
 import { useMessageItem } from "@/features/chat/hooks/useMessageItem";
+import { useUserStore } from "@/features/chat/stores/userStore";
 import Image from "next/image";
 import { MoreVertical, CornerUpLeft, Forward, Smile, X } from "lucide-react";
 import ReactionModal from "./ReactionModal";
@@ -11,6 +13,17 @@ interface MessageItemProps {
 }
 
 const MessageItem = ({ message }: MessageItemProps) => {
+  const requestUser = useUserStore(state => state.requestUser);
+  const senderUser = useUserStore(state => state.users[message.sender_id || '']);
+
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  useEffect(() => {
+    if (message.sender_id && !senderUser) {
+      requestUser(message.sender_id);
+    }
+  }, [message.sender_id, senderUser, requestUser]);
+
   const { 
     isMe, 
     isSystem, 
@@ -42,7 +55,7 @@ const MessageItem = ({ message }: MessageItemProps) => {
     <div className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
       {!isMe && (
         <Image
-          src={message.sender?.avatar_url || DEFAULT_AVATAR}
+          src={senderUser?.avatar_url || DEFAULT_AVATAR}
           alt="avatar"
           width={36}
           height={36}
@@ -102,7 +115,10 @@ const MessageItem = ({ message }: MessageItemProps) => {
           ) : (
             <>
               {message.type === 'image' && message.image?.url && (
-                <div className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm">
+                <div 
+                  className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm cursor-pointer"
+                  onClick={() => setShowImageModal(true)}
+                >
                   <img src={message.image.url} alt="Image message" className="w-full h-auto object-cover max-h-60 transition-transform hover:scale-105 duration-500" />
                 </div>
               )}
@@ -133,7 +149,7 @@ const MessageItem = ({ message }: MessageItemProps) => {
           <div className={`flex flex-wrap gap-1 mt-1 z-10 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
             {Object.entries(
               message.reactions.reduce((acc, curr) => {
-                acc[curr.emoji] = (acc[curr.emoji] || 0) + 1;
+                acc[curr.emoji] = (acc[curr.emoji] || 0);
                 return acc;
               }, {} as Record<string, number>)
             ).map(([emoji, count]) => (
@@ -155,6 +171,25 @@ const MessageItem = ({ message }: MessageItemProps) => {
       </div>
 
       {showReactionList && <ReactionModal message={message} onClose={() => setShowReactionList(false)} />}
+        {showImageModal && message.image?.url && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setShowImageModal(false)}
+        >
+          <img 
+            src={message.image.url} 
+            alt="Zoomed image" 
+            className="max-w-[90vw] max-h-[90vh] object-contain cursor-default" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+          <button 
+            onClick={() => setShowImageModal(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors cursor-pointer"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

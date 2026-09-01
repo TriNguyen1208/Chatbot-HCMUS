@@ -6,10 +6,12 @@ import { User } from "@/features/chat/types";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { useUserStore } from "@/features/chat/stores/userStore";
 
 export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const { user } = useAuthStore();
+  const { users, requestUser } = useUserStore();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -41,15 +43,19 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       id: user.id,
       name: user.name || "Tôi",
       email: user.email || "",
-      avatar_url: (user as any)?.avatar_url,
+      avatar_url: user?.avatar_url,
     });
   }
 
-  if (activeConversation?.members) {
-    activeConversation.members.forEach((m) => {
-      const mId = m.id || (m as any)._id;
+  if (activeConversation?.member_ids) {
+    activeConversation.member_ids.forEach((m) => {
+      const mId = m as string;
       if (mId && !existingMembersMap.has(mId)) {
-        existingMembersMap.set(mId, m);
+        const memberUser = users[mId];
+        if (!memberUser) {
+            requestUser(mId);
+        }
+        existingMembersMap.set(mId, memberUser || { id: mId, name: 'Loading...', email: '' });
       }
     });
   }
@@ -59,7 +65,7 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
 
   // Filter available users (not already in existing conversation)
   const availableUsers = allUsers.filter((u) => {
-    const uId = u.id || (u as any)._id;
+    const uId = u.id || u._id;
     return uId && !existingMemberIds.has(uId);
   });
 
@@ -86,10 +92,21 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
 
     try {
       setIsSubmitting(true);
+      // 1. NẾU ĐANG LÀ NHÓM SẴN: THỰC HIỆN THÊM THÀNH VIÊN
+      if (activeConversation?.type === "group" && activeConversation.id) {
+        await conversationApi.addMembers(activeConversation.id, selectedUserIds);
+        
+        // Cập nhật lại cache để load danh sách mới nhất
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        
+        onClose();
+        return;
+      }
+
+      // 2. NẾU TỪ CHAT 1-1: TIẾN HÀNH TẠO NHÓM MỚI
       const allMemberIds = Array.from(
         new Set([...Array.from(existingMemberIds), ...selectedUserIds])
       );
-
       const defaultName =
         groupName.trim() ||
         `Nhóm ${existingMembers.map((m) => m.name).join(", ")}`;
@@ -97,12 +114,8 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       const res = await conversationApi.createGroup(defaultName, allMemberIds);
       const newGroup = res.data || res;
 
-      // Update active conversation & invalidate query cache
       setActiveConversation(newGroup);
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
-      const newId = newGroup._id || newGroup.id;
-      router.push(`/group-chat?conversation_id=${newId}`);
 
       onClose();
     } catch (error) {
@@ -123,5 +136,6 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
     toggleSelectUser,
     handleCreateGroup,
     isSubmitting,
+    isGroup: activeConversation?.type === "group"
   };
 };

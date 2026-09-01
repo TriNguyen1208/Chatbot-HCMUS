@@ -3,6 +3,7 @@ import { useInView } from "react-intersection-observer";
 import { usePathname, useRouter } from "next/navigation";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { Conversation } from "@/features/chat/types";
 import { useConversationsQuery } from "./useChatQueries";
 
 export const useFriendMessageList = () => {
@@ -31,11 +32,11 @@ export const useFriendMessageList = () => {
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handleConversationClick = (conv: any) => {
+  const handleConversationClick = (conv: Conversation) => {
     setActiveConversation(conv);
-    router.push(`?conversation_id=${conv._id || conv.id}`);
+    router.push(`?conversation_id=${conv.id}`);
     // if (conv.type === 'utu') {
-    //   const receiverId = conv.members?.find((m: any) => m.id !== user?.id)?.id || conv.members?.[0]?.id;
+    //   const receiverId = conv.members?.find((m: string) => m !== user?.id)?.id || conv.members?.[0]?.id;
     //   router.push(`?receiver_id=${receiverId}`);
     // } else {
       

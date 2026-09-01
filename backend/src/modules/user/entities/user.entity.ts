@@ -8,6 +8,7 @@ export interface User {
     phone?: string;
     avatar_url?: string;
     last_active?: Date | string;
+    is_online?: boolean;
     created_at?: Date;
     updated_at?: Date;
 }

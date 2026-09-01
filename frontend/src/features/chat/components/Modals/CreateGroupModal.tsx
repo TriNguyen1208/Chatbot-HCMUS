@@ -24,6 +24,7 @@ export default function CreateGroupModal({
     toggleSelectUser,
     handleCreateGroup,
     isSubmitting,
+    isGroup
   } = useCreateGroupModal(isOpen, onClose);
 
   if (!isOpen) return null;
@@ -35,7 +36,7 @@ export default function CreateGroupModal({
         <div className="flex items-center justify-between p-5 border-b border-glass-border bg-surface-solid/50">
           <div className="flex items-center gap-3 text-txt-primary font-semibold text-lg">
             <Users className="size-5 text-brand-primary" />
-            <span>Tạo nhóm trò chuyện</span>
+            <span>{isGroup ? "Thêm thành viên" : "Tạo nhóm trò chuyện"}</span>
           </div>
           <button
             onClick={onClose}
@@ -68,7 +69,7 @@ export default function CreateGroupModal({
             <div className="flex flex-wrap gap-2 p-2.5 bg-input-surface rounded-xl border border-glass-border shadow-inner">
               {existingMembers.map((m) => (
                   <div
-                  key={m.id || (m as any)._id}
+                  key={m.id}
                     className="flex items-center gap-1.5 bg-surface px-2.5 py-1.5 rounded-full text-xs border border-glass-border shadow-sm text-txt-primary font-medium"
                   >
                     <Image
@@ -112,7 +113,7 @@ export default function CreateGroupModal({
               </p>
             ) : (
               filteredUsers.map((u) => {
-                const uId = (u.id || (u as any)._id) as string;
+                const uId = (u.id);
                 const isSelected = selectedUserIds.includes(uId);
 
                 return (
@@ -172,9 +173,7 @@ export default function CreateGroupModal({
             disabled={selectedUserIds.length === 0 || isSubmitting}
             className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-primary rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
           >
-            {isSubmitting
-              ? "Đang tạo..."
-              : `Tạo nhóm (${selectedUserIds.length})`}
+            {isSubmitting ? (isGroup ? "Đang thêm..." : "Đang tạo...") : (isGroup ? `Thêm thành viên (${selectedUserIds.length})` : `Tạo nhóm (${selectedUserIds.length})`)}
           </button>
         </div>
       </div>

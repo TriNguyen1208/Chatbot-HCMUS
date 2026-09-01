@@ -27,3 +27,10 @@ export const GetListQuery = z.object({
 export type GetByIDParamsDto = z.infer<typeof GetByIDParams>['params'];
 export type UpdateProfileDto = z.infer<typeof UpdateProfileSchema>['body'];
 export type GetListQueryDto = z.infer<typeof GetListQuery>["query"];
+
+export const GetBulkBodySchema = z.object({
+    body: z.object({
+        user_ids: z.array(z.string()).min(1).max(200, "Maximum 200 users per request")
+    }).strict(),
+});
+export type GetBulkBodyDto = z.infer<typeof GetBulkBodySchema>['body'];

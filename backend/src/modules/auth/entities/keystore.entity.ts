@@ -12,6 +12,8 @@ export interface KeyStore {
         ip?: string
     } | null;
     expires_at: Date;
+    created_at?: Date;
+    updated_at?: Date;
 }
 
 export interface KeyStoreDB extends Omit<KeyStore, 'id'> {
@@ -33,6 +35,8 @@ export const KeyStoreSchema = new Schema<KeyStoreDB>({
         default: null
     },
     expires_at: { type: Date, required: true }
+}, {
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
 
 export const KeyStoreModel = mongoose.model<KeyStoreDB>('KeyStore', KeyStoreSchema);

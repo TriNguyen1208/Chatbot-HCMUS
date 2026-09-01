@@ -12,5 +12,10 @@ export const userApi = {
     getUserById: async (id: string) => {
         const response = await api.get(`/user/${id}`);
         return response.data;
+    },
+
+    getBulkUsers: async (user_ids: string[]) => {
+        const response = await api.post('/user/bulk', { user_ids });
+        return response.data;
     }
 };

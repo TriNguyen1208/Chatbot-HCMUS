@@ -17,7 +17,7 @@ import { userContainer } from "#@/modules/user/user.container.js"
 const app = express()
 app.set("trust proxy", 1);
 const server = http.createServer(app)
-initSocket(server, conversationContainer.conversationService, userContainer.userService);
+initSocket(server);
 
 app.use(helmet())
 app.use(cors({

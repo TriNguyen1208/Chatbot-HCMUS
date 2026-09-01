@@ -2,6 +2,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { conversationApi } from "../api/conversation.api";
 import { messageApi } from "../api/message.api";
 import { Conversation, Message } from "../types";
+import { useUserStore } from "../stores/userStore";
+import { userApi } from "../api/user.api";
 
 export const useConversationsQuery = (type?: 'utu' | 'group') => {
   return useInfiniteQuery({
@@ -9,7 +11,23 @@ export const useConversationsQuery = (type?: 'utu' | 'group') => {
     
     queryFn: async ({ pageParam }) => {
       const res = await conversationApi.getConversations(20, pageParam as string | undefined, type);
-      return (Array.isArray(res.data) ? res.data : res) as Conversation[];
+      const conversations = (Array.isArray(res.data) ? res.data : res) as Conversation[];
+      
+      const userStoreState = useUserStore.getState();
+      const existingUsers = userStoreState.users;
+
+      conversations.forEach((conv) => {
+        conv.member_ids?.forEach((memberId) => {
+          if (!existingUsers[memberId]) {
+            userStoreState.requestUser(memberId);
+          }
+        });
+        if (conv.last_message?.sender_id && !existingUsers[conv.last_message.sender_id]) {
+          userStoreState.requestUser(conv.last_message.sender_id);
+        }
+      });
+
+      return conversations;
     },
     
     initialPageParam: undefined as string | undefined,
@@ -17,7 +35,7 @@ export const useConversationsQuery = (type?: 'utu' | 'group') => {
     getNextPageParam: (lastPage: Conversation[]) => {
       if (lastPage && lastPage.length === 20) {
         const lastItem = lastPage[lastPage.length - 1];
-        return lastItem.last_message?._id || (lastItem.last_message as any)?.id || lastItem._id || (lastItem as any).id;
+        return lastItem.last_message?.id || lastItem.id;
       }
       return undefined;
     }
@@ -40,7 +58,7 @@ export const useMessagesQuery = (conversationId?: string) => {
     getNextPageParam: (lastPage: Message[]) => {
       if (lastPage && lastPage.length === 20) {
         const lastItem = lastPage[lastPage.length - 1];
-        return lastItem._id || (lastItem as any).id;
+        return lastItem.id;
       }
       return undefined;
     },

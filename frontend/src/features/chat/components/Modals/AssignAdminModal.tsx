@@ -7,6 +7,7 @@ import { useChatStore } from "@/features/chat/stores/chatStore";
 import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
+import { useUserStore } from "@/features/chat/stores/userStore";
 
 interface AssignAdminModalProps {
   isOpen: boolean;
@@ -39,21 +40,18 @@ export default function AssignAdminModal({
 
   // Filter members who are NOT already admins
   const currentAdminIds = new Set(
-    (activeConversation.admins || []).map((a) => a.id || (a as any)._id)
+    (activeConversation.admin_ids || [])
   );
 
-  const nonAdminMembers = (activeConversation.members || []).filter((m) => {
-    const mId = m.id || (m as any)._id;
+  const nonAdminMembers = (activeConversation.member_ids || []).filter((m: string) => {
+    const mId = m as string;
     return mId && !currentAdminIds.has(mId);
   });
 
   const filteredMembers = nonAdminMembers.filter((m) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      m.name?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q)
-    );
+    const { users } = useUserStore.getState(); const user = users[m as string]; return user?.name?.toLowerCase().includes(q) || user?.email?.toLowerCase().includes(q);
   });
 
   const toggleSelectUser = (userId: string) => {
@@ -72,27 +70,27 @@ export default function AssignAdminModal({
       setIsSubmitting(true);
       setErrorMsg("");
 
-      const convId = activeConversation._id || (activeConversation as any).id;
+      const convId = activeConversation.id as string || activeConversation.id as string;
       await conversationApi.assignAdmins(convId, selectedAdminIds);
 
       // Invalidate queries to refresh sidebar and conversation details
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
       // Update activeConversation admins locally
-      const newlyPromoted = (activeConversation.members || []).filter((m) =>
-        selectedAdminIds.includes(m.id || (m as any)._id)
+      const newlyPromoted = (activeConversation.member_ids || []).filter((m: string) =>
+        selectedAdminIds.includes(m as string)
       );
 
       setActiveConversation({
         ...activeConversation,
-        admins: [...(activeConversation.admins || []), ...newlyPromoted],
+        admin_ids: [...(activeConversation.admin_ids || []), ...newlyPromoted.map((m: string) => m || m)],
       });
 
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi cấp quyền Admin:", error);
       setErrorMsg(
-        error?.response?.data?.message || "Không thể cấp quyền Admin"
+        (error as Error)?.message || "Đã xảy ra lỗi" || "Không thể cấp quyền Admin"
       );
     } finally {
       setIsSubmitting(false);
@@ -149,8 +147,10 @@ export default function AssignAdminModal({
                 Tất cả thành viên đã là Admin hoặc không tìm thấy
               </p>
             ) : (
-              filteredMembers.map((m) => {
-                const memberId = (m.id || (m as any)._id) as string;
+              filteredMembers.map((mId) => {
+                const { users } = useUserStore.getState(); const m = users[mId as string] || { id: mId, name: "Loading...", email: "" };
+                
+                const memberId = m.id as string;
                 const isSelected = selectedAdminIds.includes(memberId);
 
                 return (
@@ -165,7 +165,7 @@ export default function AssignAdminModal({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Image
-                        src={m.avatar_url || DEFAULT_AVATAR}
+                        src={(m as any).avatar_url || DEFAULT_AVATAR}
                         alt="avatar"
                         width={32}
                         height={32}
@@ -176,7 +176,7 @@ export default function AssignAdminModal({
                           {m.name}
                         </span>
                         <span className="text-xs text-txt-extra truncate">
-                          {m.email}
+                          {(m as any).email}
                         </span>
                       </div>
                     </div>

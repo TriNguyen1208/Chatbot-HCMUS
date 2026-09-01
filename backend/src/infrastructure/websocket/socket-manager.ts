@@ -1,12 +1,14 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 
+import { createAdapter } from "@socket.io/redis-adapter";
 import { socketAuthMiddleware } from "#@/shared/middlewares/socket-auth.middleware.js";
 import { config } from "#@/config/config.js";
-import type { ConversationService } from "#@/modules/conversation/services/conversation.service.js";
-import type { UserService } from "#@/modules/user/services/user.service.js";
+import { redisClient } from "#@/infrastructure/redis/redis.js";
+import { userContainer } from "#@/modules/user/user.container.js";
 
 const USER_ROOM = (userId: string) => `user:${userId}`;
+const ALL_USERS_ROOM = 'global:all_users';
 
 const CONVERSATION_ROOM = (conversationId: string) =>
     `conversation:${conversationId}`;
@@ -15,9 +17,7 @@ export class SocketManager {
     private readonly io: Server;
 
     constructor(
-        server: HttpServer,
-        private readonly conversationService: ConversationService,
-        private readonly userService: UserService,
+        server: HttpServer
     ) {
         this.io = new Server(server, {
             cors: {
@@ -25,17 +25,17 @@ export class SocketManager {
                 credentials: true,
             },
         });
+        
+        // Setup Redis adapter for distributed sockets
+        const pubClient = redisClient.getClient();
+        const subClient = pubClient.duplicate();
+        this.io.adapter(createAdapter(pubClient, subClient));
 
         // Authentication middleware
         this.io.use(socketAuthMiddleware);
-
         this.registerConnectionHandler();
     }
 
-
-    /**
-     * Register all Socket.IO connection handling.
-     */
     private registerConnectionHandler(): void {
         this.io.on("connection", (socket: Socket) => {
             const userId = socket.data.userId as string | undefined;
@@ -49,80 +49,38 @@ export class SocketManager {
                 return;
             }
             socket.join(USER_ROOM(userId));
+            socket.join(ALL_USERS_ROOM);
 
             console.log(
                 `[Socket.IO] User '${userId}' connected with socket '${socket.id}'`
             );
 
-            /*
-            void this.userService.userConnect(userId, socket.id).then(async (isOnline) => {
-                if (isOnline) {
-                    try {
-                        const conversations = await this.conversationService.getConversationList(userId, 100, undefined, 'utu');
-                        const friends = new Set<string>();
-                        conversations.forEach(c => {
-                            c.member_ids?.forEach((mId: any) => {
-                                if (mId.toString() !== userId) friends.add(mId.toString());
-                            });
-                        });
-                        
-                        if (friends.size > 0) {
-                            this.emitToUsers(Array.from(friends), "user_status_changed", { userId, isOnline: true });
-                        }
-                    } catch (err) {
-                        console.error(`[Socket.IO] Error broadcasting online status for user ${userId}`, err);
-                    }
-                }
+            // Update presence in Redis (24h TTL)
+            redisClient.set(`presence:${userId}`, "online", 24 * 3600).catch(err => {
+                console.error("[Socket.IO] Failed to set redis presence", err);
             });
-            */
 
-            // Heartbeat
-            /*
-            socket.on("ping", () => {
-                void this.userService.userHeartbeat(userId);
-            });
-            */
+            // Broadcast to other users
+            socket.broadcast.to(ALL_USERS_ROOM).emit("user_online", { userId });
 
             // Typing Indicator Handlers
-            socket.on("typing", async (data: { conversationId: string, name?: string }) => {
-                if (!data?.conversationId) return;
-                const room = CONVERSATION_ROOM(data.conversationId);
-                if (!socket.rooms.has(room)) {
-                    try {
-                        const conv = await this.conversationService.getConversationById(data.conversationId, userId as string);
-                        if (conv && conv.member_ids) {
-                            conv.member_ids.forEach((mId: any) => this.joinGroup(mId.toString(), data.conversationId));
-                        }
-                    } catch (e) {
-                        console.error("[Socket.IO] Error lazy joining on typing", e);
-                    }
-                }
-                socket.to(room).emit("user_typing", {
+            socket.on("typing", (data: { conversationId: string, receiverIds: string[], name?: string }) => {
+                if (!data?.conversationId || !data?.receiverIds || !Array.isArray(data.receiverIds)) return;
+                this.emitToUsers(data.receiverIds, "typing", {
                     conversationId: data.conversationId,
                     userId,
                     name: data.name || "Ai đó"
-                });
+                })
             });
 
-            socket.on("stop_typing", async (data: { conversationId: string }) => {
-                if (!data?.conversationId) return;
-                const room = CONVERSATION_ROOM(data.conversationId);
-                if (!socket.rooms.has(room)) {
-                    try {
-                        const conv = await this.conversationService.getConversationById(data.conversationId, userId as string);
-                        if (conv && conv.member_ids) {
-                            conv.member_ids.forEach((mId: any) => this.joinGroup(mId.toString(), data.conversationId));
-                        }
-                    } catch (e) {
-                        console.error("[Socket.IO] Error lazy joining on stop_typing", e);
-                    }
-                }
-                socket.to(room).emit("user_stop_typing", {
+            socket.on("stop_typing", (data: { conversationId: string, receiverIds: string[] }) => {
+                if (!data?.conversationId || !data?.receiverIds || !Array.isArray(data.receiverIds)) return;
+                
+                this.emitToUsers(data.receiverIds, "stop_typing", {
                     conversationId: data.conversationId,
                     userId
-                });
+                })
             });
-
             // Disconnect handler
             this.registerDisconnectHandler(socket, userId);
         });
@@ -144,76 +102,54 @@ export class SocketManager {
                 `[Socket.IO] User '${userId}' disconnected. ` +
                 `Socket: '${socket.id}', reason: '${reason}'`
             );
-            
-            /*
-            void this.userService.userDisconnect(userId, socket.id).then(async justWentOffline => {
-                if (justWentOffline) {
-                    try {
-                        const conversations = await this.conversationService.getConversationList(userId, 100, undefined, 'utu');
-                        const lastActive = new Date().toISOString();
-                        const friends = new Set<string>();
+
+            // Debounce for 3 seconds to handle page refresh / multiple tabs
+            setTimeout(async () => {
+                try {
+                    const isOnline = await this.isUserOnline(userId);
+                    if (!isOnline) {
+                        const lastActive = new Date();
                         
-                        conversations.forEach(c => {
-                            c.member_ids?.forEach((mId: any) => {
-                                if (mId.toString() !== userId) friends.add(mId.toString());
-                            });
+                        // Update presence in Redis to offline
+                        await redisClient.setJSON(`presence:${userId}`, { 
+                            status: 'offline', 
+                            last_active: lastActive 
+                        }, 24 * 3600);
+    
+                        // Update database
+                        await userContainer.userService.updatePresence(userId, lastActive);
+    
+                        // Broadcast offline event to all other users
+                        this.io.to(ALL_USERS_ROOM).emit("user_offline", { 
+                            userId, 
+                            last_active: lastActive 
                         });
-                        
-                        if (friends.size > 0) {
-                            this.emitToUsers(Array.from(friends), "user_status_changed", { userId, isOnline: false, lastActive });
-                        }
-                    } catch (err) {
-                        console.error(`[Socket.IO] Error broadcasting offline status for user ${userId}`, err);
                     }
+                } catch (error) {
+                    console.error("[Socket.IO] Error handling disconnect presence:", error);
                 }
-            });
-            */
+            }, 3000);
         });
     }
 
 
-    /**
-     * Emit event to all active devices/tabs of a user.
-     */
     public emitToUser(
         userId: string,
         event: string,
         data: unknown,
     ): void {
-        // 🔥 CHANGED:
-        // Không loop qua socketIds nữa.
-        //
-        // Socket.IO sẽ emit tới tất cả socket trong user room.
         this.io
             .to(USER_ROOM(userId))
             .emit(event, data);
     }
 
 
-    /**
-     * Make all active sockets of a user join a conversation.
-     *
-     * Useful when:
-     * - creating a new conversation
-     * - adding a member to a group
-     */
     public joinGroup(
         userId: string,
         conversationId: string,
     ): void {
         const room = CONVERSATION_ROOM(conversationId);
 
-        // 🔥 CHANGED:
-        //
-        // `io.in(userRoom).socketsJoin(room)`
-        //
-        // means:
-        //
-        // tất cả socket của user
-        //       ↓
-        // join conversation room
-        //
-        // Không cần tìm từng socketId.
         this.io
             .in(USER_ROOM(userId))
             .socketsJoin(room);
@@ -223,18 +159,12 @@ export class SocketManager {
         );
     }
 
-
-    /**
-     * Make all active sockets of a user leave a conversation.
-     */
     public leaveGroup(
         userId: string,
         conversationId: string,
     ): void {
         const room = CONVERSATION_ROOM(conversationId);
 
-        // 🔥 CHANGED:
-        // Không cần loop socket IDs.
         this.io
             .in(USER_ROOM(userId))
             .socketsLeave(room);
@@ -244,11 +174,6 @@ export class SocketManager {
         );
     }
 
-
-    /**
-     * Emit event to all members currently connected
-     * to a conversation.
-     */
     public emitToGroup(
         conversationId: string,
         event: string,
@@ -256,13 +181,6 @@ export class SocketManager {
     ): void {
         const room = CONVERSATION_ROOM(conversationId);
 
-        // 🔥 CHANGED:
-        // Không cần inspect room trước khi emit.
-        //
-        // Socket.IO sẽ tự xử lý:
-        // - room không tồn tại
-        // - room có 1 socket
-        // - room có 1000 sockets
         this.io
             .to(room)
             .emit(event, data);
@@ -300,13 +218,6 @@ export class SocketManager {
         return sockets.length > 0;
     }
 
-
-    /**
-     * Get Socket.IO instance.
-     *
-     * Useful when some infrastructure-level operation
-     * needs direct access.
-     */
     public getIO(): Server {
         return this.io;
     }
@@ -323,14 +234,10 @@ export let socketManager: SocketManager;
 // 🔥 CHANGED:
 // ConversationService được truyền vào thay vì dynamic import.
 export const initSocket = (
-    server: HttpServer,
-    conversationService: ConversationService,
-    userService: UserService,
+    server: HttpServer
 ): SocketManager => {
     socketManager = new SocketManager(
-        server,
-        conversationService,
-        userService,
+        server
     );
 
     return socketManager;

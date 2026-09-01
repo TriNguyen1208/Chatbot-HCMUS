@@ -1,4 +1,4 @@
-import type { UpdateUserProfileDto } from "#@/modules/user/dto/user.dto.js";
+import type { UpdateProfileDto } from "#@/modules/user/dto/user.dto.js";
 import { type IDatabase } from "#@/infrastructure/database/database.interface.js";
 import { type User, type UserDB } from "#@/modules/user/entities/user.entity.js";
 import { Types } from "mongoose";
@@ -15,6 +15,8 @@ export interface IUserRepository {
     ): Promise<User | null>;
 
     getList(limit: number, cursorId?: string): Promise<User[]>;
+
+    getBulk(ids: string[]): Promise<User[]>;
 }
 
 export class UserRepository implements IUserRepository {
@@ -92,6 +94,19 @@ export class UserRepository implements IUserRepository {
         }
 
         const data = await this.db.query<UserDB>('users', conditions, options);
+        return data.map(doc => this.mapToDomain(doc as UserDB) as User);
+    }
+
+    /**
+     * Retrieves multiple users by their IDs.
+     * @param ids Array of user IDs.
+     * @returns An array of user objects.
+     */
+    async getBulk(ids: string[]): Promise<User[]> {
+        const objectIds = ids.filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id));
+        if (objectIds.length === 0) return [];
+        
+        const data = await this.db.query<UserDB>('users', { _id: { $in: objectIds } } as any, {});
         return data.map(doc => this.mapToDomain(doc as UserDB) as User);
     }
 }

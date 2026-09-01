@@ -7,6 +7,7 @@ import { useChatStore } from "@/features/chat/stores/chatStore";
 import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
+import { useUserStore } from "@/features/chat/stores/userStore";
 import { User } from "@/features/chat/types";
 
 interface KickMemberModalProps {
@@ -40,24 +41,21 @@ export default function KickMemberModal({
 
   // Filter members excluding self and admins
   const adminIds = new Set(
-    (activeConversation.admins || []).map((a) => a.id || (a as any)._id)
+    (activeConversation.admin_ids || [])
   );
 
-  const kickableMembers = (activeConversation.members || []).filter((m) => {
-    const mId = m.id || (m as any)._id;
+  const kickableMembers = (activeConversation.member_ids || []).filter((m: string) => {
+    const mId = m as string;
     return mId !== user?.id && !adminIds.has(mId);
   });
 
   const filteredMembers = kickableMembers.filter((m) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      m.name?.toLowerCase().includes(q) ||
-      m.email?.toLowerCase().includes(q)
-    );
+    const { users } = useUserStore.getState(); const user = users[m as string]; return user?.name?.toLowerCase().includes(q) || user?.email?.toLowerCase().includes(q);
   });
 
-  const totalMembers = activeConversation.members?.length || 0;
+  const totalMembers = activeConversation.member_ids?.length || 0;
   const remainingCount = totalMembers - selectedUserIds.length;
   const isMinMembersViolation = remainingCount < 2;
 
@@ -78,27 +76,27 @@ export default function KickMemberModal({
       setIsSubmitting(true);
       setErrorMsg("");
 
-      const convId = activeConversation._id || (activeConversation as any).id;
+      const convId = activeConversation.id as string || activeConversation.id as string;
       await conversationApi.removeMembers(convId, selectedUserIds);
 
       // Invalidate queries to refresh sidebar and conversation details
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
       // Update activeConversation members locally
-      const updatedMembers = (activeConversation.members || []).filter(
-        (m) => !selectedUserIds.includes(m.id || (m as any)._id)
+      const updatedMembers = (activeConversation.member_ids || []).filter(
+        (m) => !selectedUserIds.includes(m as string)
       );
 
       setActiveConversation({
         ...activeConversation,
-        members: updatedMembers,
+        member_ids: updatedMembers,
       });
 
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Lỗi xóa thành viên:", error);
       setErrorMsg(
-        error?.response?.data?.message || "Không thể xóa thành viên khỏi nhóm"
+        (error as Error)?.message || "Đã xảy ra lỗi" || "Không thể xóa thành viên khỏi nhóm"
       );
     } finally {
       setIsSubmitting(false);
@@ -179,8 +177,10 @@ export default function KickMemberModal({
                 Không tìm thấy thành viên phù hợp
               </p>
             ) : (
-              filteredMembers.map((m) => {
-                const memberId = (m.id || (m as any)._id) as string;
+              filteredMembers.map((mId) => {
+                const { users } = useUserStore.getState(); const m = users[mId as string] || { id: mId, name: "Loading...", email: "" };
+                
+                const memberId = m.id as string;
                 const isSelected = selectedUserIds.includes(memberId);
 
                 return (
@@ -195,7 +195,7 @@ export default function KickMemberModal({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Image
-                        src={m.avatar_url || DEFAULT_AVATAR}
+                        src={(m as any).avatar_url || DEFAULT_AVATAR}
                         alt="avatar"
                         width={32}
                         height={32}
@@ -206,7 +206,7 @@ export default function KickMemberModal({
                           {m.name}
                         </span>
                         <span className="text-xs text-gray-400 truncate">
-                          {m.email}
+                          {(m as any).email}
                         </span>
                       </div>
                     </div>

@@ -41,5 +41,14 @@ export class ConversationFacade {
             primary_icon: data.primary_icon || 'default'
         });
     }
+
+    async getConversation(conversationId: string): Promise<string[]> {
+        try {
+            const conv = await this.conversationRepo.findByID(conversationId);
+            return conv?.member_ids?.map((id: any) => id.toString()) || [];
+        } catch {
+            return [];
+        }
+    }
 }
 export const conversationFacade = new ConversationFacade();

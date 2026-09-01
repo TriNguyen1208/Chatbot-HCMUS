@@ -6,6 +6,7 @@ import { env } from '@/config/env';
 import { Message, Conversation } from '../types';
 import { useChatStore } from '../stores/chatStore';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useUserStore } from '../stores/userStore';
 
 export const useChatSocket = () => {
     const socketRef = useRef<Socket | null>(null);
@@ -22,7 +23,7 @@ export const useChatSocket = () => {
 
         socket.on('connect', () => {
             console.log('Connected to Chat Socket');
-            
+
             // Advanced Heartbeat mechanism with jitter to avoid simultaneous pings
             const pingInterval = setInterval(() => {
                 const jitter = Math.random() * 2000; // 0 to 2 seconds jitter
@@ -32,47 +33,32 @@ export const useChatSocket = () => {
                     }
                 }, jitter);
             }, 29000); // Ping every 29 seconds
-            
+
             socket.once('disconnect', () => {
                 clearInterval(pingInterval);
             });
         });
 
-        socket.on('user_status_changed', (data: { userId: string, isOnline: boolean, lastActive?: string }) => {
-            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
-                if (!oldData) return oldData;
-                const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((conv: any) => {
-                        if (conv.members) {
-                            const newMembers = conv.members.map((m: any) => {
-                                if (m.id === data.userId) {
-                                    return { ...m, last_active: data.isOnline ? "online" : data.lastActive };
-                                }
-                                return m;
-                            });
-                            return { ...conv, members: newMembers };
-                        }
-                        return conv;
-                    })
-                );
-                return { ...oldData, pages: newPages };
-            });
+        socket.on('user_online', (data: { userId: string }) => {
+            useUserStore.getState().updateUserPresence(data.userId, true);
         });
 
-        socket.on('user_typing', (data: { conversationId: string, userId: string, name: string }) => {
+        socket.on('user_offline', (data: { userId: string, last_active: string }) => {
+            useUserStore.getState().updateUserPresence(data.userId, false, data.last_active);
+        });        
+        socket.on('typing', (data: { conversationId: string, userId: string, name: string }) => {
             useChatStore.getState().addTypingUser(data.conversationId, data.userId, data.name);
         });
 
-        socket.on('user_stop_typing', (data: { conversationId: string, userId: string }) => {
+        socket.on('stop_typing', (data: { conversationId: string, userId: string }) => {
             useChatStore.getState().removeTypingUser(data.conversationId, data.userId);
         });
 
         // 4. LẮNG NGHE SỰ KIỆN: CÓ TIN NHẮN MỚI
         socket.on('new_message', (message: Message) => {
             console.log("Frontend received new_message:", message);
-            queryClient.setQueryData(['messages', message.conversation?._id], (oldData: any) => {
+            queryClient.setQueryData(['messages', message.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 // Nếu chưa có cache (trường hợp tạo mới), tự tạo một cache ảo
-                console.log()
                 if (!oldData) {
                     return {
                         pages: [[message]],
@@ -81,22 +67,33 @@ export const useChatSocket = () => {
                 }
 
                 const newPages = [...oldData.pages];
-                const exists = newPages[0]?.some((m: any) => m._id === message._id);
-                if (exists) return oldData;
+                let isUpdated = false;
 
-                newPages[0] = [message, ...(newPages[0] || [])];
+                // Cập nhật lại tin nhắn nếu đã tồn tại (dùng cho trường hợp Video xử lý xong)
+                newPages[0] = newPages[0]?.map((m: Message) => {
+                    if (m.id === message.id) {
+                        isUpdated = true;
+                        return message; // Thay thế bằng tin nhắn mới nhất
+                    }
+                    return m;
+                }) || [];
+
+                // Nếu chưa tồn tại thì thêm mới vào đầu
+                if (!isUpdated) {
+                    newPages[0] = [message, ...newPages[0]];
+                }
 
                 return { ...oldData, pages: newPages };
             });
 
-            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
 
                 let updatedConv: any = null;
                 const newPages = oldData.pages.map((page: any[]) => {
-                    return page.filter((conv: any) => {
+                    return page.filter((conv: Conversation) => {
                         // Nếu tìm thấy đúng cuộc hội thoại mà tin nhắn mới vừa bay tới
-                        if (conv._id === message.conversation?._id || (conv as any).id === message.conversation?._id) {
+                        if (conv.id === message.conversation_id || conv.id === message.conversation_id) {
                             updatedConv = {
                                 ...conv,
                                 last_message: message,
@@ -118,22 +115,22 @@ export const useChatSocket = () => {
         });
 
         // 5. LẮNG NGHE SỰ KIỆN: CÓ NGƯỜI SỬA TIN NHẮN
-        socket.on('message_edited', (data: any) => {
-            queryClient.setQueryData(['messages', data.conversation_id], (oldData: any) => {
+        socket.on('message_edited', (data: { conversation_id: string, messageId: string, content: string, updated_at: string }) => {
+            queryClient.setQueryData(['messages', data.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((msg: any) => (msg._id === data.messageId || msg.id === data.messageId) ? { ...msg, content: data.content, updated_at: data.updated_at, is_edited: true } : msg)
+                    page.map((msg: Message) => (msg.id === data.messageId || msg.id === data.messageId) ? { ...msg, content: data.content, updated_at: data.updated_at, is_edited: true } : msg)
                 );
                 return { ...oldData, pages: newPages };
             });
 
-            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((conv: any) => {
-                        if ((conv._id === data.conversation_id || (conv as any).id === data.conversation_id) &&
+                    page.map((conv: Conversation) => {
+                        if ((conv.id === data.conversation_id || conv.id === data.conversation_id) &&
                             conv.last_message &&
-                            (conv.last_message._id === data.messageId || conv.last_message.id === data.messageId)) {
+                            (conv.last_message.id === data.messageId || conv.last_message.id === data.messageId)) {
                             return {
                                 ...conv,
                                 last_message: { ...conv.last_message, content: data.content, updated_at: data.updated_at, is_edited: true }
@@ -146,23 +143,23 @@ export const useChatSocket = () => {
             });
         });
 
-        socket.on('message_reaction_updated', (data: any) => {
+        socket.on('message_reaction_updated', (data: { conversation_id: string, message_id: string, reactions: any[] }) => {
             console.log(data)
-            queryClient.setQueryData(['messages', data.conversation_id], (oldData: any) => {
+            queryClient.setQueryData(['messages', data.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((msg: any) => (msg._id === data.message_id || msg.id === data.message_id) ? { ...msg, reactions: data.reactions } : msg)
+                    page.map((msg: Message) => (msg.id === data.message_id || msg.id === data.message_id) ? { ...msg, reactions: data.reactions } : msg)
                 );
                 return { ...oldData, pages: newPages };
             });
 
-            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((conv: any) => {
-                        if ((conv._id === data.conversation_id || (conv as any).id === data.conversation_id) &&
+                    page.map((conv: Conversation) => {
+                        if ((conv.id === data.conversation_id || conv.id === data.conversation_id) &&
                             conv.last_message &&
-                            (conv.last_message._id === data.message_id || conv.last_message.id === data.message_id)) {
+                            (conv.last_message.id === data.message_id || conv.last_message.id === data.message_id)) {
                             return {
                                 ...conv,
                                 last_message: { ...conv.last_message, reactions: data.reactions }
@@ -176,22 +173,22 @@ export const useChatSocket = () => {
         });
 
         // 6. LẮNG NGHE SỰ KIỆN: CÓ NGƯỜI THU HỒI TIN NHẮN
-        socket.on('message_recalled', (data: any) => {
-            queryClient.setQueryData(['messages', data.conversation_id], (oldData: any) => {
+        socket.on('message_recalled', (data: { conversation_id: string, messageId: string }) => {
+            queryClient.setQueryData(['messages', data.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((msg: any) => (msg._id === data.messageId || msg.id === data.messageId) ? { ...msg, status: 'recalled' } : msg)
+                    page.map((msg: Message) => (msg.id === data.messageId || msg.id === data.messageId) ? { ...msg, status: 'recalled' } : msg)
                 );
                 return { ...oldData, pages: newPages };
             });
 
-            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: any) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((conv: any) => {
-                        if ((conv._id === data.conversation_id || (conv as any).id === data.conversation_id) &&
+                    page.map((conv: Conversation) => {
+                        if ((conv.id === data.conversation_id || conv.id === data.conversation_id) &&
                             conv.last_message &&
-                            (conv.last_message._id === data.messageId || conv.last_message.id === data.messageId)) {
+                            (conv.last_message.id === data.messageId || conv.last_message.id === data.messageId)) {
                             return {
                                 ...conv,
                                 last_message: { ...conv.last_message, status: 'recalled' }
@@ -207,14 +204,14 @@ export const useChatSocket = () => {
         // 7. LẮNG NGHE SỰ KIỆN: BẠN ĐƯỢC THÊM VÀO NHÓM MỚI (Hoặc có người lạ vừa nhắn tin)
         socket.on('new_conversation', (conversation: Conversation) => {
             console.log("Frontend received new_conversation:", conversation);
-            const updateCache = (queryKey: any[]) => {
-                queryClient.setQueryData(queryKey, (oldData: any) => {
+            const updateCache = (queryKey: string[]) => {
+                queryClient.setQueryData(queryKey, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                     if (!oldData) {
                         return { pages: [[conversation]], pageParams: [undefined] };
                     }
                     const newPages = [...oldData.pages];
 
-                    const exists = newPages[0]?.some((c: any) => c._id === conversation._id);
+                    const exists = newPages[0]?.some((c: Conversation) => c.id === conversation.id);
                     if (exists) return oldData;
 
                     newPages[0] = [conversation, ...(newPages[0] || [])];
@@ -227,10 +224,10 @@ export const useChatSocket = () => {
 
             // Fix lỗi người dùng tạo đoạn chat mới lần đầu tiên không nhảy URL và ActiveConversation
             const { activeConversation, setActiveConversation } = useChatStore.getState();
-            if (activeConversation && !activeConversation._id && !(activeConversation as any).id) {
-                if (conversation.type === 'utu' && conversation.members?.some((m: any) => m.id === (activeConversation as any).receiver_id)) {
+            if (activeConversation && !activeConversation.id && !activeConversation.id) {
+                if (conversation.type === 'utu' && conversation.member_ids?.some((m: string) => m === activeConversation.receiver_id)) {
                     setActiveConversation(conversation);
-                    router.replace(`?conversation_id=${conversation._id}`);
+                    router.replace(`?conversation_id=${conversation.id}`);
                 }
             }
         });
@@ -242,7 +239,7 @@ export const useChatSocket = () => {
             const { activeConversation, setActiveConversation } = useChatStore.getState();
 
             if (user?.id && data.memberIds.includes(user.id)) {
-                const currentActiveId = activeConversation?._id || (activeConversation as any)?.id;
+                const currentActiveId = activeConversation?.id || activeConversation?.id;
                 if (currentActiveId === data.conversationId) {
                     setActiveConversation(null);
                     router.push('/group-chat');
@@ -256,7 +253,7 @@ export const useChatSocket = () => {
             const { activeConversation, setActiveConversation } = useChatStore.getState();
 
             if (user?.id && data.userId === user.id) {
-                const currentActiveId = activeConversation?._id || (activeConversation as any)?.id;
+                const currentActiveId = activeConversation?.id || activeConversation?.id;
                 if (currentActiveId === data.conversationId) {
                     setActiveConversation(null);
                     router.push('/group-chat');

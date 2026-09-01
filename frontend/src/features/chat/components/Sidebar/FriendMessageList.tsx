@@ -13,10 +13,10 @@ const FriendMessageList = () => {
   return (
     <ul className="flex flex-col gap-1 w-full h-full overflow-y-auto overflow-x-hidden scrollbar-thumb-input-surface scrollbar-track-white/40 scroll-smooth scrollbar-thin scrollbar-gutter-stable px-2">
       {conversations.map((conv) => (
-        <li key={(conv as any)._id || (conv as any).id} className="w-full">
+        <li key={conv.id} className="w-full">
           <ChatCard 
             conversation={conv} 
-            isActive={((activeConversation as any)?._id || (activeConversation as any)?.id) === ((conv as any)._id || (conv as any).id)}
+            isActive={activeConversation?.id === conv.id}
             onClick={() => handleConversationClick(conv)}
           />
         </li>

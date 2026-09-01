@@ -1,6 +1,6 @@
 import createHttpError from "http-errors";
 import type { IUserRepository } from "#@/modules/user/repositories/user.repository.js";
-import type { UpdateUserProfileDto } from "#@/modules/user/dto/user.dto.js";
+import type { UpdateProfileDto } from "#@/modules/user/dto/user.dto.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
 import type { User } from "../entities/user.entity.js";
 
@@ -40,7 +40,7 @@ export class UserService {
      */
     async update(
         userID: string,
-        payload: UpdateUserProfileDto
+        payload: UpdateProfileDto
     ): Promise<User>{
         //Update database and delete cache (Cache-aside method)
         const user = await this.userRepository.update(userID, payload);
@@ -67,81 +67,63 @@ export class UserService {
     }
 
     /**
-     * Handles a user connecting a new socket.
-     * @param userID The user's ID
-     * @param socketID The socket's ID
-     * @returns boolean true if the user just came online
+     * Retrieves multiple users by their IDs.
+     * Tries to fetch from Redis first, then fetches missing from DB and updates cache.
+     * @param ids Array of user IDs.
+     * @returns An array of user objects.
      */
-    async userConnect(userID: string, socketID: string): Promise<boolean> {
-        const client = redisClient.getClient();
-        await client.sadd(`presence:sockets:${userID}`, socketID);
-        await client.set(`presence:heartbeat:${userID}`, "1", "EX", 45); // Heartbeat with TTL
-
-        const count = await client.scard(`presence:sockets:${userID}`);
-        if (count === 1) {
-            // Cập nhật last_active là thời điểm hiện tại khi online (Tuỳ chọn, nhưng giúp record thời điểm bắt đầu session)
-            await this.update(userID, { last_active: new Date().toISOString() });
-            return true; 
+    async getBulk(ids: string[]): Promise<User[]> {
+        const uniqueIds = Array.from(new Set(ids));
+        const cacheKeys = uniqueIds.map(id => `user:${id}`);
+        
+        let cachedUsers: (User | null)[] = [];
+        if (cacheKeys.length > 0) {
+            // Redis MGET for JSON is not standard in some libs, so we might need multiple gets, 
+            // but for simplicity we will just loop or use mget if available.
+            // Using a loop for guaranteed JSON parse safety.
+            cachedUsers = await Promise.all(cacheKeys.map(key => redisClient.getJSON(key)));
         }
-        return false;
+
+        const foundUsers = cachedUsers.filter(u => u !== null) as User[];
+        const foundIds = new Set(foundUsers.map(u => u.id));
+        const missingIds = uniqueIds.filter(id => !foundIds.has(id));
+        let allUsers = [...foundUsers];
+
+        if (missingIds.length > 0) {
+            const missingUsers = await this.userRepository.getBulk(missingIds);
+            
+            // Save missing users to cache
+            await Promise.all(missingUsers.map(u => 
+                redisClient.setJSON(`user:${u.id}`, u, 3600)
+            ));
+
+            allUsers = [...allUsers, ...missingUsers];
+        }
+
+        if (allUsers.length > 0) {
+            const presenceKeys = allUsers.map(u => `presence:${u.id}`);
+            const presenceData = await redisClient.mget(presenceKeys);
+            
+            allUsers = allUsers.map((user, index) => {
+                const isOnline = presenceData[index] === "online";
+                return {
+                    ...user,
+                    is_online: isOnline
+                };
+            });
+        }
+
+        return allUsers;
     }
 
     /**
-     * Handles a user disconnecting a socket.
-     * @param userID The user's ID
-     * @param socketID The socket's ID
-     * @returns boolean true if the user just went offline
+     * Updates a user's presence (last active time).
+     * @param userID The ID of the user.
+     * @param lastActive The last active timestamp.
      */
-    async userDisconnect(userID: string, socketID: string): Promise<boolean> {
-        const client = redisClient.getClient();
-        await client.srem(`presence:sockets:${userID}`, socketID);
-        const count = await client.scard(`presence:sockets:${userID}`);
-        
-        if (count === 0) {
-            // Delete heartbeat
-            await client.del(`presence:heartbeat:${userID}`);
-            // Save last_active
-            const lastActive = new Date().toISOString();
-            await this.update(userID, { last_active: lastActive });
-            return true; // Just went offline
-        }
-        return false;
-    }
-
-    /**
-     * Renews the heartbeat TTL for the user.
-     * @param userID The user's ID
-     */
-    async userHeartbeat(userID: string): Promise<void> {
-        const client = redisClient.getClient();
-        await client.set(`presence:heartbeat:${userID}`, "1", "EX", 45);
-    }
-
-    /**
-     * Gets the online status of multiple users.
-     * @param userIDs Array of user IDs
-     * @returns A map of userID to isOnline boolean
-     */
-    async getUsersStatus(userIDs: string[]): Promise<Record<string, boolean>> {
-        if (!userIDs || userIDs.length === 0) return {};
-        
-        const client = redisClient.getClient();
-        const pipeline = client.pipeline();
-        
-        userIDs.forEach(id => {
-            pipeline.exists(`presence:heartbeat:${id}`);
-        });
-        
-        const results = await pipeline.exec();
-        const statusMap: Record<string, boolean> = {};
-        
-        for (let i = 0; i < userIDs.length; i++) {
-            const id = userIDs[i] as string;
-            // results[i] is [error, result] where result is 1 (exists) or 0 (not exists)
-            const isOnline = results && results[i] && !results[i]![0] ? results[i]![1] === 1 : false;
-            statusMap[id] = isOnline;
-        }
-        
-        return statusMap;
+    async updatePresence(userID: string, lastActive: Date): Promise<void> {
+        await this.userRepository.update(userID, { last_active: lastActive });
+        // Invalidate cache for this user
+        await redisClient.del(`user:${userID}`);
     }
 }

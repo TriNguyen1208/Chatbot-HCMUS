@@ -12,7 +12,7 @@ const SidebarProfile = () => {
     <div className="flex flex-row items-center justify-between w-full h-[64px] border-t border-glass-border px-4 bg-surface/50 backdrop-blur-md mt-auto transition-colors duration-300">
       <div className="flex flex-row items-center gap-3 w-full">
         <Image
-          src={user?.avatar_url || DEFAULT_AVATAR}
+          src={(user as any)?.avatar_url || DEFAULT_AVATAR}
           alt={user?.name || "User Avatar"}
           width={36}
           height={36}

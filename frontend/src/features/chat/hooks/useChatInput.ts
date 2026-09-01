@@ -24,28 +24,32 @@ export const useChatInput = () => {
 
   const emitTyping = useCallback(() => {
     if (!socket || !activeConversation || !user) return;
-    const convId = activeConversation._id || (activeConversation as any).id;
+    const convId = activeConversation.id || activeConversation.id;
     if (!convId) return;
 
-    socket.emit('typing', { conversationId: convId, name: user.name });
+    const receiverIds = activeConversation.member_ids?.filter((id: string) => id !== user.id) || [];
+    socket.emit('typing', { conversationId: convId, name: user.name, receiverIds });
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop_typing', { conversationId: convId });
+      socket.emit('stop_typing', { conversationId: convId, receiverIds });
     }, 2000);
   }, [socket, activeConversation, user]);
 
   const emitStopTyping = useCallback(() => {
-    if (!socket || !activeConversation) return;
-    const convId = activeConversation._id || (activeConversation as any).id;
+    if (!socket || !activeConversation || !user) return;
+    const convId = activeConversation.id || activeConversation.id;
     if (!convId) return;
-    socket.emit('stop_typing', { conversationId: convId });
+    
+    const receiverIds = activeConversation.member_ids?.filter((id: string) => id !== user.id) || [];
+    socket.emit('stop_typing', { conversationId: convId, receiverIds });
+    
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-  }, [socket, activeConversation]);
+  }, [socket, activeConversation, user]);
 
   const handleContentChange = (val: string) => {
     setContent(val);
@@ -105,7 +109,7 @@ export const useChatInput = () => {
     setIsUploading(true);
 
     try {
-      const payload: any = { type: 'text' };
+      const payload: Record<string, unknown> = { type: 'text' };
       if (currentContent.trim()) payload.content = currentContent;
 
       if (currentMedia) {
@@ -118,11 +122,11 @@ export const useChatInput = () => {
         }
       }
 
-      const convId = activeConversation._id || (activeConversation as any).id;
+      const convId = activeConversation.id || activeConversation.id;
       
       if (!convId && activeConversation.type === 'utu') {
-        const members = activeConversation.members || [];
-        const receiverId = (activeConversation as any).receiver_id || members.find((m: any) => m.id !== user?.id)?.id || members[0]?.id;
+        const members = activeConversation.member_ids || [];
+        const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
         payload.receiver_id = receiverId; // Báo cho server biết người nhận là ai để server tự gom box chat (hoặc tạo box mới)
       } else {
         payload.conversation_id = convId; // Nhắn vào box chat cụ thể đã có sẵn
@@ -199,7 +203,7 @@ export const useChatInput = () => {
     };
   }, []);
 
-  const handleEmojiSelect = (emoji: any) => {
+  const handleEmojiSelect = (emoji: { native: string }) => {
     setContent((prev) => prev + emoji.native);
   };
   return {

@@ -3,13 +3,13 @@ import { useAuthStore } from "@/features/auth/stores/authStore";
 import { Message } from "../types";
 import { useState, useRef, useEffect } from "react";
 import { messageApi } from "../api/message.api";
+import { useChatStore } from "../stores/chatStore";
 
 export const useMessageItem = (message: Message) => {
   const { user } = useAuthStore();
-
-  const senderId = message.sender?.id;
+  
+  const senderId = message.sender_id;
   const isMe = senderId === user?.id;
-
   const isSystem = message.type === 'system' || senderId === 'system';
 
   const timeDisplay = message.created_at ? format(new Date(message.created_at), "h:mm a") : "";
@@ -37,7 +37,7 @@ export const useMessageItem = (message: Message) => {
 
   const handleRecall = async () => {
     try {
-      await messageApi.recallMessage(message._id || (message as any).id);
+      await messageApi.recallMessage(message.id as string || message.id as string);
       setShowMenu(false);
     } catch (error) {
       console.error("Failed to recall message", error);
@@ -45,14 +45,14 @@ export const useMessageItem = (message: Message) => {
   };
 
   const handleForward = () => {
-    console.log("Forward message", message._id);
+    console.log("Forward message", message.id as string);
     setShowMenu(false);
   };
 
   const handleReact = async (emoji: string) => {
     setShowReactMenu(false);
     try {
-      await messageApi.toggleReaction(message._id || (message as any).id, emoji);
+      await messageApi.toggleReaction(message.id as string || message.id as string, emoji);
     } catch (error) {
       console.error("Failed to toggle reaction", error);
     }

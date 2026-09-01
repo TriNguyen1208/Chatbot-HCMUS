@@ -16,7 +16,7 @@ const MessageList = () => {
     const activeConversation = useChatStore(state => state.activeConversation);
     const typingUsersMap = useChatStore(state => state.typingUsers);
 
-    const convId = activeConversation?._id || (activeConversation as any)?.id;
+    const convId = activeConversation?.id
     const currentTypingUsers = (convId ? (typingUsersMap[convId] || []) : []).filter(u => u.userId !== user?.id);
 
     return (
@@ -38,7 +38,7 @@ const MessageList = () => {
             
             {messages.map((msg) => (
                 <MessageItem
-                    key={msg._id || (msg as any).id}
+                    key={msg.id || (msg as any).id}
                     message={msg}
                 />
             ))}

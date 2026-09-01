@@ -34,6 +34,16 @@ class RedisClient{
             return null
         }
     }
+    
+    async mget(keys: string[]): Promise<(string | null)[]>{
+        if (keys.length === 0) return [];
+        try{
+            console.log(`[Redis] MGET: ${keys.join(', ')}`);
+            return await this.client.mget(keys);
+        }catch(error){
+            return keys.map(() => null);
+        }
+    }
     async set(key: string, value: string, ttlSeconds: number): Promise<void>{
         try{
             console.log(`[Redis] SET: ${key}`);

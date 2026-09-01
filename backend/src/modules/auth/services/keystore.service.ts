@@ -97,7 +97,7 @@ export class KeystoreService {
             rawRefreshToken: newTokens.refreshToken,
             device_info: deviceInfo,
             family_id: keyStore.family_id,
-            parent_id: keyStore.parent_id,
+            parent_id: hashRefreshToken,
             expires_at: expiresTime
         })
         return {

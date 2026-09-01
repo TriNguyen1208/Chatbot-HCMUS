@@ -79,14 +79,8 @@ export class MessageService {
         // Invalidate caches
         await redisClient.del(`conversation:${conversation_id}`);
 
-        // Lazy join members before emitting
         const members = await this.conversationFacade.getConversationMembers(conversation_id.toString(), sender_id);
-        members.forEach(memberId => {
-            socketManager.joinGroup(memberId, conversation_id.toString());
-        });
-
-        // Step 5: Fire SocketIO to notify everyone in the chat room (conversation_id)
-        socketManager.emitToGroup(conversation_id.toString(), "new_message", savedMessage);
+        socketManager.emitToUsers(members, "new_message", savedMessage);
         return {
             status: 'success',
             data: savedMessage
@@ -137,7 +131,8 @@ export class MessageService {
         const convIdStr = message.conversation_id.toString();
         await redisClient.del(`conversation:${convIdStr}`);
 
-        socketManager.emitToGroup(convIdStr, "message_edited", { messageId, content: newContent, updated_at: updatedAt, conversation_id: convIdStr });
+        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
+        socketManager.emitToUsers(members, "message_edited", { messageId, content: newContent, updated_at: updatedAt, conversation_id: convIdStr });
     }
 
     /**
@@ -156,8 +151,8 @@ export class MessageService {
         const convIdStr = message.conversation_id?.toString() as string;
         await redisClient.del(`conversation:${convIdStr}`);
 
-        socketManager.emitToGroup(convIdStr, "message_recalled", { messageId, conversation_id: convIdStr });
-    }
+        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
+        socketManager.emitToUsers(members, "message_recalled", { messageId, conversation_id: convIdStr });    }
 
     /**
      * Creates and emits a system-generated message (e.g., "User joined the group").
@@ -178,7 +173,8 @@ export class MessageService {
         // Invalidate caches
         await redisClient.del(`conversation:${conversationId}`);
 
-        socketManager.emitToGroup(conversationId, "new_message", savedMessage);
+        const members = await this.conversationFacade.getConversation(conversationId);
+        socketManager.emitToUsers(members, "new_message", savedMessage);
     }
 
     /**
@@ -204,7 +200,8 @@ export class MessageService {
             // Invalidate caches
             await redisClient.del(`conversation:${convIdStr}`);
 
-            socketManager.emitToGroup(convIdStr, "new_message", updatedMessage);
+            const members = await this.conversationFacade.getConversation(convIdStr);
+            socketManager.emitToUsers(members, "new_message", updatedMessage);
         }
     }
 
@@ -227,11 +224,13 @@ export class MessageService {
 
         const convIdStr = message.conversation_id.toString()
         // Emit socket event
-        socketManager.emitToGroup(convIdStr, "message_reaction_updated", {
+        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
+        socketManager.emitToUsers(members, "message_reaction_updated", {
             message_id: updatedMessage.id,
             reactions: updatedMessage.reactions,
             conversation_id: convIdStr
         });
+
 
         return updatedMessage;
     }

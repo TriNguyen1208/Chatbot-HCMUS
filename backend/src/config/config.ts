@@ -79,7 +79,7 @@ class Config {
         ];
         this.rateLimit = {
             windowMs: 15 * 60 * 1000,
-            limit: 100,
+            limit: parseInt(process.env.RATE_LIMIT || "1000"),
             message: "Too many request from this IP, please try again after 15 minutes",
         }
         this.redis = {

@@ -5,7 +5,6 @@ import createError from "http-errors";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
-import { userContainer } from "#@/modules/user/user.container.js";
 
 export class ConversationService {
     constructor(
@@ -42,13 +41,9 @@ export class ConversationService {
         const created = await this.conversationRepo.create(newConversation);
 
         // Force all members to join the new room via SocketManager
-        const new_members = created.member_ids || [];
-        new_members.forEach((memberId) => {
-            socketManager.joinGroup(memberId.toString(), created.id!);
-        });
-
-        socketManager.emitToGroup(
-            created.id!,
+        const new_members = created.member_ids?.map((member_id) => member_id.toString()) || [];
+        socketManager.emitToUsers(
+            new_members,
             "new_conversation",
             created
         );
@@ -135,15 +130,9 @@ export class ConversationService {
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
 
-        socketManager.emitToGroup(conversationId, "members_added", { conversationId, newMemberIds: membersToAdd });
-
-        // Force new members to join the socket room
-        membersToAdd.forEach(memberId => {
-            socketManager.joinGroup(memberId, conversationId);
-        });
-
+        const allMembers = updatedConv?.member_ids?.map((id) => id.toString()) || [];
         socketManager.emitToUsers(membersToAdd, "new_conversation", updatedConv);
-
+        socketManager.emitToUsers(allMembers, "members_added", { conversationId, newMemberIds: membersToAdd });
         await this.sendSystemMessage(conversationId, `${membersToAdd.length} user(s) added to group`);
     }
 
@@ -182,11 +171,9 @@ export class ConversationService {
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
 
-        validMemberIds.forEach(memberId => {
-            socketManager.leaveGroup(memberId, conversationId);
-        });
-
-        socketManager.emitToGroup(conversationId, "members_kicked", { conversationId, memberIds: validMemberIds });
+        const remainingMembers = conv.member_ids?.map((id) => id.toString()).filter(id => !validMemberIds.includes(id)) || [];
+        // Thông báo cho cả người bị kick và người còn lại
+        socketManager.emitToUsers([...remainingMembers, ...validMemberIds], "members_kicked", { conversationId, memberIds: validMemberIds });
         await this.sendSystemMessage(conversationId, `Admin đã xóa ${validMemberIds.length} thành viên khỏi nhóm`);
     }
 
@@ -212,8 +199,7 @@ export class ConversationService {
 
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
-
-        socketManager.emitToGroup(conversationId, "admins_updated", { conversationId, adminIds: validAdminIds });
+        socketManager.emitToUsers(currentMemberIds, "admins_updated", { conversationId, adminIds: validAdminIds });
         await this.sendSystemMessage(conversationId, `Admin đã cấp quyền Quản trị viên cho thành viên mới`);
     }
 
@@ -246,8 +232,7 @@ export class ConversationService {
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
 
-        socketManager.emitToGroup(conversationId, "member_left", { conversationId, userId });
-        socketManager.leaveGroup(userId, conversationId);
+        socketManager.emitToUsers(memberIds, "member_left", { conversationId, userId });
         await this.sendSystemMessage(conversationId, `${userName} đã rời khỏi nhóm`);
     }
 }

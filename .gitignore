@@ -213,3 +213,4 @@ package-lock.json
 Login_Signup.md
 .vscode
 backend/note.md
+.agent/

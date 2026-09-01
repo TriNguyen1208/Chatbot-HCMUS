@@ -56,4 +56,16 @@ export class UserController {
         const users = await this.userService.getList(query.limit, query.cursor_id);
         return apiResponse.success(res, users);
     }
+
+    /**
+     * Retrieves multiple users by their IDs in bulk.
+     * @param req The Express request object containing user_ids in body.
+     * @param res The Express response object.
+     * @param next The Express next middleware function.
+     */
+    getBulk = async (req: Request, res: Response, next: NextFunction) => {
+        const { user_ids } = req.body as { user_ids: string[] };
+        const users = await this.userService.getBulk(user_ids);
+        return apiResponse.success(res, users);
+    }
 }

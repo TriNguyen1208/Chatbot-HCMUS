@@ -3,12 +3,14 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { useUserStore } from "../stores/userStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { DEFAULT_AVATAR } from "@/utils/constants";
 
 export const useChatHeader = () => {
     const { activeConversation, setActiveConversation } = useChatStore();
     const { user } = useAuthStore();
+    const { users, requestUser } = useUserStore();
     const router = useRouter();
     const queryClient = useQueryClient();
 
@@ -21,6 +23,15 @@ export const useChatHeader = () => {
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        if (activeConversation?.member_ids) {
+            activeConversation.member_ids.forEach((id: string) => {
+                if (!users[id]) requestUser(id);
+            });
+        }
+        
+    }, [activeConversation?.member_ids, users, requestUser]);
+
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setShowMenu(false);
@@ -30,13 +41,15 @@ export const useChatHeader = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const otherMember = activeConversation?.members?.find(m => m.id !== user?.id);
+    const otherMemberId = activeConversation?.member_ids?.find(m => m !== user?.id) as string;
+    const otherMember = users[otherMemberId];
+    
     const displayName = activeConversation?.name || otherMember?.name || "Unknown";
     const displayAvatar = activeConversation?.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR;
     
-    const isAdmin = activeConversation?.admins?.some(admin => (admin.id || (admin as any)._id) === user?.id);
-    const adminCount = activeConversation?.admins?.length || 0;
-    const memberCount = activeConversation?.members?.length || 0;
+    const isAdmin = activeConversation?.admin_ids?.some(adminId => adminId === user?.id);
+    const adminCount = activeConversation?.admin_ids?.length || 0;
+    const memberCount = activeConversation?.member_ids?.length || 0;
 
     const handleOpenCreateGroup = () => {
         setIsCreateGroupOpen(true);
@@ -77,16 +90,16 @@ export const useChatHeader = () => {
         }
 
         try {
-            const convId = activeConversation._id || (activeConversation as any).id;
+            const convId = activeConversation.id as string;
             await conversationApi.leaveGroup(convId);
 
             queryClient.invalidateQueries({ queryKey: ["conversations"] });
             setActiveConversation(null);
             setShowMenu(false);
             router.push("/group-chat");
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Lỗi rời nhóm:", error);
-            alert(error?.response?.data?.message || "Không thể rời khỏi nhóm");
+            alert((error as Error)?.message || "Đã xảy ra lỗi" || "Không thể rời khỏi nhóm");
         }
     };
 
@@ -108,5 +121,9 @@ export const useChatHeader = () => {
         displayAvatar,
         isAdmin,
         handleLeaveGroup,
+        otherMember,
+        isOnline: activeConversation?.type === 'utu' 
+            ? (otherMember?.is_online || false) 
+            : (activeConversation?.member_ids?.some((id: string) => id !== user?.id && users[id]?.is_online) || false)
     };
 };
