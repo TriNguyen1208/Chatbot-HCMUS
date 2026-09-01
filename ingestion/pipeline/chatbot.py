@@ -3,17 +3,30 @@ from qdrant_client import QdrantClient
 from google import genai
 from dotenv import load_dotenv
 import os
+from ingestion.config.settings import settings
 
-from ingestion.pipeline.database.db import QdrantVectorDB
+from ingestion.pipeline.embedder import Embedder
+from ingestion.pipeline.qdrant import QdrantVectorDB
+from ingestion.pipeline.search import QdrantSearch
 
-db = QdrantVectorDB()
+from ingestion.logger_config import setup_logging
+import logging
+
+# setup_logging(level=logging.DEBUG)
+
+embedder = Embedder(tei_url=settings.TEI_URL)
+db = QdrantVectorDB(embedder=embedder)
+search = QdrantSearch(qdrant_client=db.client, embedder=embedder)
+
+
 
 # Run
 # user_query = "Khi nào thì sinh viên được miễn các học phần tiếng Anh?"
-user_query = "Mục tiêu chung của chương trình đào tạo chính quy?"
+user_query = "Mục tiêu chung của chương trình đào tạo chính quy là gì?"
 
 # -- 1. search chunks for LLM context
-search_results = db.semantic_search("hcmus_documents", user_query, 0.4, 10)
+# search_results = search.semantic_search("hcmus_documents", user_query, 0.4, 10)
+search_results = search.hybrid_search("hcmus_documents", user_query, 5, 5, 0.4)
 print(len(search_results))
 
 context = "\n---\n".join([item.payload["content"] for item in search_results])
@@ -33,7 +46,7 @@ prompt = f"""Bạn là một trợ lý AI chỉ trả lời dựa trên tài li�
 [CÂU HỎI]:
 {user_query}"""
 
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 response = client.models.generate_content(
     model="gemini-2.5-flash",
     contents=prompt

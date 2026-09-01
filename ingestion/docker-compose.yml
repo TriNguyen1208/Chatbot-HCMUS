@@ -13,20 +13,5 @@ services:
       - "--model-id"
       - "intfloat/multilingual-e5-small"
 
-  tei-reranker:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
-    container_name: tei-reranker
-    ports:
-      - "8081:80"
-    shm_size: '1g'
-    environment:
-      - PORT=80
-    volumes:
-      - tei-reranker-data:/data
-    command:
-      - "--model-id"
-      - "Alibaba-NLP/gte-multilingual-reranker-base"
-
 volumes:
   tei-e5-data:
-  tei-reranker-data:

@@ -7,3 +7,5 @@ def setup_logging(level=logging.INFO):
     )
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)

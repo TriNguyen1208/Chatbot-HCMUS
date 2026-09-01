@@ -22,15 +22,15 @@ class Settings(BaseSettings):
     
     # LlamaParse
     LLAMA_CLOUD_API_KEY: str
-    LLAMA_CLOUD_TIER: Literal["fast", "cost_effective", "agentic", "agentic_plus"] = "cost_effective"
-    LLAMA_CLOUD_MAX_WORKERS: int = 5
+    LLAMA_CLOUD_TIER: Literal["fast", "cost_effective", "agentic", "agentic_plus"] = "fast"
+    LLAMA_CLOUD_CONCURRENCY: int = 5
     
     # Ingestion Pipeline
     INGESTION_FOLDER: Literal["all", "curriculum", "information", "announcement"] = "curriculum"
     QDRANT_COLLECTION_NAME: str = "hcmus_documents"
     INGESTION_FORCE: bool = False
     INGESTION_BATCH_SIZE: int = 32
-    INGESTION_SKIP_PARSE: bool = False
+    INGESTION_SKIP_PARSE: bool = True
     INGESTION_SKIP_CHUNK: bool = False
     INGESTION_SKIP_UPLOAD: bool = False
 
@@ -39,6 +39,11 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
+
+    TEI_URL: str
+    QDRANT_API: str
+    QDRANT_URL: str
+    GOOGLE_API_KEY: str
     
 settings = Settings()
 
