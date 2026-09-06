@@ -8,9 +8,50 @@ export interface ChatScreenProps {
   type?: "utu" | "group" | "all";
 }
 
+import ConversationInfo from "../ChatArea/ConversationInfo";
+import { useModalStore } from "@/features/chat/stores/modalStore";
+import CreateGroupModal from "../Modals/CreateGroupModal";
+import UserProfileModal from "../Modals/UserProfileModal";
+import KickMemberModal from "../Modals/KickMemberModal";
+import AssignAdminModal from "../Modals/AssignAdminModal";
+
 const ChatPageContent = ({ type }: ChatScreenProps) => {
   const { activeConversation } = useChatScreen(type);
-  return activeConversation ? <ChatArea /> : <EmptyChatScreen />;
+  const {
+    isCreateGroupOpen, setCreateGroupOpen,
+    isKickModalOpen, setKickModalOpen,
+    isAssignAdminModalOpen, setAssignAdminModalOpen
+  } = useModalStore();
+
+  if (!activeConversation) return <EmptyChatScreen />;
+
+  return (
+    <>
+      <div className="flex flex-row w-full h-full overflow-hidden relative">
+        <div className="flex-1 min-w-0">
+          <ChatArea />
+        </div>
+        <ConversationInfo />
+      </div>
+
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onClose={() => setCreateGroupOpen(false)}
+      />
+
+      <KickMemberModal
+        isOpen={isKickModalOpen}
+        onClose={() => setKickModalOpen(false)}
+      />
+
+      <AssignAdminModal
+        isOpen={isAssignAdminModalOpen}
+        onClose={() => setAssignAdminModalOpen(false)}
+      />
+
+      <UserProfileModal />
+    </>
+  );
 }
 
 const ChatScreen = ({ type }: ChatScreenProps) => {

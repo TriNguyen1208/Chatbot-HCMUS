@@ -2,6 +2,7 @@ import { apiResponse } from "#@/shared/utils/api-response.js";
 import { type Request, type Response, type NextFunction } from "express";
 import type { UserService } from "#@/modules/user/services/user.service.js";
 import type { GetListQueryDto, GetByIDParamsDto, UpdateProfileDto } from "#@/modules/user/dto/user.dto.js"
+import { SearchService } from "#@/modules/search/search.service.js";
 
 export class UserController {
     constructor(
@@ -53,6 +54,17 @@ export class UserController {
      */
     getList = async (req: Request, res: Response, next: NextFunction) => {
         const query = req.query as unknown as GetListQueryDto;
+        
+        if (query.search) {
+            // Thực hiện tìm kiếm qua Elasticsearch
+            const searchResults = await SearchService.searchUsers(query.search);
+            const userIds = searchResults.map((u: any) => u.id);
+            
+            // Lấy thông tin chi tiết của user từ DB
+            const users = userIds.length > 0 ? await this.userService.getBulk(userIds) : [];
+            return apiResponse.success(res, users);
+        }
+
         const users = await this.userService.getList(query.limit, query.cursor_id);
         return apiResponse.success(res, users);
     }

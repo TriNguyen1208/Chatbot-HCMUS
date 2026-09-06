@@ -7,6 +7,7 @@ export interface AuthResult {
         email: string;
         name: string;
         student_id?: string;
+        avatar_url?: string;
     };
 }
 

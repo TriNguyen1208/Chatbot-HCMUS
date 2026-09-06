@@ -4,6 +4,7 @@ import userRoutes from "#@/modules/user/routes/user.route.js"
 import messageRoutes from "#@/modules/message/routes/message.route.js"
 import conversationRoutes from "#@/modules/conversation/routes/conversation.route.js"
 import mediaRoutes from "#@/modules/media/routes/media.route.js"
+import searchRoutes from "#@/modules/search/search.route.js"
 
 const router = Router()
 
@@ -12,5 +13,6 @@ router.use("/user", userRoutes)
 router.use("/message", messageRoutes)
 router.use("/conversation", conversationRoutes)
 router.use("/media", mediaRoutes)
+router.use("/search", searchRoutes)
 
 export default router

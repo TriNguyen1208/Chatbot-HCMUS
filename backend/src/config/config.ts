@@ -32,6 +32,12 @@ class Config {
         port: number,
         password?: string
     }
+    readonly rabbitmq: {
+        uri: string
+    }
+    readonly elasticsearch: {
+        node: string
+    }
 
     readonly cloudflare: {
         bucket_name: string,
@@ -86,6 +92,12 @@ class Config {
             host: process.env.REDIS_HOST || "localhost",
             port: parseInt(process.env.REDIS_PORT ?? "6379"),
             password: process.env.REDIS_PASSWORD || ""
+        }
+        this.rabbitmq = {
+            uri: process.env.RABBITMQ_URI || "amqp://guest:guest@localhost:5672"
+        }
+        this.elasticsearch = {
+            node: process.env.ELASTICSEARCH_NODE || "http://localhost:9200"
         }
         this.cloudflare = {
             bucket_name: process.env.R2_BUCKET_NAME as string,

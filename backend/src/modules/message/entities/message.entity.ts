@@ -1,6 +1,8 @@
 import type { Conversation } from "#@/modules/conversation/entities/conversation.entity.js";
 import type { User } from "#@/modules/user/entities/user.entity.js";
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { syncMessageES } from "../../../infrastructure/rabbitmq/producer.js";
+import { SyncOperation } from "../../../infrastructure/rabbitmq/types.js";
 // Entity represents the data of a Message in the database
 export interface Message {
     id?: string;             // Unique ID of the message

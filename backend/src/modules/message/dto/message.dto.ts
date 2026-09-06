@@ -45,7 +45,14 @@ export const GetMessageListQuerySchema = z.object({
     }),
     query: z.object({
         limit: z.string().optional().transform(val => val ? parseInt(val) : 20),
-        cursor_id: objectIdSchema.optional()
+        cursor_id: objectIdSchema.optional(),
+        search: z.string().optional()
+    })
+});
+
+export const GetAllMessagesQuerySchema = z.object({
+    query: z.object({
+        search: z.string().min(1, "Search keyword is required")
     })
 });
 

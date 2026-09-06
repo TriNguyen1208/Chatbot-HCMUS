@@ -4,50 +4,43 @@ import {
   Phone,
   Video,
   Info,
-  MoreVertical,
-  LogOut,
-  UserMinus,
-  User,
-  UserPlus,
-  ShieldCheck,
 } from "lucide-react";
 import Image from "next/image";
-import CreateGroupModal from "../Modals/CreateGroupModal";
-import KickMemberModal from "../Modals/KickMemberModal";
-import AssignAdminModal from "../Modals/AssignAdminModal";
 
 import { getRelativeTime } from "@/utils/formatTime";
+import { useChatStore } from "@/features/chat/stores/chatStore";
+import { useModalStore } from "@/features/chat/stores/modalStore";
 
 const ChatHeader = () => {
   const {
     activeConversation,
-    showMenu,
-    setShowMenu,
-    isCreateGroupOpen,
-    handleOpenCreateGroup,
-    handleCloseCreateGroup,
-    isKickModalOpen,
-    handleOpenKickModal,
-    handleCloseKickModal,
-    isAssignAdminModalOpen,
-    handleOpenAssignAdminModal,
-    handleCloseAssignAdminModal,
-    menuRef,
     displayName,
     displayAvatar,
-    isAdmin,
-    handleLeaveGroup,
     otherMember,
     isOnline,
   } = useChatHeader();
 
+  const toggleInfoPanel = useChatStore(state => state.toggleInfoPanel);
+  const openUserProfileModal = useModalStore(state => state.openUserProfileModal);
+
   if (!activeConversation) return null;
+
+  const handleAvatarClick = () => {
+    if (activeConversation.type === "utu" && otherMember) {
+      openUserProfileModal(otherMember.id);
+    } else {
+      toggleInfoPanel();
+    }
+  };
 
   return (
     <>
       <div className="flex flex-row items-center justify-between w-full h-[64px] border-b border-glass-border px-5 bg-surface/80 backdrop-blur-xl z-10 shadow-sm transition-colors duration-300">
         <div className="flex flex-row items-center gap-3">
-          <div className="relative">
+          <div 
+            className={`relative ${activeConversation.type === 'utu' ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-pointer'}`}
+            onClick={handleAvatarClick}
+          >
             <Image
               src={displayAvatar}
               alt="avatar"
@@ -91,88 +84,12 @@ const ChatHeader = () => {
           <button className="hover:text-brand-primary cursor-pointer">
             <Video size={20} />
           </button>
-          <button className="hover:text-brand-primary cursor-pointer">
+          <button onClick={toggleInfoPanel} className="hover:text-brand-primary cursor-pointer">
             <Info size={20} />
           </button>
 
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="hover:text-brand-primary cursor-pointer"
-            >
-              <MoreVertical size={20} />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-3 w-56 bg-surface-solid border border-glass-border shadow-2xl rounded-2xl py-2 flex flex-col text-sm z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                <button className="flex items-center gap-2.5 px-4 py-2.5 text-txt-primary hover:bg-hover text-left w-full transition-colors cursor-pointer">
-                  <User size={16} /> Xem chi tiết
-                </button>
-
-                {activeConversation.type === "utu" && (
-                  <button
-                    onClick={handleOpenCreateGroup}
-                    className="flex items-center gap-2.5 px-4 py-2 text-green-500 hover:bg-green-500/10 text-left w-full transition-colors cursor-pointer"
-                  >
-                    <UserPlus size={16} /> Tạo nhóm từ cuộc trò chuyện này
-                  </button>
-                )}
-
-                {activeConversation.type === "group" && (
-                  <>
-                    <button
-                      onClick={handleOpenCreateGroup}
-                      className="flex items-center gap-2.5 px-4 py-2 text-green-500 hover:bg-green-500/10 text-left w-full transition-colors cursor-pointer"
-                    >
-                      <UserPlus size={16} /> Thêm thành viên
-                    </button>
-
-                    {isAdmin && (
-                      <>
-                        <button
-                          onClick={handleOpenAssignAdminModal}
-                          className="flex items-center gap-2.5 px-4 py-2 text-blue-500 hover:bg-blue-500/10 text-left w-full transition-colors cursor-pointer"
-                        >
-                          <ShieldCheck size={16} /> Cấp quyền Admin
-                        </button>
-                        <button
-                          onClick={handleOpenKickModal}
-                          className="flex items-center gap-2.5 px-4 py-2 text-orange-500 hover:bg-orange-500/10 text-left w-full transition-colors cursor-pointer"
-                        >
-                          <UserMinus size={16} /> Xóa thành viên
-                        </button>
-                      </>
-                    )}
-
-                    <div className="my-1 border-t border-glass-border" />
-
-                    <button
-                      onClick={handleLeaveGroup}
-                      className="flex items-center gap-2.5 px-4 py-2 text-red-500 hover:bg-red-500/10 text-left w-full transition-colors cursor-pointer"
-                    >
-                      <LogOut size={16} /> Rời khỏi nhóm
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
-
-      <CreateGroupModal
-        isOpen={isCreateGroupOpen}
-        onClose={handleCloseCreateGroup}
-      />
-
-      <KickMemberModal
-        isOpen={isKickModalOpen}
-        onClose={handleCloseKickModal}
-      />
-
-      <AssignAdminModal
-        isOpen={isAssignAdminModalOpen}
-        onClose={handleCloseAssignAdminModal}
-      />
     </>
   );
 };

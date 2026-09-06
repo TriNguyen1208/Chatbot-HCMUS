@@ -28,5 +28,4 @@ export const UserSchema = new Schema<User>({
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
-
 export const UserModel = mongoose.model<User>('User', UserSchema);

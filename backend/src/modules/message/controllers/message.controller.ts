@@ -2,6 +2,7 @@ import { apiResponse } from "#@/shared/utils/api-response.js";
 import type { Request, Response, NextFunction } from "express";
 import type { MessageService } from "../services/message.service.js";
 import type { SendMessageDto, EditMessageDto, MessageIdParamDto, GetMessageListParamDto, GetMessageListQueryDto, ToggleReactionDto } from "../dto/message.dto.js";
+import { SearchService } from "#@/modules/search/search.service.js";
 
 export class MessageController {
     constructor(private readonly messageService: MessageService) { }
@@ -35,9 +36,29 @@ export class MessageController {
         const params = req.params as GetMessageListParamDto;
         const query = req.query as unknown as GetMessageListQueryDto;
 
-        const messages = await this.messageService.getMessages(params.conversation_id, userID, query.limit, query.cursor_id);
+        if (query.search) {
+            const searchResults = await SearchService.searchMessages(query.search, userID, params.conversation_id);
+            return apiResponse.success(res, searchResults);
+        }
 
+        const messages = await this.messageService.getMessages(params.conversation_id, userID, query.limit, query.cursor_id);
         return apiResponse.success(res, messages);
+    }
+
+    /**
+     * Retrieves messages globally across all conversations for search.
+     */
+    getAllMessages = async (req: Request, res: Response, next: NextFunction) => {
+        const userID = req.user!.userID;
+        const query = req.query as unknown as { search?: string };
+        
+        if (query.search) {
+            const searchResults = await SearchService.searchMessages(query.search, userID);
+            return apiResponse.success(res, searchResults);
+        }
+
+        const { default: createHttpError } = await import('http-errors');
+        throw createHttpError.BadRequest("Search parameter is required when not specifying a conversation");
     }
 
     /**

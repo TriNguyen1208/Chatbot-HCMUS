@@ -5,6 +5,7 @@ import createError from "http-errors";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
+import { userFacade } from "#@/modules/user/user.facade.js";
 
 export class ConversationService {
     constructor(
@@ -30,7 +31,14 @@ export class ConversationService {
             const arr = Array.from(members);
             const existing = await this.conversationRepo.findDirectConversation(arr[0]!, arr[1]!);
             if (existing) return existing;
+        } else if (data.type === 'group' && !data.avatar_url) {
+            // Assign creator's avatar if no avatar_url is provided
+            const creator = await userFacade.findByID(userId);
+            if (creator && creator.avatar_url) {
+                data.avatar_url = creator.avatar_url;
+            }
         }
+        
         const newConversation: Partial<ConversationDB> = {
             ...data,
             member_ids: Array.from(members),

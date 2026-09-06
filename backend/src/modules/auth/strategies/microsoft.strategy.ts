@@ -79,7 +79,8 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
             id: createdUser.id!.toString(),
             email: newUserParams.email,
             name: newUserParams.name,
-            student_id: newUserParams.student_id
+            student_id: newUserParams.student_id,
+            avatar_url: newUserParams.avatar_url
         };
     }
 
@@ -99,7 +100,8 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                student_id: user.student_id
+                student_id: user.student_id,
+                avatar_url: user.avatar_url
             }
         }
     }

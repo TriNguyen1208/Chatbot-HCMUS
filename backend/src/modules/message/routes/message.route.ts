@@ -2,10 +2,18 @@ import { Router } from "express";
 import asyncHandler from "#@/shared/middlewares/asyncHandler.js";
 import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
-import { SendMessageSchema, EditMessageSchema, MessageIdParamSchema, GetMessageListQuerySchema, ToggleReactionSchema } from "../dto/message.dto.js";
+import { SendMessageSchema, EditMessageSchema, MessageIdParamSchema, GetMessageListQuerySchema, ToggleReactionSchema, GetAllMessagesQuerySchema } from "../dto/message.dto.js";
 import { messageContainer } from "../message.container.js";
 
 const router = Router();
+
+// API get messages globally across all conversations (for search)
+router.get(
+    "/",
+    AuthMiddleware.verifyAccessToken,
+    validate(GetAllMessagesQuerySchema),
+    asyncHandler(messageContainer.messageController.getAllMessages)
+);
 
 // API get messages for a conversation
 router.get(

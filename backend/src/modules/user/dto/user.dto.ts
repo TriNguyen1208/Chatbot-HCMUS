@@ -21,6 +21,7 @@ export const GetListQuery = z.object({
     query: z.object({
         limit: z.preprocess((val) => (val ? Number(val) : 20), z.number().min(1).max(50)),
         cursor_id: z.string().optional(),
+        search: z.string().optional(),
     }).strict()
 });
 // Extract Type from Schema if needed to use at other levels

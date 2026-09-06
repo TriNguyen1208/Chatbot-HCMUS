@@ -9,6 +9,8 @@ export interface TypingUser {
 export interface ChatState {
     activeConversation: Conversation | null;
     setActiveConversation: (conversation: Conversation | null) => void;
+    showInfoPanel: boolean;
+    toggleInfoPanel: () => void;
     typingUsers: Record<string, TypingUser[]>;
     addTypingUser: (conversationId: string, userId: string, name: string) => void;
     removeTypingUser: (conversationId: string, userId: string) => void;
@@ -17,6 +19,8 @@ export interface ChatState {
 export const useChatStore = create<ChatState>()((set) => ({
     activeConversation: null,
     setActiveConversation: (conversation) => set({ activeConversation: conversation }),
+    showInfoPanel: true, // Default to true, or user's preference
+    toggleInfoPanel: () => set((state) => ({ showInfoPanel: !state.showInfoPanel })),
     typingUsers: {},
     addTypingUser: (conversationId, userId, name) => set((state) => {
         const currentUsers = state.typingUsers[conversationId] || [];

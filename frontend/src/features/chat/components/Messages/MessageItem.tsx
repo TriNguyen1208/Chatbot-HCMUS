@@ -7,6 +7,7 @@ import { useUserStore } from "@/features/chat/stores/userStore";
 import Image from "next/image";
 import { MoreVertical, CornerUpLeft, Forward, Smile, X } from "lucide-react";
 import ReactionModal from "./ReactionModal";
+import { useModalStore } from "@/features/chat/stores/modalStore";
 
 interface MessageItemProps {
   message: Message;
@@ -59,7 +60,12 @@ const MessageItem = ({ message }: MessageItemProps) => {
           alt="avatar"
           width={36}
           height={36}
-          className="rounded-full object-cover shrink-0 size-9 mt-auto mr-3 shadow-sm"
+          className="rounded-full object-cover shrink-0 size-9 mt-auto mr-3 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => {
+            if (message.sender_id) {
+              useModalStore.getState().openUserProfileModal(message.sender_id);
+            }
+          }}
         />
       )}
       <div className={`max-w-[75%] flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>

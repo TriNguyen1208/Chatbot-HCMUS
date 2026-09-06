@@ -56,7 +56,8 @@ export class GoogleAuthStrategy implements IAuthStrategy {
                 id: foundUser.id!.toString(),
                 email: foundUser.email,
                 name: foundUser.name,
-                student_id: foundUser?.student_id
+                student_id: foundUser?.student_id,
+                avatar_url: foundUser.avatar_url
             };
         }
 
@@ -76,7 +77,8 @@ export class GoogleAuthStrategy implements IAuthStrategy {
             id: createdUser.id!.toString(),
             email: newUserParams.email,
             name: newUserParams.name,
-            student_id: newUserParams.student_id
+            student_id: newUserParams.student_id,
+            avatar_url: newUserParams.avatar_url
         };
     }
 
@@ -103,7 +105,8 @@ export class GoogleAuthStrategy implements IAuthStrategy {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                student_id: user.student_id
+                student_id: user.student_id,
+                avatar_url: user.avatar_url
             }
         }
     }

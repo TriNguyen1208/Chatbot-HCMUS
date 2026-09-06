@@ -1,6 +1,8 @@
 import type { Message } from "#@/modules/message/entities/message.entity.js";
 import type { User } from "#@/modules/user/entities/user.entity.js";
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { syncConversationES } from "../../../infrastructure/rabbitmq/producer.js";
+import { SyncOperation } from "../../../infrastructure/rabbitmq/types.js";
 
 export interface Conversation {
     id?: string;
@@ -33,5 +35,7 @@ export const ConversationSchema = new Schema<ConversationDB>({
     primary_icon: { type: String, required: true },
     is_active: { type: Boolean, default: true, required: true }
 });
+
+// Xóa các Mongoose hooks vì logic đã được chuyển sang mongoDBAtlas.ts
 
 export const ConversationModel = mongoose.model<ConversationDB>('Conversation', ConversationSchema);

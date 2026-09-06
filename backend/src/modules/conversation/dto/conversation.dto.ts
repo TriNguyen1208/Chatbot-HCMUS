@@ -15,6 +15,9 @@ export const CreateConversationSchema = z.object({
         if (data.type === 'group' && !data.name) {
             return false;
         }
+        if (data.type === 'utu' && data.avatar_url) {
+            return false;
+        }
         if (data.avatar_url && !isUrl(data.avatar_url)) {
             return false;
         }
@@ -62,7 +65,8 @@ export const GetListQuerySchema = z.object({
     query: z.object({
         limit: z.string().optional().transform(val => val ? parseInt(val) : 20),
         cursor_id: objectIdSchema.optional(),
-        type: z.enum(['group', 'utu']).optional()
+        type: z.enum(['group', 'utu']).optional(),
+        search: z.string().optional()
     })
 });
 

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { ConversationService } from "../services/conversation.service.js";
 import type { CreateConversationDto, GetConversationParamDto, AddMembersDto, RemoveMemberDto, AssignAdminDto, GetListQueryDto } from "../dto/conversation.dto.js";
 import { apiResponse } from "#@/shared/utils/api-response.js";
+import { SearchService } from "#@/modules/search/search.service.js";
 
 export class ConversationController {
     constructor(private readonly conversationService: ConversationService) {}
@@ -48,8 +49,18 @@ export class ConversationController {
      */
     getList = async (req: Request, res: Response) => {
         const userId = req.user!.userID;
-        const {limit, cursor_id, type} = req.query as unknown as GetListQueryDto;
+        const {limit, cursor_id, type, search} = req.query as unknown as GetListQueryDto;
         
+        if (search) {
+            // Thực hiện tìm kiếm qua Elasticsearch
+            const searchResults = await SearchService.searchConversations(search, userId);
+            // Hiện tại mapping trên ES cho conversation chỉ lưu id và name, ta có thể trả về luôn hoặc fetch thêm
+            return apiResponse.success(res, searchResults, {
+                statusCode: 200,
+                message: "Conversations retrieved successfully"
+            });
+        }
+
         const list = await this.conversationService.getConversationList(userId, limit, cursor_id, type);
         
         return apiResponse.success(res, list, {
