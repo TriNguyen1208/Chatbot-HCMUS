@@ -7,6 +7,8 @@ import { queueService } from "#@/modules/queue/queue.service.js";
 import { checkSystemLoad } from "#@/shared/utils/system-monitor.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
 import type { SendMessageDto } from "../dto/message.dto.js";
+import { triggerSync } from "#@/utils/sync.util.js";
+import { SyncOperation } from "#@/infrastructure/rabbitmq/types.js";
 
 // This class contains all message processing logic (Business Logic)
 export class MessageService {
@@ -81,6 +83,9 @@ export class MessageService {
 
         const members = await this.conversationFacade.getConversationMembers(conversation_id.toString(), sender_id);
         socketManager.emitToUsers(members, "new_message", savedMessage);
+        
+        triggerSync('messages', SyncOperation.CREATE, savedMessage);
+        
         return {
             status: 'success',
             data: savedMessage
@@ -102,6 +107,21 @@ export class MessageService {
             throw createHttpError.Forbidden("You are not a member of this conversation");
         }
         const messages = await this.messageRepo.getMessages(conversationId, limit, cursorId);
+
+        const result = messages.map(m => ({
+            ...m,
+            sender: m.type === 'system' ? { id: 'system', name: 'System' } : m.sender_id?.toString()
+        }));
+
+        return result;
+    }
+
+    async getContextMessages(conversationId: string, messageId: string, userId: string, limit?: number): Promise<any[]> {
+        const isMember = await this.conversationFacade.isUserInConversation(conversationId, userId);
+        if (!isMember) {
+            throw createHttpError.Forbidden("You are not a member of this conversation");
+        }
+        const messages = await this.messageRepo.getContextMessages(conversationId, messageId, limit);
 
         const result = messages.map(m => ({
             ...m,
@@ -133,6 +153,11 @@ export class MessageService {
 
         const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
         socketManager.emitToUsers(members, "message_edited", { messageId, content: newContent, updated_at: updatedAt, conversation_id: convIdStr });
+
+        const updatedMessageForSync = await this.messageRepo.findByID(messageId);
+        if (updatedMessageForSync) {
+            triggerSync('messages', SyncOperation.UPDATE, updatedMessageForSync);
+        }
     }
 
     /**

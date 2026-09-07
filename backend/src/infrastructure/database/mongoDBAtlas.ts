@@ -5,33 +5,6 @@ import { ConversationModel } from "#@/modules/conversation/entities/conversation
 import { MessageModel } from "#@/modules/message/entities/message.entity.js";
 import { UserModel } from "#@/modules/user/entities/user.entity.js";
 import { KeyStoreModel } from "#@/modules/auth/entities/keystore.entity.js";
-import { syncUserES, syncConversationES, syncMessageES } from "#@/infrastructure/rabbitmq/producer.js";
-import { SyncOperation } from "#@/infrastructure/rabbitmq/types.js";
-
-const triggerSync = (collection: string, operation: SyncOperation, data: any) => {
-    const processData = (doc: any) => {
-        if (!doc) return;
-        // Native driver returns _id, map it to id if necessary
-        const payloadData = { ...doc, id: doc.id || (doc._id ? doc._id.toString() : undefined) };
-        switch (collection) {
-            case 'users':
-                syncUserES({ operation, data: payloadData });
-                break;
-            case 'conversations':
-                syncConversationES({ operation, data: payloadData });
-                break;
-            case 'messages':
-                syncMessageES({ operation, data: payloadData });
-                break;
-        }
-    };
-
-    if (Array.isArray(data)) {
-        data.forEach(processData);
-    } else {
-        processData(data);
-    }
-};
 
 
 export class MongoDBAtlas implements IDatabase {
@@ -164,8 +137,6 @@ export class MongoDBAtlas implements IDatabase {
             ? result.map(doc => doc.toObject()) as unknown as T[] 
             : result.toObject() as unknown as T;
 
-        triggerSync(collection, SyncOperation.CREATE, finalResult);
-
         return finalResult;
     }
 
@@ -192,20 +163,15 @@ export class MongoDBAtlas implements IDatabase {
             }
         }
 
-        triggerSync(collection, SyncOperation.UPDATE, result);
-
         return result as unknown as T;
     }
     
     async delete<T = Record<string, unknown>>(collection: string, conditions: Partial<T>): Promise<boolean> {
         if (!mongoose.connection.db) throw new Error("Not connected to MongoDB");
         
-        // Sử dụng findOneAndDelete để lấy lại dữ liệu bị xoá mà không tốn thêm query.
-        // LƯU Ý QUAN TRỌNG: Hàm này sẽ chỉ xoá 1 document đầu tiên khớp điều kiện (thay vì xoá toàn bộ như deleteMany).
         const result = await mongoose.connection.db.collection(collection).findOneAndDelete(conditions);
         
         if (result) {
-            triggerSync(collection, SyncOperation.DELETE, result);
             return true;
         }
         

@@ -46,6 +46,18 @@ export class MessageController {
     }
 
     /**
+     * Retrieves messages around a specific message (context) for scroll-to-message functionality.
+     */
+    getContextMessages = async (req: Request, res: Response, next: NextFunction) => {
+        const userID = req.user!.userID;
+        const { conversation_id, message_id } = req.params;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        const messages = await this.messageService.getContextMessages(conversation_id, message_id, userID, limit);
+        return apiResponse.success(res, messages);
+    }
+
+    /**
      * Retrieves messages globally across all conversations for search.
      */
     getAllMessages = async (req: Request, res: Response, next: NextFunction) => {

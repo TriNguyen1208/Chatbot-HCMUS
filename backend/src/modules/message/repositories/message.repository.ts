@@ -42,6 +42,41 @@ export class MessageRepository {
         return messages.map(msg => this.mapToDomain(msg));
     }
 
+    async getContextMessages(conversationId: string, messageId: string, limit: number = 10): Promise<Message[]> {
+        if (!Types.ObjectId.isValid(messageId) || !Types.ObjectId.isValid(conversationId)) return [];
+        
+        const beforeMessages = await this.db.query<MessageDB>('messages', {
+            conversation_id: new Types.ObjectId(conversationId),
+            status: { $in: ['sent', 'recalled'] },
+            _id: { $lt: new Types.ObjectId(messageId) }
+        }, {
+            limit,
+            orderBy: { field: '_id', ascending: false }
+        });
+
+        const targetMessage = await this.db.findOne<MessageDB>('messages', {
+            _id: new Types.ObjectId(messageId),
+            conversation_id: new Types.ObjectId(conversationId),
+            status: { $in: ['sent', 'recalled'] }
+        });
+
+        const afterMessages = await this.db.query<MessageDB>('messages', {
+            conversation_id: new Types.ObjectId(conversationId),
+            status: { $in: ['sent', 'recalled'] },
+            _id: { $gt: new Types.ObjectId(messageId) }
+        }, {
+            limit,
+            orderBy: { field: '_id', ascending: true }
+        });
+
+        const result: MessageDB[] = [];
+        result.push(...afterMessages.reverse());
+        if (targetMessage) result.push(targetMessage);
+        result.push(...beforeMessages);
+
+        return result.map(msg => this.mapToDomain(msg));
+    }
+
     async updateStatus(id: string, status: Message['status']): Promise<void> {
         if (!Types.ObjectId.isValid(id)) return;
         await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { status });

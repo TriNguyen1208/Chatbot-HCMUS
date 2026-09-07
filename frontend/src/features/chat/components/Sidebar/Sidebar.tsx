@@ -5,7 +5,7 @@ import SidebarProfile from "./SidebarProfile";
 
 const Sidebar = () => {
   return (
-    <aside className="w-full flex flex-col h-screen border-r border-r-border-primary bg-glass shadow-sm z-10 transition-colors duration-300">
+    <aside className="w-full relative flex flex-col h-screen border-r border-r-border-primary bg-glass shadow-sm z-10 transition-colors duration-300 overflow-hidden">
       <Header />
       <TabButtonList />
       <FriendBar />

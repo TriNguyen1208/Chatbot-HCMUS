@@ -53,7 +53,10 @@ const MessageItem = ({ message }: MessageItemProps) => {
   }
 
   return (
-    <div className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
+    <div 
+      id={`msg-${message.id || (message as any)._id}`} 
+      className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'}`}
+    >
       {!isMe && (
         <Image
           src={senderUser?.avatar_url || DEFAULT_AVATAR}

@@ -11,6 +11,12 @@ export const messageApi = {
         return response.data;
     },
 
+    getContextMessages: async (conversationId: string, messageId: string, limit: number = 10) => {
+        const params: Record<string, any> = { limit };
+        const response = await api.get(`/message/${conversationId}/context/${messageId}`, { params });
+        return response.data;
+    },
+
     sendMessage: async (
         payload: { 
             conversation_id?: string; 

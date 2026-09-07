@@ -23,6 +23,13 @@ router.get(
     asyncHandler(messageContainer.messageController.getMessages)
 );
 
+// API get context messages for a specific message
+router.get(
+    "/:conversation_id/context/:message_id",
+    AuthMiddleware.verifyAccessToken,
+    asyncHandler(messageContainer.messageController.getContextMessages)
+);
+
 // API send a message
 router.post(
     "/",

@@ -14,14 +14,7 @@
 - Lưu ý: Dùng rabbitMQ - message queue để sync giữa database và elasticsearch. Không nên dùng đồng bộ trong tình huống này, giảm latency khá mạnh do là vừa phải cập nhật database (mongoDB) vừa phải thêm vào elastic search.
 
 
-
-Giao diện thanh search ở frontend:
-+ Bấm vào thanh search là đổi giao diện sidebar
-+ Khi bấm vào thì hiện ra các option: All, User, Conversation, Message
-
-+ Khi bấm vào User thì khi search hiện ra name và avatar_url
-+ Khi bấm vào Conversation thì hiện ra name và avatar_url (của group)
-+ Khi bấm vào message (message tất cả không dựa theo conversation) thì hiện ra content, người gửi tin nhắn đó (sender_id) và cả cuộc hội thoại chứa tin nhắn đó (gồm có name và avatar của cuộc hội thoại). (Lúc search ở backend thì lấy ra thêm) (Sửa backend chỗ này)
-+ Khi bấm vào all thì dựa vào search_types mà hiện ra giống với User, Conversation, Message
-
-+ Khi bấm vào All thì dựa vào search_type để hiện ra giao diện, nếu là user thì hiện ra giao diện có name và avatar_url, nếu search_type là conversation thì hiện ra name (tên nhóm và avatar_url), nếu là message thì hiện ra nội dung tin nhắn chào, người gửi tin nhắn đó (sender_id), cuộc hội thoại chứa tin nhắn đó (gồm có name và avatar của cuộc hội thoại).
+- Làm về trạng thái đã gửi, đã nhận, đã xem
+- Đã gửi: Server đã nhận tin nhắn và lưu vào mongoDB, đồng thời bắn socket - nếu socket đó không có user đó thì là đã gửi
+- Đã nhận: Client đó đang online thì là đã nhận
+- Đã xem: Client đó đã nhận và có bắn gói tin ack đã có tin nhắn đó thì là đã xem

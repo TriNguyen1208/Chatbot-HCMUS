@@ -1,7 +1,11 @@
 "use client";
+import { useEffect } from "react";
 import { useMessageList } from "@/features/chat/hooks/useMessageList";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { useSearchStore } from "@/features/chat/stores/searchStore";
+import { useQueryClient } from "@tanstack/react-query";
+import { messageApi } from "@/features/chat/api/message.api";
 import MessageItem from "./MessageItem";
 import { Loader2 } from "lucide-react";
 
@@ -16,8 +20,49 @@ const MessageList = () => {
     const activeConversation = useChatStore(state => state.activeConversation);
     const typingUsersMap = useChatStore(state => state.typingUsers);
 
-    const convId = activeConversation?.id
+    const convId = activeConversation?.id;
     const currentTypingUsers = (convId ? (typingUsersMap[convId] || []) : []).filter(u => u.userId !== user?.id);
+
+    const { targetMessageId, setTargetMessageId } = useSearchStore();
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        const fetchContextAndScroll = async () => {
+            if (targetMessageId && convId) {
+                try {
+                    const res = await messageApi.getContextMessages(convId, targetMessageId);
+                    const contextMessages = Array.isArray(res.data) ? res.data : res;
+                    
+                    // Replace the react-query cache with context messages
+                    queryClient.setQueryData(['messages', convId], (old: any) => {
+                        return {
+                            pages: [contextMessages],
+                            pageParams: [undefined]
+                        };
+                    });
+
+                    // Scroll to the message element
+                    setTimeout(() => {
+                        const el = document.getElementById(`msg-${targetMessageId}`);
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight effect
+                            el.classList.add('bg-brand-primary/20', 'transition-colors', 'duration-500');
+                            setTimeout(() => {
+                                el.classList.remove('bg-brand-primary/20');
+                            }, 3000);
+                        }
+                    }, 300); // Wait for render
+                    
+                    // Clear target message after jumping
+                    setTargetMessageId(null);
+                } catch (error) {
+                    console.error("Failed to load context messages:", error);
+                }
+            }
+        };
+        fetchContextAndScroll();
+    }, [targetMessageId, convId, queryClient, setTargetMessageId]);
 
     return (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse space-y-reverse space-y-4 relative">

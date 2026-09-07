@@ -22,6 +22,14 @@ export const conversationApi = {
         
         return response.data;
     },
+    createDirectConversation: async (member_ids: string[]) => {
+        const response = await api.post('/conversation', {
+            type: 'utu',
+            member_ids
+        });
+        
+        return response.data;
+    },
     getConversationById: async (id: string) => {
         const response = await api.get(`/conversation/${id}`);
         

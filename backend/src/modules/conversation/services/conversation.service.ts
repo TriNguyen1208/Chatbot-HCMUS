@@ -6,6 +6,8 @@ import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
+import { triggerSync } from "#@/utils/sync.util.js";
+import { SyncOperation } from "#@/infrastructure/rabbitmq/types.js";
 
 export class ConversationService {
     constructor(
@@ -59,6 +61,8 @@ export class ConversationService {
         if (data.type === 'group') {
             await this.sendSystemMessage(created.id!, "Nhóm đã được tạo");
         }
+
+        triggerSync('conversations', SyncOperation.CREATE, created);
 
         return created;
     }
@@ -142,6 +146,8 @@ export class ConversationService {
         socketManager.emitToUsers(membersToAdd, "new_conversation", updatedConv);
         socketManager.emitToUsers(allMembers, "members_added", { conversationId, newMemberIds: membersToAdd });
         await this.sendSystemMessage(conversationId, `${membersToAdd.length} user(s) added to group`);
+
+        triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
     }
 
     /**
@@ -183,6 +189,11 @@ export class ConversationService {
         // Thông báo cho cả người bị kick và người còn lại
         socketManager.emitToUsers([...remainingMembers, ...validMemberIds], "members_kicked", { conversationId, memberIds: validMemberIds });
         await this.sendSystemMessage(conversationId, `Admin đã xóa ${validMemberIds.length} thành viên khỏi nhóm`);
+
+        const updatedConvForSync = await this.conversationRepo.findByID(conversationId);
+        if (updatedConvForSync) {
+            triggerSync('conversations', SyncOperation.UPDATE, updatedConvForSync);
+        }
     }
 
     /**
@@ -242,5 +253,10 @@ export class ConversationService {
 
         socketManager.emitToUsers(memberIds, "member_left", { conversationId, userId });
         await this.sendSystemMessage(conversationId, `${userName} đã rời khỏi nhóm`);
+
+        const updatedConvForSync = await this.conversationRepo.findByID(conversationId);
+        if (updatedConvForSync) {
+            triggerSync('conversations', SyncOperation.UPDATE, updatedConvForSync);
+        }
     }
 }

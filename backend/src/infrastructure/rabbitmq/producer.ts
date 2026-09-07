@@ -6,7 +6,6 @@ export const publishToQueue = async <T>(queueName: string, payload: SyncPayload<
     try {
         const channel = rabbitmq.getChannel(); 
         
-        
         const success = channel.sendToQueue(queueName, Buffer.from(JSON.stringify(payload)), {
             persistent: true
         });

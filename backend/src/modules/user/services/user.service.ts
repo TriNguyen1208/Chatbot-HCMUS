@@ -3,6 +3,8 @@ import type { IUserRepository } from "#@/modules/user/repositories/user.reposito
 import type { UpdateProfileDto } from "#@/modules/user/dto/user.dto.js";
 import { redisClient } from "#@/infrastructure/redis/redis.js";
 import type { User } from "../entities/user.entity.js";
+import { triggerSync } from "#@/utils/sync.util.js";
+import { SyncOperation } from "#@/infrastructure/rabbitmq/types.js";
 
 export class UserService {
     constructor(
@@ -51,6 +53,8 @@ export class UserService {
         // Invalidate cache
         await redisClient.del(`user:${userID}`);
         await redisClient.delByPattern('users:list:*');
+
+        triggerSync('users', SyncOperation.UPDATE, user);
 
         return user;
     }

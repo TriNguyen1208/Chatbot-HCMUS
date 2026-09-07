@@ -38,6 +38,8 @@ const processSyncEvent = async (index: string, payload: SyncPayload<any>) => {
             default:
                 console.warn(`[RabbitMQ Consumer] Unknown operation ${operation}`);
         }
+        
+        console.log(`✅ [RabbitMQ Consumer] Successfully synced document ${documentId} to index ${index} (Operation: ${operation})`);
     } catch (error: any) {
         if (error.meta?.body?.error?.type === 'not_found' && operation === SyncOperation.DELETE) {
             return;
