@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 export interface SearchResult {
     search_type: 'user' | 'conversation' | 'message';
     id: string;
-    text?: string;
+    content?: string;
     name?: string;
     avatar_url?: string;
     type?: string;

@@ -4,9 +4,11 @@ import { api } from "@/lib/api";
 import { Message } from '../types';
 
 export const messageApi = {
-    getMessages: async (conversationId: string, limit: number = 20, cursorId?: string) => {
+    getMessages: async (conversationId: string, limit: number = 20, cursorId?: string, search?: string, type?: string) => {
         const params: Record<string, any> = { limit };
         if (cursorId) params.cursor_id = cursorId;
+        if (search) params.search = search;
+        if (type) params.type = type;
         const response = await api.get(`/message/${conversationId}`, { params });
         return response.data;
     },

@@ -1,14 +1,18 @@
 "use client";
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { X, Bell, Search, UserPlus, LogOut, ChevronRight, ChevronDown, ShieldCheck, UserMinus, Settings } from "lucide-react";
+import { X, Bell, Search, UserPlus, LogOut, ChevronRight, ChevronDown, ShieldCheck, UserMinus, Settings, ArrowLeft, Image as ImageIcon, Video as VideoIcon, File as FileIcon } from "lucide-react";
 import { useChatStore } from "@/features/chat/stores/chatStore";
+import { useSearchStore } from "@/features/chat/stores/searchStore";
 import { useChatHeader } from "@/features/chat/hooks/useChatHeader";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import { getRelativeTime } from "@/utils/formatTime";
 import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useModalStore } from "@/features/chat/stores/modalStore";
+import { messageApi } from "@/features/chat/api/message.api";
+import { SearchResult } from "@/features/chat/api/search.api";
+import MediaViewerModal from "../Modals/MediaViewerModal";
 
 const MIN_WIDTH = 250;
 const MAX_WIDTH = 500;
@@ -17,6 +21,7 @@ const DEFAULT_WIDTH = 320;
 const ConversationInfo = () => {
   const showInfoPanel = useChatStore((state) => state.showInfoPanel);
   const toggleInfoPanel = useChatStore((state) => state.toggleInfoPanel);
+  const setTargetMessageId = useSearchStore((state) => state.setTargetMessageId);
   const { user } = useAuthStore();
   const users = useUserStore((state) => state.users);
 
@@ -41,6 +46,73 @@ const ConversationInfo = () => {
   const isResizing = useRef(false);
   
   const [isMembersExpanded, setIsMembersExpanded] = useState(true);
+  const [isMediaExpanded, setIsMediaExpanded] = useState(true);
+
+  // Media Mode State
+  const [mediaMode, setMediaMode] = useState<'image' | 'video' | null>(null);
+  const [mediaItems, setMediaItems] = useState<any[]>([]);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+
+  useEffect(() => {
+    if (!mediaMode || !activeConversation) {
+      setMediaItems([]);
+      return;
+    }
+
+    const fetchMedia = async () => {
+      setIsLoadingMedia(true);
+      try {
+        const res = await messageApi.getMessages(activeConversation.id as string, 50, undefined, undefined, mediaMode);
+        const resultsArray = Array.isArray((res as any).data) ? (res as any).data : res;
+        setMediaItems(resultsArray);
+      } catch (error) {
+        console.error("Fetch media failed:", error);
+      } finally {
+        setIsLoadingMedia(false);
+      }
+    };
+    fetchMedia();
+  }, [mediaMode, activeConversation?.id]);
+
+  // Search Mode State
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!isSearchMode || !activeConversation) {
+      setSearchQuery("");
+      setSearchResults([]);
+      return;
+    }
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        const res = await messageApi.getMessages(activeConversation.id as string, 20, undefined, searchQuery);
+        // Extract array from standard API response wrapper if present
+        const resultsArray = Array.isArray((res as any).data) ? (res as any).data : res;
+        setSearchResults(resultsArray as unknown as SearchResult[]);
+      } catch (error) {
+        console.error("Search failed:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
+  }, [searchQuery, isSearchMode, activeConversation?.id]);
 
   // Resize logic
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -80,7 +152,7 @@ const ConversationInfo = () => {
   }, [handleMouseMove, handleMouseUp]);
 
   if (!showInfoPanel || !activeConversation) return null;
-
+  console.log(searchResults)
   return (
     <div 
       className="relative flex flex-col h-full bg-surface/50 backdrop-blur-xl shrink-0 transition-none border-l border-glass-border overflow-hidden"
@@ -93,16 +165,143 @@ const ConversationInfo = () => {
       />
 
       <div className="flex flex-col w-full h-full overflow-y-auto custom-scrollbar">
-        {/* Header */}
-        <div className="h-[64px] flex items-center justify-between px-4 border-b border-glass-border shrink-0">
-          <h3 className="font-semibold text-lg text-text-primary">Thông tin hội thoại</h3>
-          <button
-            onClick={toggleInfoPanel}
-            className="p-2 rounded-full hover:bg-glass cursor-pointer text-gray-500 hover:text-text-primary transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+        {isSearchMode ? (
+          <>
+            {/* Search Header */}
+            <div className="h-[64px] flex items-center gap-3 px-4 border-b border-glass-border shrink-0">
+              <button 
+                onClick={() => setIsSearchMode(false)}
+                className="p-2 rounded-full hover:bg-glass cursor-pointer text-gray-500 hover:text-text-primary transition-colors shrink-0"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div className="flex-1 bg-surface-solid rounded-xl border border-glass-border flex items-center px-3 py-1.5 h-[36px]">
+                <input 
+                  autoFocus
+                  placeholder="Tìm kiếm tin nhắn..."
+                  className="bg-transparent border-none outline-none text-sm w-full text-text-primary placeholder:text-text-secondary"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="text-gray-400 hover:text-text-primary ml-2 shrink-0">
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Search Results */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {isSearching && <div className="text-center text-sm text-text-secondary py-4">Đang tìm kiếm...</div>}
+              {!isSearching && searchQuery && searchResults.length === 0 && (
+                <div className="text-center text-sm text-text-secondary py-4">Không tìm thấy kết quả.</div>
+              )}
+              {!isSearching && searchResults.map((result) => (
+                <div 
+                  key={result.id}
+                  onClick={() => {
+                    setTargetMessageId(result.id);
+                  }}
+                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-glass-panel cursor-pointer transition-colors group"
+                >
+                  <div className="relative shrink-0">
+                    <Image
+                      src={result.sender?.avatar_url || DEFAULT_AVATAR}
+                      alt="avatar"
+                      width={40}
+                      height={40}
+                      className="rounded-full object-cover size-10 shadow-sm border border-glass-border"
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <span className="text-sm font-semibold text-text-primary truncate">
+                        {result.sender?.name || "Người dùng"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary line-clamp-2">
+                      {result.content}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : mediaMode ? (
+          <>
+            {/* Media Header */}
+            <div className="h-[64px] flex items-center gap-3 px-4 border-b border-glass-border shrink-0">
+              <button 
+                onClick={() => setMediaMode(null)}
+                className="p-2 rounded-full hover:bg-glass cursor-pointer text-gray-500 hover:text-text-primary transition-colors shrink-0"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h3 className="font-semibold text-lg text-text-primary">
+                {mediaMode === 'image' ? 'Hình ảnh' : 'Video'}
+              </h3>
+            </div>
+            
+            {/* Media Grid */}
+            <div className="flex-1 overflow-y-auto p-2">
+              {isLoadingMedia && <div className="text-center text-sm text-text-secondary py-4">Đang tải...</div>}
+              {!isLoadingMedia && mediaItems.length === 0 && (
+                <div className="text-center text-sm text-text-secondary py-4">Chưa có {mediaMode === 'image' ? 'hình ảnh' : 'video'} nào.</div>
+              )}
+              {!isLoadingMedia && mediaItems.length > 0 && (
+                <div className="grid grid-cols-3 gap-1">
+                  {mediaItems.map((msg: any) => (
+                    <div 
+                      key={msg.id || msg._id} 
+                      className="aspect-square relative cursor-pointer group rounded-sm overflow-hidden bg-surface-solid"
+                      onClick={() => {
+                        if (mediaMode === 'image' && msg.image?.url) {
+                          setSelectedMedia({ url: msg.image.url, type: 'image' });
+                        } else if (mediaMode === 'video' && msg.video?.url) {
+                          setSelectedMedia({ url: msg.video.url, type: 'video' });
+                        }
+                      }}
+                    >
+                      {mediaMode === 'image' && msg.image?.url && (
+                        <Image
+                          src={msg.image.url}
+                          alt="image"
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      )}
+                      {mediaMode === 'video' && (msg.video?.thumbnail_url || msg.video?.url) && (
+                        <>
+                          <Image
+                            src={msg.video.thumbnail_url || msg.video.url}
+                            alt="video"
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                            <VideoIcon className="text-white drop-shadow-md" size={24} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="h-[64px] flex items-center justify-between px-4 border-b border-glass-border shrink-0">
+              <h3 className="font-semibold text-lg text-text-primary">Thông tin hội thoại</h3>
+              <button
+                onClick={toggleInfoPanel}
+                className="p-2 rounded-full hover:bg-glass cursor-pointer text-gray-500 hover:text-text-primary transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
         {/* Profile Section */}
         <div className="flex flex-col items-center py-6 px-4 border-b border-glass-border shrink-0">
@@ -138,11 +337,14 @@ const ConversationInfo = () => {
 
         {/* Quick Actions */}
         <div className="flex flex-row justify-center gap-4 py-4 border-b border-glass-border shrink-0">
-          <button className="flex flex-col items-center gap-1 group">
-            <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary">
+          <button 
+            className="flex flex-col items-center gap-1 group"
+            onClick={() => setIsSearchMode(true)}
+          >
+            <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary cursor-pointer">
               <Search size={20} />
             </div>
-            <span className="text-[11px] text-text-secondary group-hover:text-brand-primary">Tìm kiếm</span>
+            <span className="text-[11px] text-text-secondary group-hover:text-brand-primary cursor-pointer">Tìm kiếm</span>
           </button>
 
           {activeConversation.type === "utu" && (
@@ -182,6 +384,56 @@ const ConversationInfo = () => {
               <span className="text-[11px] text-text-secondary group-hover:text-brand-primary">Thêm</span>
             </button>
           )}
+        </div>
+
+        {/* Media Filters Section */}
+        <div className="flex flex-col p-4 border-b border-glass-border shrink-0">
+          <div 
+            className="flex items-center justify-between mb-3 cursor-pointer group"
+            onClick={() => setIsMediaExpanded(!isMediaExpanded)}
+          >
+            <h4 className="font-semibold text-sm text-text-secondary group-hover:text-text-primary transition-colors">
+              File phương tiện, file và liên kết
+            </h4>
+            {isMediaExpanded ? (
+              <ChevronDown size={18} className="text-text-secondary transition-transform" />
+            ) : (
+              <ChevronRight size={18} className="text-text-secondary transition-transform" />
+            )}
+          </div>
+          
+          <div className={`flex gap-2 overflow-hidden transition-all duration-300 ${isMediaExpanded ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <button 
+              onClick={() => setMediaMode('image')}
+              className="flex-1 flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-glass-panel transition-colors cursor-pointer group"
+            >
+              <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                <ImageIcon size={20} />
+              </div>
+              <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary">Ảnh</span>
+            </button>
+
+            <button 
+              onClick={() => setMediaMode('video')}
+              className="flex-1 flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-glass-panel transition-colors cursor-pointer group"
+            >
+              <div className="p-2.5 bg-purple-500/10 text-purple-500 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                <VideoIcon size={20} />
+              </div>
+              <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary">Video</span>
+            </button>
+
+            <button 
+              disabled
+              className="flex-1 flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-glass-panel transition-colors cursor-not-allowed group opacity-50"
+              title="Đang phát triển"
+            >
+              <div className="p-2.5 bg-green-500/10 text-green-500 rounded-lg">
+                <FileIcon size={20} />
+              </div>
+              <span className="text-xs font-medium text-text-secondary">File</span>
+            </button>
+          </div>
         </div>
 
         {/* Group Members Section */}
@@ -274,7 +526,16 @@ const ConversationInfo = () => {
             </button>
           )}
         </div>
+        </>
+        )}
       </div>
+
+      <MediaViewerModal 
+        isOpen={!!selectedMedia}
+        onClose={() => setSelectedMedia(null)}
+        mediaType={selectedMedia?.type || 'image'}
+        mediaUrl={selectedMedia?.url || ''}
+      />
     </div>
   );
 };

@@ -28,11 +28,14 @@ export class MessageRepository {
         return this.mapToDomain(msg);
     }
 
-    async getMessages(conversationId: string, limit: number = 20, cursorId?: string): Promise<Message[]> {
+    async getMessages(conversationId: string, limit: number = 20, cursorId?: string, type?: string): Promise<Message[]> {
         const conditions: any = { conversation_id: conversationId, status: { $in: ['sent', 'recalled'] } };
         
         if (cursorId) {
             conditions._id = { $lt: new Types.ObjectId(cursorId) };
+        }
+        if (type) {
+            conditions.type = type;
         }
         
         const messages = await this.db.query<MessageDB>('messages', conditions, {

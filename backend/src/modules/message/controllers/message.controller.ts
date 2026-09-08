@@ -41,7 +41,7 @@ export class MessageController {
             return apiResponse.success(res, searchResults);
         }
 
-        const messages = await this.messageService.getMessages(params.conversation_id, userID, query.limit, query.cursor_id);
+        const messages = await this.messageService.getMessages(params.conversation_id, userID, query.limit, query.cursor_id, query.type);
         return apiResponse.success(res, messages);
     }
 

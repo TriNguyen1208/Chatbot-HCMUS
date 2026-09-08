@@ -101,12 +101,12 @@ export class MessageService {
      * @param cursorId The ID of the last fetched message for pagination.
      * @returns An array of messages.
      */
-    async getMessages(conversationId: string, userId: string, limit?: number, cursorId?: string): Promise<any[]> {
+    async getMessages(conversationId: string, userId: string, limit?: number, cursorId?: string, type?: string): Promise<any[]> {
         const isMember = await this.conversationFacade.isUserInConversation(conversationId, userId);
         if (!isMember) {
             throw createHttpError.Forbidden("You are not a member of this conversation");
         }
-        const messages = await this.messageRepo.getMessages(conversationId, limit, cursorId);
+        const messages = await this.messageRepo.getMessages(conversationId, limit, cursorId, type);
 
         const result = messages.map(m => ({
             ...m,
