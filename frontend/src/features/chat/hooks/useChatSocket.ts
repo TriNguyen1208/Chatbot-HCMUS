@@ -128,11 +128,11 @@ export const useChatSocket = () => {
         });
 
         // 5. LẮNG NGHE SỰ KIỆN: CÓ NGƯỜI SỬA TIN NHẮN
-        socket.on('message_edited', (data: { conversation_id: string, messageId: string, content: string, updated_at: string }) => {
+        socket.on('message_edited', (data: { conversation_id: string, messageId: string, content: string, updated_at: string, edit_history?: { content: string, updated_at: string | Date }[] }) => {
             queryClient.setQueryData(['messages', data.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
-                    page.map((msg: Message) => (msg.id === data.messageId || msg.id === data.messageId) ? { ...msg, content: data.content, updated_at: data.updated_at, is_edited: true } : msg)
+                    page.map((msg: Message) => (msg.id === data.messageId || msg.id === data.messageId) ? { ...msg, content: data.content, updated_at: data.updated_at, is_edited: true, edit_history: data.edit_history } : msg)
                 );
                 return { ...oldData, pages: newPages };
             });
@@ -146,7 +146,7 @@ export const useChatSocket = () => {
                             (conv.last_message.id === data.messageId || conv.last_message.id === data.messageId)) {
                             return {
                                 ...conv,
-                                last_message: { ...conv.last_message, content: data.content, updated_at: data.updated_at, is_edited: true }
+                                last_message: { ...conv.last_message, content: data.content, updated_at: data.updated_at, is_edited: true, edit_history: data.edit_history }
                             };
                         }
                         return conv;

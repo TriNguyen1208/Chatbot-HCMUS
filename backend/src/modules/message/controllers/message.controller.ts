@@ -50,8 +50,9 @@ export class MessageController {
      */
     getContextMessages = async (req: Request, res: Response, next: NextFunction) => {
         const userID = req.user!.userID;
-        const { conversation_id, message_id } = req.params;
-        const limit = parseInt(req.query.limit as string) || 10;
+        const conversation_id = req.params.conversation_id as string;
+        const message_id = req.params.message_id as string;
+        const limit = parseInt((req.query.limit as string | undefined) || "10") || 10;
 
         const messages = await this.messageService.getContextMessages(conversation_id, message_id, userID, limit);
         return apiResponse.success(res, messages);

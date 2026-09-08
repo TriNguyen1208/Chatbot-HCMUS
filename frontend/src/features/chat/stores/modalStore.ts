@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Message } from '../types';
 
 interface ModalState {
   isCreateGroupOpen: boolean;
@@ -11,6 +12,10 @@ interface ModalState {
   selectedUserIdForProfile: string | null;
   openUserProfileModal: (userId: string) => void;
   closeUserProfileModal: () => void;
+  isForwardModalOpen: boolean;
+  forwardMessageData: Message | null;
+  openForwardModal: (message: Message) => void;
+  closeForwardModal: () => void;
 }
 
 export const useModalStore = create<ModalState>()((set) => ({
@@ -24,4 +29,8 @@ export const useModalStore = create<ModalState>()((set) => ({
   selectedUserIdForProfile: null,
   openUserProfileModal: (userId: string) => set({ isUserProfileModalOpen: true, selectedUserIdForProfile: userId }),
   closeUserProfileModal: () => set({ isUserProfileModalOpen: false, selectedUserIdForProfile: null }),
+  isForwardModalOpen: false,
+  forwardMessageData: null,
+  openForwardModal: (message) => set({ isForwardModalOpen: true, forwardMessageData: message }),
+  closeForwardModal: () => set({ isForwardModalOpen: false, forwardMessageData: null }),
 }));

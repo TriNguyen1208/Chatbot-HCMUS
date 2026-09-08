@@ -77,12 +77,11 @@ export class AuthController {
             parseDurationMs(config.jwt.accessExpires as string),
             "/"
         )
-        const timeRemaining = new Date(result.expires_refresh_token).getTime() - Date.now();
         setCookie(
             res,
             "refreshToken",
             result.tokens.refreshToken,
-            timeRemaining,
+            parseDurationMs(config.jwt.refreshExpires as string),
             "/api/auth"
         )
         return apiResponse.success(res)

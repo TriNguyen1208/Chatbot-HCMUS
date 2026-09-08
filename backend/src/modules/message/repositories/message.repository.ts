@@ -49,7 +49,7 @@ export class MessageRepository {
             conversation_id: new Types.ObjectId(conversationId),
             status: { $in: ['sent', 'recalled'] },
             _id: { $lt: new Types.ObjectId(messageId) }
-        }, {
+        } as any, {
             limit,
             orderBy: { field: '_id', ascending: false }
         });
@@ -58,13 +58,13 @@ export class MessageRepository {
             _id: new Types.ObjectId(messageId),
             conversation_id: new Types.ObjectId(conversationId),
             status: { $in: ['sent', 'recalled'] }
-        });
+        } as any);
 
         const afterMessages = await this.db.query<MessageDB>('messages', {
             conversation_id: new Types.ObjectId(conversationId),
             status: { $in: ['sent', 'recalled'] },
             _id: { $gt: new Types.ObjectId(messageId) }
-        }, {
+        } as any, {
             limit,
             orderBy: { field: '_id', ascending: true }
         });
@@ -84,11 +84,16 @@ export class MessageRepository {
 
     async updateContent(id: string, content: string, updatedAt: Date): Promise<void> {
         if (!Types.ObjectId.isValid(id)) return;
+        const message = await this.db.findOne<MessageDB>('messages', { _id: new Types.ObjectId(id) });
+        if (!message) return;
+
+        const oldContent = message.content;
+        const oldUpdatedAt = message.updated_at || message.created_at;
+
         await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { 
-            content, 
-            updated_at: updatedAt, 
-            is_edited: true 
-        });
+            $set: { content, updated_at: updatedAt, is_edited: true },
+            $push: { edit_history: { content: oldContent, updated_at: oldUpdatedAt } }
+        } as any);
     }
 
     async updateByFileKey(fileKey: string, updateData: Partial<MessageDB>): Promise<Message | null> {

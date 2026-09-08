@@ -22,6 +22,15 @@ export const useChatInput = () => {
   const { socket } = useSocketContext();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const editingMessage = useChatStore(state => state.editingMessage);
+  const setEditingMessage = useChatStore(state => state.setEditingMessage);
+
+  useEffect(() => {
+    if (editingMessage) {
+      setContent(editingMessage.content || "");
+    }
+  }, [editingMessage]);
+
   const emitTyping = useCallback(() => {
     if (!socket || !activeConversation || !user) return;
     const convId = activeConversation.id || activeConversation.id;
@@ -99,6 +108,21 @@ export const useChatInput = () => {
   const handleSend = async () => {
     if ((!content.trim() && !uploadedMedia) || !activeConversation || isUploading || isPreviewLoading) return;
 
+    if (editingMessage) {
+      const currentContent = content;
+      setContent("");
+      setIsUploading(true);
+      try {
+        await messageApi.editMessage(editingMessage.id as string || (editingMessage as any)._id as string, currentContent);
+        setEditingMessage(null);
+      } catch (error) {
+        console.error("Failed to edit message", error);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+
     const currentContent = content;
     const currentMedia = uploadedMedia;
     
@@ -139,6 +163,11 @@ export const useChatInput = () => {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setContent("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -222,6 +251,8 @@ export const useChatInput = () => {
     emojiPickerRef,
     showEmojiPicker,
     setShowEmojiPicker,
-    handleEmojiSelect
+    handleEmojiSelect,
+    editingMessage,
+    cancelEdit
   };
 };

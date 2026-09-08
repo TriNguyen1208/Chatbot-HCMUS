@@ -35,6 +35,7 @@ export interface Message {
     created_at?: Date | string;
     updated_at?: Date | string;
     is_edited?: boolean;
+    edit_history?: { content: string; updated_at: Date | string }[];
 }
 
 export interface Conversation {

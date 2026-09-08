@@ -5,9 +5,12 @@ import { useEffect, useState } from "react";
 import { useMessageItem } from "@/features/chat/hooks/useMessageItem";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import Image from "next/image";
-import { MoreVertical, CornerUpLeft, Forward, Smile, X, Check, CheckCheck } from "lucide-react";
+import { MoreVertical, CornerUpLeft, Forward, Smile, X, Check, CheckCheck, Edit2 } from "lucide-react";
 import ReactionModal from "./ReactionModal";
 import { useModalStore } from "@/features/chat/stores/modalStore";
+import { messageApi } from "@/features/chat/api/message.api";
+import { format } from "date-fns";
+import { useChatStore } from "@/features/chat/stores/chatStore";
 
 interface MessageItemProps {
   message: Message;
@@ -47,6 +50,17 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
     handleReact
   } = useMessageItem(message);
 
+  const [showEditHistory, setShowEditHistory] = useState(false);
+  const setEditingMessage = useChatStore(state => state.setEditingMessage);
+
+  const canEdit = isMe && message.status !== 'recalled' && message.type === 'text' && 
+    (Date.now() - new Date(message.created_at || Date.now()).getTime() <= 60 * 60 * 1000);
+
+  const handleEdit = () => {
+    setShowMenu(false);
+    setEditingMessage(message);
+  };
+
   if (isSystem) {
     return (
       <div className="flex flex-row justify-center w-full my-4">
@@ -60,7 +74,11 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
   return (
     <div 
       id={`msg-${message.id || (message as any)._id}`} 
-      className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'}`}
+      className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'} ${showMenu || showReactMenu ? 'z-50 relative' : 'z-0 relative'}`}
+      onMouseLeave={() => {
+        setShowMenu(false);
+        setShowReactMenu(false);
+      }}
     >
       {!isMe && (
         <Image
@@ -78,11 +96,12 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
       )}
       <div className={`max-w-[75%] flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
         
-        {/* Hover Actions */}
-        <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${isMe ? '-left-[84px]' : '-right-[84px]'} opacity-0 group-hover:opacity-100 transition-opacity`}>
+        <div className="relative">
+          {/* Hover Actions */}
+          <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${isMe ? '-left-[84px]' : '-right-[84px]'} transition-all duration-200 ${showMenu || showReactMenu ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}>
           
           <div className="relative">
-            <button onClick={() => setShowReactMenu(!showReactMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors">
+            <button onClick={() => setShowReactMenu(!showReactMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors cursor-pointer">
               <Smile size={18} />
             </button>
             
@@ -102,18 +121,30 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
           </div>
 
           <div className="relative">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors">
+            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors cursor-pointer">
               <MoreVertical size={18} />
             </button>
             
             {showMenu && (
               <div ref={menuRef} className={`absolute z-10 bottom-full ${isMe ? 'right-0' : 'left-0'} mb-1 w-40 bg-surface-solid border border-glass-border shadow-xl rounded-xl py-1.5 flex flex-col text-sm overflow-hidden`}>
                 {isMe && message.status !== 'recalled' && (
-                  <button onClick={handleRecall} className="flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-500/10 text-left w-full transition-colors">
-                    <CornerUpLeft size={16} /> Thu hồi
-                  </button>
+                  <>
+                    <button onClick={handleRecall} className="flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-500/10 text-left w-full transition-colors cursor-pointer">
+                      <CornerUpLeft size={16} /> Thu hồi
+                    </button>
+                    {message.type === 'text' && (
+                      <button 
+                        onClick={handleEdit} 
+                        disabled={!canEdit}
+                        className={`flex items-center gap-2 px-3 py-2 text-left w-full transition-colors ${canEdit ? 'text-txt-primary hover:bg-hover cursor-pointer' : 'text-txt-extra opacity-50 cursor-not-allowed'}`}
+                        title={!canEdit ? "Chỉ được sửa tin nhắn trong vòng 1 tiếng" : ""}
+                      >
+                        <Edit2 size={16} /> Chỉnh sửa
+                      </button>
+                    )}
+                  </>
                 )}
-                <button onClick={handleForward} className="flex items-center gap-2 px-3 py-2 text-txt-primary hover:bg-hover text-left w-full transition-colors">
+                <button onClick={handleForward} className="flex items-center gap-2 px-3 py-2 text-txt-primary hover:bg-hover text-left w-full transition-colors cursor-pointer">
                   <Forward size={16} /> Chuyển tiếp
                 </button>
               </div>
@@ -167,8 +198,9 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
             </>
           )}
         </div>
+      </div>
         
-        {message.status !== 'recalled' && message.reactions && message.reactions.length > 0 && (
+      {message.status !== 'recalled' && message.reactions && message.reactions.length > 0 && (
           <div className={`flex flex-wrap gap-1 mt-1 z-10 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
             {Object.entries(
               message.reactions.reduce((acc, curr) => {
@@ -179,7 +211,7 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
               <button 
                 key={emoji}
                 onClick={() => setShowReactionList(true)}
-                className="flex items-center gap-1 bg-surface-solid border border-glass-border px-1.5 py-0.5 rounded-full text-[11px] hover:bg-hover transition-colors shadow-sm"
+                className="flex items-center gap-1 bg-surface-solid border border-glass-border px-1.5 py-0.5 rounded-full text-[11px] hover:bg-hover transition-colors shadow-sm cursor-pointer"
               >
                 <span>{emoji}</span>
                 {count > 1 && <span className="text-txt-extra font-medium">{count}</span>}
@@ -189,19 +221,44 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
         )}
 
         {shouldShowDetails && (
-          <div className={`flex flex-row items-center gap-1 mt-1.5 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
+          <div className={`flex flex-row items-center gap-1 mt-1.5 relative ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
             <span className="text-[11px] text-txt-extra/80 font-medium">{timeDisplay}</span>
+            {message.is_edited && (
+              <>
+                <span 
+                  className="text-[11px] text-brand-primary font-medium cursor-pointer hover:underline"
+                  onClick={() => setShowEditHistory(!showEditHistory)}
+                >
+                  (Đã chỉnh sửa)
+                </span>
+                {showEditHistory && message.edit_history && message.edit_history.length > 0 && (
+                  <div className={`absolute z-20 bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} w-64 bg-surface-solid border border-glass-border shadow-xl rounded-xl p-3 flex flex-col gap-2 max-h-60 overflow-y-auto`}>
+                    <p className="text-xs font-semibold text-txt-primary border-b border-glass-border pb-1">Lịch sử chỉnh sửa</p>
+                    {[...message.edit_history].reverse().map((historyItem, idx) => (
+                      <div key={idx} className="flex flex-col gap-0.5 bg-secondary/30 p-2 rounded-lg">
+                        <span className="text-[10px] text-txt-extra">{format(new Date(historyItem.updated_at), "dd/MM/yyyy HH:mm")}</span>
+                        <p className="text-sm text-txt-primary whitespace-pre-wrap break-words">{historyItem.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
         
         {shouldShowDetails && isMe && (
           <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
             {(!watermarks || watermarks.length === 0) ? (
-              <Check className="w-3.5 h-3.5 text-txt-extra/60" title="Đã gửi" />
+              <span title="Đã gửi">
+                <Check className="w-3.5 h-3.5 text-txt-extra/60" />
+              </span>
             ) : (
               <>
                 {watermarks.some(w => w.type === 'delivered') && !watermarks.some(w => w.type === 'read') && (
-                  <CheckCheck className="w-3.5 h-3.5 text-brand-primary" title="Đã nhận" />
+                  <span title="Đã nhận">
+                    <CheckCheck className="w-3.5 h-3.5 text-brand-primary" />
+                  </span>
                 )}
                 {watermarks.filter(w => w.type === 'read').map((w, idx) => {
                   const wUser = useUserStore.getState().users[w.userId];

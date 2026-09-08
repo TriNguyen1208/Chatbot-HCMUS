@@ -144,6 +144,11 @@ export class MessageService {
         if (message.sender_id?.toString() !== userId) throw createHttpError.Forbidden("You can only edit your own messages");
         if (message.type !== 'text') throw createHttpError.BadRequest("Only text messages can be edited");
 
+        const ONE_HOUR = 60 * 60 * 1000;
+        if (message.created_at && Date.now() - new Date(message.created_at).getTime() > ONE_HOUR) {
+            throw createHttpError.Forbidden("Chỉ được sửa tin nhắn trong vòng 1 tiếng kể từ lúc gửi");
+        }
+
         const updatedAt = new Date();
         await this.messageRepo.updateContent(messageId, newContent, updatedAt);
 
@@ -151,10 +156,17 @@ export class MessageService {
         const convIdStr = message.conversation_id.toString();
         await redisClient.del(`conversation:${convIdStr}`);
 
-        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
-        socketManager.emitToUsers(members, "message_edited", { messageId, content: newContent, updated_at: updatedAt, conversation_id: convIdStr });
-
         const updatedMessageForSync = await this.messageRepo.findByID(messageId);
+
+        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
+        socketManager.emitToUsers(members, "message_edited", { 
+            messageId, 
+            content: newContent, 
+            updated_at: updatedAt, 
+            conversation_id: convIdStr,
+            edit_history: updatedMessageForSync?.edit_history
+        });
+
         if (updatedMessageForSync) {
             triggerSync('messages', SyncOperation.UPDATE, updatedMessageForSync);
         }

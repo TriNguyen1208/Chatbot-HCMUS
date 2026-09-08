@@ -88,7 +88,6 @@ export class KeystoreService {
             await this.keystoreRepo.revokeFamily(keyStore.family_id)
             throw createHttpError.Unauthorized("Anomaly detected, please log in again");
         }
-        const expiresTime = keyStore.expires_at
         await this.keystoreRepo.markUsedByHash(hashRefreshToken);
 
         const newTokens = jwtService.createPairToken({ id: user.userID, email: user.email });
@@ -97,12 +96,10 @@ export class KeystoreService {
             rawRefreshToken: newTokens.refreshToken,
             device_info: deviceInfo,
             family_id: keyStore.family_id,
-            parent_id: hashRefreshToken,
-            expires_at: expiresTime
+            parent_id: hashRefreshToken
         })
         return {
-            tokens: newTokens,
-            expires_refresh_token: expiresTime
+            tokens: newTokens
         }
     }
 

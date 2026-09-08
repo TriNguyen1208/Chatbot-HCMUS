@@ -14,6 +14,7 @@ import CreateGroupModal from "../Modals/CreateGroupModal";
 import UserProfileModal from "../Modals/UserProfileModal";
 import KickMemberModal from "../Modals/KickMemberModal";
 import AssignAdminModal from "../Modals/AssignAdminModal";
+import ForwardModal from "../Modals/ForwardModal";
 
 const ChatPageContent = ({ type }: ChatScreenProps) => {
   const { activeConversation } = useChatScreen(type);
@@ -50,6 +51,7 @@ const ChatPageContent = ({ type }: ChatScreenProps) => {
       />
 
       <UserProfileModal />
+      <ForwardModal />
     </>
   );
 }

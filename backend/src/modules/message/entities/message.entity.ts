@@ -25,6 +25,10 @@ export interface Message {
     created_at?: Date;       // Creation time
     updated_at?: Date;       // Last edit time
     is_edited?: boolean;     // Whether the message has been edited
+    edit_history?: {
+        content: string;
+        updated_at: Date;
+    }[];
     reactions?: {
         user_id: Types.ObjectId | string;
         emoji: string;
@@ -55,6 +59,15 @@ export const MessageSchema = new Schema<MessageDB>({
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, required: false },
     is_edited: { type: Boolean, default: false },
+    edit_history: {
+        type: [
+            {
+                content: { type: String, required: true },
+                updated_at: { type: Date, required: true }
+            }
+        ],
+        default: []
+    },
     reactions: {
         type: [
             {

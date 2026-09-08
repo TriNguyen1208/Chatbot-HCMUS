@@ -4,6 +4,7 @@ import { Message } from "../types";
 import { useState, useRef, useEffect } from "react";
 import { messageApi } from "../api/message.api";
 import { useChatStore } from "../stores/chatStore";
+import { useModalStore } from "../stores/modalStore";
 
 export const useMessageItem = (message: Message) => {
   const { user } = useAuthStore();
@@ -45,7 +46,7 @@ export const useMessageItem = (message: Message) => {
   };
 
   const handleForward = () => {
-    console.log("Forward message", message.id as string);
+    useModalStore.getState().openForwardModal(message);
     setShowMenu(false);
   };
 
