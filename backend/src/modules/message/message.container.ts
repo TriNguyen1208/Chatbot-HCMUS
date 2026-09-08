@@ -6,14 +6,29 @@ import { MessageController } from "./controllers/message.controller.js";
 import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js";
 
 class MessageContainer {
-    public messageRepo = new MessageRepository(mongoDB);
+    private _messageRepo?: MessageRepository;
+    public get messageRepo() {
+        if (!this._messageRepo) {
+            this._messageRepo = new MessageRepository(mongoDB);
+        }
+        return this._messageRepo;
+    }
     
-    public messageService = new MessageService(
-        conversationFacade, 
-        this.messageRepo
-    );
+    private _messageService?: MessageService;
+    public get messageService() {
+        if (!this._messageService) {
+            this._messageService = new MessageService(conversationFacade, this.messageRepo);
+        }
+        return this._messageService;
+    }
     
-    public messageController = new MessageController(this.messageService);
+    private _messageController?: MessageController;
+    public get messageController() {
+        if (!this._messageController) {
+            this._messageController = new MessageController(this.messageService);
+        }
+        return this._messageController;
+    }
 }
 
 export const messageContainer = new MessageContainer();

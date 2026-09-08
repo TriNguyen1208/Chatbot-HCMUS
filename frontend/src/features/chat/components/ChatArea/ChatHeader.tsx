@@ -78,12 +78,16 @@ const ChatHeader = () => {
           </div>
         </div>
         <div className="flex flex-row items-center gap-4 text-gray-500">
-          <button className="hover:text-brand-primary cursor-pointer">
-            <Phone size={20} />
-          </button>
-          <button className="hover:text-brand-primary cursor-pointer">
-            <Video size={20} />
-          </button>
+          {activeConversation.type !== 'self' && (
+            <>
+              <button className="hover:text-brand-primary cursor-pointer">
+                <Phone size={20} />
+              </button>
+              <button className="hover:text-brand-primary cursor-pointer">
+                <Video size={20} />
+              </button>
+            </>
+          )}
           <button onClick={toggleInfoPanel} className="hover:text-brand-primary cursor-pointer">
             <Info size={20} />
           </button>

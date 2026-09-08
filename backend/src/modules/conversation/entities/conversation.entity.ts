@@ -12,7 +12,7 @@ export interface Conversation {
     created_at: Date;
     name?: string;
     avatar_url?: string;
-    type: 'group' | 'utu';
+    type: 'group' | 'utu' | 'self';
     primary_icon: string;
     is_active: boolean;
 }
@@ -45,7 +45,7 @@ export const ConversationSchema = new Schema<ConversationDB>({
     created_at: { type: Date, default: Date.now },
     name: { type: String, required: false },
     avatar_url: { type: String, required: false },
-    type: { type: String, enum: ['group', 'utu'], required: true },
+    type: { type: String, enum: ['group', 'utu', 'self'], required: true },
     primary_icon: { type: String, required: true },
     is_active: { type: Boolean, default: true, required: true }
 });

@@ -28,7 +28,7 @@ export const useChatHeader = () => {
     const otherMemberId = activeConversation?.member_ids?.find(m => m !== user?.id) as string;
     const otherMember = users[otherMemberId];
     
-    const displayName = activeConversation?.name || otherMember?.name || "Unknown";
+    const displayName = activeConversation?.name || otherMember?.name || "Cloud của tôi";
     const displayAvatar = activeConversation?.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR;
     
     const isAdmin = activeConversation?.admin_ids?.some(adminId => adminId === user?.id);

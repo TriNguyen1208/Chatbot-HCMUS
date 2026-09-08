@@ -11,6 +11,8 @@ export interface IConversationRepository {
 
     getConversationsByUser(userId: string, limit?: number, cursorId?: string, type?: 'utu' | 'group'): Promise<Conversation[]>;
 
+    findSelfConversation(userId: string): Promise<Conversation | null>;
+
     findDirectConversation(user1: string, user2: string): Promise<Conversation | null>;
 
     addMembers(conversationId: string, userIds: string[]): Promise<Conversation>;
@@ -97,6 +99,15 @@ export class ConversationRepository implements IConversationRepository {
         });
 
         return conversations.map(c => this.formatConversation(c)).filter(Boolean) as Conversation[];
+    }
+
+    async findSelfConversation(userId: string): Promise<Conversation | null> {
+        const conditions: Record<string, unknown> = {
+            type: 'self',
+            member_ids: { $all: [userId], $size: 1 }
+        };
+        const conv = await this.db.findOne<ConversationDB>('conversations', conditions, { populate: this.getPopulateOptions() });
+        return this.formatConversation(conv);
     }
 
     async findDirectConversation(user1: string, user2: string): Promise<Conversation | null> {

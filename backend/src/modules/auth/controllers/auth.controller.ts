@@ -8,6 +8,7 @@ import { config } from "#@/config/config.js";
 import { parseDurationMs } from "#@/shared/utils/time.utils.js";
 import { clearCookie, setCookie } from "#@/shared/utils/cookie.js";
 import type { KeystoreService } from "../services/keystore.service.js";
+import { conversationFacade } from "#@/modules/conversation/conversation.facade.js";
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
@@ -24,6 +25,10 @@ export class AuthController {
     googleLogin = async (req: Request, res: Response, next: NextFunction) => {
         const { idToken } = req.body as GoogleLoginInput["body"]
         const result = await this.authService.login(this.authStrategy, idToken);
+        
+        // Ensure the self conversation exists for the user
+        await conversationFacade.findOrCreateSelfConversation(result.user.id);
+        
         setCookie(
             res,
             "accessToken",

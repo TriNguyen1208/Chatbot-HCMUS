@@ -34,12 +34,16 @@ export class ConversationFacade {
 
     async createConversation(
         userId: string, 
-        data: { type: 'utu' | 'group', name?: string, member_ids: string[], primary_icon?: string }
+        data: { type: 'utu' | 'group' | 'self', name?: string, member_ids: string[], primary_icon?: string }
     ): Promise<Conversation> {
         return await this.conversationService.createConversation(userId, {
             ...data,
             primary_icon: data.primary_icon || 'default'
         });
+    }
+
+    async findOrCreateSelfConversation(userId: string): Promise<Conversation> {
+        return this.conversationService.findOrCreateSelfConversation(userId);
     }
 
     async getConversation(conversationId: string): Promise<string[]> {

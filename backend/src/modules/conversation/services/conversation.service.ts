@@ -28,10 +28,16 @@ export class ConversationService {
         if (data.type === 'utu' && members.size !== 2) {
             throw createError(400, "A 1-1 conversation must have exactly 2 members");
         }
-        // If utu, check if already exists
+        if (data.type === 'self' && members.size !== 1) {
+            throw createError(400, "A self conversation must have exactly 1 member");
+        }
+        // If utu or self, check if already exists
         if (data.type === 'utu') {
             const arr = Array.from(members);
             const existing = await this.conversationRepo.findDirectConversation(arr[0]!, arr[1]!);
+            if (existing) return existing;
+        } else if (data.type === 'self') {
+            const existing = await this.conversationRepo.findSelfConversation(userId);
             if (existing) return existing;
         } else if (data.type === 'group' && !data.avatar_url) {
             // Assign creator's avatar if no avatar_url is provided
@@ -65,6 +71,17 @@ export class ConversationService {
         triggerSync('conversations', SyncOperation.CREATE, created);
 
         return created;
+    }
+
+    async findOrCreateSelfConversation(userId: string): Promise<Conversation> {
+        const existing = await this.conversationRepo.findSelfConversation(userId);
+        if (existing) return existing;
+        
+        return this.createConversation(userId, {
+            type: 'self',
+            member_ids: [],
+            primary_icon: 'default'
+        });
     }
 
     /**

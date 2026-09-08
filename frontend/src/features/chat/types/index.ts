@@ -46,7 +46,7 @@ export interface Conversation {
     created_at?: Date | string;
     name?: string;
     avatar_url?: string;
-    type: 'group' | 'utu';
+    type: 'group' | 'utu' | 'self';
     primary_icon?: string;
     is_active?: boolean;
     receiver_id?: string;

@@ -4,9 +4,29 @@ import { UserService } from "./services/user.service.js";
 import { UserController } from "./controllers/user.controller.js";
 
 class UserContainer {
-    public userRepository = new UserRepository(mongoDB);
-    public userService = new UserService(this.userRepository);
-    public userController = new UserController(this.userService);
+    private _userRepository?: UserRepository;
+    public get userRepository() {
+        if (!this._userRepository) {
+            this._userRepository = new UserRepository(mongoDB);
+        }
+        return this._userRepository;
+    }
+    
+    private _userService?: UserService;
+    public get userService() {
+        if (!this._userService) {
+            this._userService = new UserService(this.userRepository);
+        }
+        return this._userService;
+    }
+
+    private _userController?: UserController;
+    public get userController() {
+        if (!this._userController) {
+            this._userController = new UserController(this.userService);
+        }
+        return this._userController;
+    }
 }
 
 export const userContainer = new UserContainer();

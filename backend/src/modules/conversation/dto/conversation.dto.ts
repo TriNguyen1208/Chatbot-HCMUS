@@ -6,12 +6,15 @@ const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ID format"
 
 export const CreateConversationSchema = z.object({
     body: z.object({
-        member_ids: z.array(z.string()).min(1, "A conversation must have at least 1 other member"),
-        type: z.enum(['group', 'utu'], { message: "Conversation type must be group or utu" }),
+        member_ids: z.array(z.string()),
+        type: z.enum(['group', 'utu', 'self'], { message: "Conversation type must be group, utu, or self" }),
         name: z.string().optional(),
         avatar_url: z.string("Invalid image URL").optional(),
         primary_icon: z.string().optional().default('👍')
     }).refine((data) => {
+        if (data.type === 'self' && data.member_ids.length !== 1) {
+            return false;
+        }
         if (data.type === 'group' && !data.name) {
             return false;
         }

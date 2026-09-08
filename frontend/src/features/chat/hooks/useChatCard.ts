@@ -19,8 +19,8 @@ export const useChatCard = (conversation: Conversation) => {
     }
   }, [otherMemberId, otherMember, requestUser]);
 
-  const displayName = conversation.name || otherMember?.name || "Người dùng";
-  const displayAvatar = conversation.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR;
+  const displayName = conversation.type === 'self' ? "Cloud của tôi" : (conversation.name || otherMember?.name || "Người dùng");
+  const displayAvatar = conversation.type === 'self' ? (user?.avatar_url || DEFAULT_AVATAR) : (conversation.avatar_url || otherMember?.avatar_url || DEFAULT_AVATAR);
 
   // Calculate time display
   const timeToUse = conversation.last_message?.created_at || conversation.created_at;
