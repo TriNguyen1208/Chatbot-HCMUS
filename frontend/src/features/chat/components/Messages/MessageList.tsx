@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useMessageList } from "@/features/chat/hooks/useMessageList";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
@@ -25,6 +25,42 @@ const MessageList = () => {
 
     const { targetMessageId, setTargetMessageId } = useSearchStore();
     const queryClient = useQueryClient();
+
+    const watermarksByMessageId = useMemo(() => {
+        const result: Record<string, { type: 'delivered' | 'read', userId: string }[]> = {};
+        const watermarks = activeConversation?.watermarks || [];
+        
+        watermarks.forEach(w => {
+            if (w.user_id !== user?.id) {
+                // Find indices in the descending messages array
+                const readIdx = w.last_read_msg_id ? messages.findIndex(m => m.id === w.last_read_msg_id || (m as any)._id === w.last_read_msg_id) : -1;
+                const deliveredIdx = w.last_delivered_msg_id ? messages.findIndex(m => m.id === w.last_delivered_msg_id || (m as any)._id === w.last_delivered_msg_id) : -1;
+
+                // If readIdx is found, all messages from readIdx to the end of the array are "read"
+                if (readIdx !== -1) {
+                    for (let i = readIdx; i < messages.length; i++) {
+                        const msgId = messages[i].id || (messages[i] as any)._id;
+                        if (!result[msgId]) result[msgId] = [];
+                        result[msgId].push({ type: 'read', userId: w.user_id });
+                    }
+                }
+
+                // If deliveredIdx is found, all messages from deliveredIdx to the end of the array are "delivered"
+                // But only if they haven't been marked as read by this user
+                if (deliveredIdx !== -1) {
+                    for (let i = deliveredIdx; i < messages.length; i++) {
+                        const msgId = messages[i].id || (messages[i] as any)._id;
+                        if (!result[msgId]) result[msgId] = [];
+                        // Ensure we don't duplicate if already marked as read
+                        if (!result[msgId].some(r => r.userId === w.user_id && r.type === 'read')) {
+                            result[msgId].push({ type: 'delivered', userId: w.user_id });
+                        }
+                    }
+                }
+            }
+        });
+        return result;
+    }, [activeConversation?.watermarks, user?.id, messages]);
 
     useEffect(() => {
         const fetchContextAndScroll = async () => {
@@ -81,10 +117,12 @@ const MessageList = () => {
                 </div>
             )}
             
-            {messages.map((msg) => (
+            {messages.map((msg, index) => (
                 <MessageItem
                     key={msg.id || (msg as any).id}
                     message={msg}
+                    watermarks={watermarksByMessageId[msg.id || '']}
+                    isLastMessage={index === 0}
                 />
             ))}
 

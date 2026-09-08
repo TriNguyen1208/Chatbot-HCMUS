@@ -81,9 +81,58 @@ export class SocketManager {
                     userId
                 })
             });
+
+            // Watermark Handlers
+            socket.on("mark_delivered", async (data: { conversationId: string, messageId: string }) => {
+                if (!data?.conversationId || !data?.messageId) return;
+                await this.handleWatermarkUpdate(userId, data.conversationId, data.messageId, 'delivered');
+            });
+
+            socket.on("mark_read", async (data: { conversationId: string, messageId: string }) => {
+                if (!data?.conversationId || !data?.messageId) return;
+                await this.handleWatermarkUpdate(userId, data.conversationId, data.messageId, 'read');
+            });
+
             // Disconnect handler
             this.registerDisconnectHandler(socket, userId);
         });
+    }
+
+    private async handleWatermarkUpdate(userId: string, conversationId: string, messageId: string, type: 'delivered' | 'read') {
+        try {
+            // Update Redis
+            const key = `watermarks:${conversationId}`;
+            const field = userId;
+            
+            let currentStr = await redisClient.getClient().hget(key, field);
+            let current = currentStr ? JSON.parse(currentStr) : {};
+            
+            if (type === 'delivered') {
+                current.last_delivered_msg_id = messageId;
+            } else {
+                current.last_read_msg_id = messageId;
+            }
+            
+            await redisClient.getClient().hset(key, field, JSON.stringify(current));
+
+            // Publish to RabbitMQ
+            const { syncWatermarkToDB } = await import('#@/infrastructure/rabbitmq/producer.js');
+            syncWatermarkToDB({ conversationId, userId, messageId, type });
+
+            // Lấy danh sách thành viên để emit socket
+            const { conversationFacade } = await import('#@/modules/conversation/conversation.facade.js');
+            const members = await conversationFacade.getConversationMembers(conversationId, userId);
+            
+            // Emit to group
+            this.emitToUsers(members, "watermark_updated", {
+                conversationId,
+                userId,
+                messageId,
+                type
+            });
+        } catch (error) {
+            console.error(`[Socket.IO] Error handling watermark update:`, error);
+        }
     }
 
 

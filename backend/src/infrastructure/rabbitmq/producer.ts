@@ -1,5 +1,5 @@
 import { rabbitmq } from './index.js'; 
-import { type SyncPayload } from './types.js';
+import { type SyncPayload, SyncOperation } from './types.js';
 
 // Hàm core dùng để đẩy message vào 1 queue bất kỳ
 export const publishToQueue = async <T>(queueName: string, payload: SyncPayload<T>) => {
@@ -21,3 +21,4 @@ export const publishToQueue = async <T>(queueName: string, payload: SyncPayload<
 export const syncUserES = (payload: SyncPayload<any>) => publishToQueue('sync_user_es', payload);
 export const syncConversationES = (payload: SyncPayload<any>) => publishToQueue('sync_conversation_es', payload);
 export const syncMessageES = (payload: SyncPayload<any>) => publishToQueue('sync_message_es', payload);
+export const syncWatermarkToDB = (payload: { conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read' }) => publishToQueue('sync_watermark_db', { operation: SyncOperation.UPDATE, data: payload } as any);

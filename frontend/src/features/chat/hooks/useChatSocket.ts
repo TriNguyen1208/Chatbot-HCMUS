@@ -57,6 +57,19 @@ export const useChatSocket = () => {
         // 4. LẮNG NGHE SỰ KIỆN: CÓ TIN NHẮN MỚI
         socket.on('new_message', (message: Message) => {
             console.log("Frontend received new_message:", message);
+            const { activeConversation } = useChatStore.getState();
+            const { user } = useAuthStore.getState();
+
+            // Ignore messages sent by ourselves
+            if (user?.id && message.sender_id !== user.id) {
+                const isActive = (activeConversation?.id === message.conversation_id);
+                if (isActive) {
+                    socket.emit('mark_read', { conversationId: message.conversation_id, messageId: message.id });
+                } else {
+                    socket.emit('mark_delivered', { conversationId: message.conversation_id, messageId: message.id });
+                }
+            }
+
             queryClient.setQueryData(['messages', message.conversation_id], (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 // Nếu chưa có cache (trường hợp tạo mới), tự tạo một cache ảo
                 if (!oldData) {
@@ -261,7 +274,55 @@ export const useChatSocket = () => {
             }
         });
 
-        // 9. Cleanup function: Ngắt kết nối socket khi người dùng đóng trang
+        // 9. LẮNG NGHE SỰ KIỆN: CẬP NHẬT WATERMARK
+        socket.on('watermark_updated', (data: { conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read' }) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: Conversation) => {
+                        if (conv.id === data.conversationId) {
+                            const newWatermarks = [...(conv.watermarks || [])];
+                            const existingIdx = newWatermarks.findIndex(w => w.user_id === data.userId);
+                            
+                            if (existingIdx !== -1) {
+                                if (data.type === 'delivered') newWatermarks[existingIdx].last_delivered_msg_id = data.messageId;
+                                if (data.type === 'read') newWatermarks[existingIdx].last_read_msg_id = data.messageId;
+                            } else {
+                                newWatermarks.push({
+                                    user_id: data.userId,
+                                    last_delivered_msg_id: data.type === 'delivered' ? data.messageId : null,
+                                    last_read_msg_id: data.type === 'read' ? data.messageId : null
+                                });
+                            }
+                            return { ...conv, watermarks: newWatermarks };
+                        }
+                        return conv;
+                    })
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            // Update activeConversation if it's currently open
+            const { activeConversation, setActiveConversation } = useChatStore.getState();
+            if (activeConversation && activeConversation.id === data.conversationId) {
+                const newWatermarks = [...(activeConversation.watermarks || [])];
+                const existingIdx = newWatermarks.findIndex(w => w.user_id === data.userId);
+                
+                if (existingIdx !== -1) {
+                    if (data.type === 'delivered') newWatermarks[existingIdx].last_delivered_msg_id = data.messageId;
+                    if (data.type === 'read') newWatermarks[existingIdx].last_read_msg_id = data.messageId;
+                } else {
+                    newWatermarks.push({
+                        user_id: data.userId,
+                        last_delivered_msg_id: data.type === 'delivered' ? data.messageId : null,
+                        last_read_msg_id: data.type === 'read' ? data.messageId : null
+                    });
+                }
+                setActiveConversation({ ...activeConversation, watermarks: newWatermarks });
+            }
+        });
+
+        // 10. Cleanup function: Ngắt kết nối socket khi người dùng đóng trang
         return () => {
             socket.disconnect();
             socketRef.current = null;

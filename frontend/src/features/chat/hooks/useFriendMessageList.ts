@@ -6,6 +6,8 @@ import { useAuthStore } from "@/features/auth/stores/authStore";
 import { Conversation } from "@/features/chat/types";
 import { useConversationsQuery } from "./useChatQueries";
 
+import { useSocketContext } from "@/providers/SocketProvider";
+
 export const useFriendMessageList = () => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const pathname = usePathname();
@@ -20,10 +22,32 @@ export const useFriendMessageList = () => {
   
   const router = useRouter();
   const { user } = useAuthStore();
+  const { socket } = useSocketContext();
 
   const { ref, inView } = useInView({ threshold: 0 });
 
   const conversations = data?.pages.flatMap(page => page) || [];
+
+  // Catch-up mark_delivered logic
+  useEffect(() => {
+    if (conversations.length > 0 && socket && user?.id) {
+      conversations.forEach(conv => {
+        const lastMsg = conv.last_message;
+        const convId = conv.id || (conv as any)._id;
+        if (lastMsg && lastMsg.sender_id !== user.id) {
+          const msgId = lastMsg.id || (lastMsg as any)._id;
+          if (!msgId) return;
+
+          const myWatermark = conv.watermarks?.find(w => w.user_id === user.id);
+          const isDeliveredOrRead = myWatermark?.last_delivered_msg_id === msgId || myWatermark?.last_read_msg_id === msgId;
+
+          if (!isDeliveredOrRead && activeConversation?.id !== convId) {
+            socket.emit('mark_delivered', { conversationId: convId, messageId: msgId });
+          }
+        }
+      });
+    }
+  }, [conversations, socket, user?.id, activeConversation?.id]);
 
   useEffect(() => {
     

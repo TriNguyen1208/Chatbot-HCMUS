@@ -7,16 +7,32 @@ import { conversationApi } from "@/features/chat/api/conversation.api";
 import { userApi } from "@/features/chat/api/user.api";
 import { Conversation } from "../types";
 
+import { useSocketContext } from "@/providers/SocketProvider";
+
 export const useChatScreen = (type?: "utu" | "group" | "all") => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { socket } = useSocketContext();
 
   const fallbackRoute = type === "group" ? "/group-chat" : type === "utu" ? "/direct-chat" : "/chat";
 
   const cId = searchParams.get("conversation_id");
   const receiverId = searchParams.get("receiver_id");
+
+  useEffect(() => {
+    if (activeConversation?.id && activeConversation.last_message?.id && socket) {
+        // We only emit mark_read if the last message was not sent by the current user
+        const { user } = useAuthStore.getState();
+        if (user?.id && activeConversation.last_message.sender_id !== user.id) {
+            socket.emit('mark_read', { 
+                conversationId: activeConversation.id, 
+                messageId: activeConversation.last_message.id 
+            });
+        }
+    }
+  }, [activeConversation?.id, activeConversation?.last_message?.id, socket]);
 
   useEffect(() => {
     if (cId) {

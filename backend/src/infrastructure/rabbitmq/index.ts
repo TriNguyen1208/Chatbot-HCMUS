@@ -17,6 +17,7 @@ class RabbitMQConnection {
             await this.channel.assertQueue('sync_user_es', { durable: true });
             await this.channel.assertQueue('sync_conversation_es', { durable: true });
             await this.channel.assertQueue('sync_message_es', { durable: true });
+            await this.channel.assertQueue('sync_watermark_db', { durable: true });
 
             return this.channel;
         } catch (error) {

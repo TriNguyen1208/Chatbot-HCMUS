@@ -19,6 +19,11 @@ export interface Conversation {
 
 export interface ConversationDB extends Omit<Conversation, 'id' | "last_message" > {
     last_message_id?: Types.ObjectId | null;
+    watermarks?: {
+        user_id: Types.ObjectId | string;
+        last_delivered_msg_id?: Types.ObjectId | string | null;
+        last_read_msg_id?: Types.ObjectId | string | null;
+    }[];
     _id?: Types.ObjectId;
     __v?: number
 }
@@ -28,6 +33,15 @@ export const ConversationSchema = new Schema<ConversationDB>({
     member_ids: { type: [{ type: Types.ObjectId, ref: 'User' }], required: true },
     admin_ids: { type: [{ type: Types.ObjectId, ref: 'User' }], default: [] },
     last_message_id: { type: Types.ObjectId, default: null, ref: "Message" },
+    watermarks: {
+        type: [{
+            user_id: { type: Types.ObjectId, ref: 'User' },
+            last_delivered_msg_id: { type: Types.ObjectId, ref: 'Message', default: null },
+            last_read_msg_id: { type: Types.ObjectId, ref: 'Message', default: null },
+            _id: false
+        }],
+        default: []
+    },
     created_at: { type: Date, default: Date.now },
     name: { type: String, required: false },
     avatar_url: { type: String, required: false },

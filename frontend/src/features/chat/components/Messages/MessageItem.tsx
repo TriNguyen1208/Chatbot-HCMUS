@@ -5,19 +5,24 @@ import { useEffect, useState } from "react";
 import { useMessageItem } from "@/features/chat/hooks/useMessageItem";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import Image from "next/image";
-import { MoreVertical, CornerUpLeft, Forward, Smile, X } from "lucide-react";
+import { MoreVertical, CornerUpLeft, Forward, Smile, X, Check, CheckCheck } from "lucide-react";
 import ReactionModal from "./ReactionModal";
 import { useModalStore } from "@/features/chat/stores/modalStore";
 
 interface MessageItemProps {
   message: Message;
+  watermarks?: { type: 'delivered' | 'read', userId: string }[];
+  isLastMessage?: boolean;
 }
 
-const MessageItem = ({ message }: MessageItemProps) => {
+const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItemProps) => {
   const requestUser = useUserStore(state => state.requestUser);
   const senderUser = useUserStore(state => state.users[message.sender_id || '']);
 
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  
+  const shouldShowDetails = isLastMessage || showDetails;
 
   useEffect(() => {
     if (message.sender_id && !senderUser) {
@@ -116,7 +121,10 @@ const MessageItem = ({ message }: MessageItemProps) => {
           </div>
         </div>
 
-        <div className={`flex flex-col gap-1.5 ${isMe ? 'items-end' : 'items-start'}`}>
+        <div 
+          className={`flex flex-col gap-1.5 cursor-pointer ${isMe ? 'items-end' : 'items-start'}`}
+          onClick={() => setShowDetails(!showDetails)}
+        >
           {message.status === 'recalled' ? (
             <div className={`px-5 py-3 rounded-2xl border border-glass-border bg-transparent text-txt-extra italic shadow-sm backdrop-blur-sm`}>
               <p className="text-sm">Tin nhắn đã bị thu hồi</p>
@@ -126,7 +134,10 @@ const MessageItem = ({ message }: MessageItemProps) => {
               {message.type === 'image' && message.image?.url && (
                 <div 
                   className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm cursor-pointer"
-                  onClick={() => setShowImageModal(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageModal(true);
+                  }}
                 >
                   <img src={message.image.url} alt="Image message" className="w-full h-auto object-cover max-h-60 transition-transform hover:scale-105 duration-500" />
                 </div>
@@ -140,13 +151,16 @@ const MessageItem = ({ message }: MessageItemProps) => {
               )}
 
               {message.type === 'video' && message.video?.url && (
-                <div className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm bg-black">
+                <div 
+                  className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm bg-black"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <video src={message.video.url} poster={message.video.thumbnail_url} controls className="w-full h-auto max-h-60" />
                 </div>
               )}
 
               {message.content && message.content.trim().length > 0 && (
-                <div className={`px-5 py-3 rounded-[20px] shadow-sm ${isMe ? 'bg-gradient-primary text-white rounded-br-sm' : 'bg-surface border border-glass-border text-txt-primary rounded-bl-sm backdrop-blur-sm'}`}>
+                <div className={`px-5 py-3 rounded-[20px] shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'bg-gradient-primary text-white rounded-br-sm' : 'bg-surface border border-glass-border text-txt-primary rounded-bl-sm backdrop-blur-sm'}`}>
                   <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
               )}
@@ -174,9 +188,41 @@ const MessageItem = ({ message }: MessageItemProps) => {
           </div>
         )}
 
-        <div className={`flex flex-row items-center gap-1 mt-1.5 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
-          <span className="text-[11px] text-txt-extra/80 font-medium">{timeDisplay}</span>
-        </div>
+        {shouldShowDetails && (
+          <div className={`flex flex-row items-center gap-1 mt-1.5 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
+            <span className="text-[11px] text-txt-extra/80 font-medium">{timeDisplay}</span>
+          </div>
+        )}
+        
+        {shouldShowDetails && isMe && (
+          <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
+            {(!watermarks || watermarks.length === 0) ? (
+              <Check className="w-3.5 h-3.5 text-txt-extra/60" title="Đã gửi" />
+            ) : (
+              <>
+                {watermarks.some(w => w.type === 'delivered') && !watermarks.some(w => w.type === 'read') && (
+                  <CheckCheck className="w-3.5 h-3.5 text-brand-primary" title="Đã nhận" />
+                )}
+                {watermarks.filter(w => w.type === 'read').map((w, idx) => {
+                  const wUser = useUserStore.getState().users[w.userId];
+                  const avatar = wUser?.avatar_url || DEFAULT_AVATAR;
+                  return (
+                    <div key={`read-${idx}`} className="relative">
+                      <Image
+                        src={avatar}
+                        alt="watermark"
+                        width={14}
+                        height={14}
+                        className="rounded-full object-cover shadow-sm"
+                        title={`${wUser?.name || 'Người dùng'} đã xem`}
+                      />
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {showReactionList && <ReactionModal message={message} onClose={() => setShowReactionList(false)} />}

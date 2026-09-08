@@ -50,5 +50,9 @@ export class ConversationFacade {
             return [];
         }
     }
+
+    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void> {
+        return this.conversationService.updateWatermark(conversationId, userId, messageId, type);
+    }
 }
 export const conversationFacade = new ConversationFacade();

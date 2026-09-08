@@ -4,6 +4,7 @@ export interface IQueryOptions<T = Record<string, unknown>> {
     offset?: number;
     orderBy?: { field: Extract<keyof T, string>; ascending?: boolean };
     populate?: any;
+    arrayFilters?: any[];
 }
 
 export interface IDatabase {

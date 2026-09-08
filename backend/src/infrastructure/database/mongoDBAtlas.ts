@@ -148,10 +148,15 @@ export class MongoDBAtlas implements IDatabase {
         const updateQuery = isOperatorQuery ? data : { $set: data };
 
         // Use findOneAndUpdate to avoid a second query, returning the updated document
+        const updateOptions: any = { returnDocument: 'after' };
+        if (options?.arrayFilters) {
+            updateOptions.arrayFilters = options.arrayFilters;
+        }
+
         const result = await mongoose.connection.db.collection(collection).findOneAndUpdate(
             conditions,
             updateQuery,
-            { returnDocument: 'after' }
+            updateOptions
         );
 
         if (!result) return null;

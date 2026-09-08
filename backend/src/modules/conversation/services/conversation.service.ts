@@ -259,4 +259,21 @@ export class ConversationService {
             triggerSync('conversations', SyncOperation.UPDATE, updatedConvForSync);
         }
     }
+
+    /**
+     * Updates the watermark (read/delivered status) for a user in a conversation.
+     * @param conversationId The ID of the conversation
+     * @param userId The ID of the user updating their watermark
+     * @param messageId The ID of the message
+     * @param type 'delivered' or 'read'
+     */
+    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read') {
+        // Ensure conversation exists and user is a member
+        await this.getConversationById(conversationId, userId);
+        
+        await this.conversationRepo.updateWatermark(conversationId, userId, messageId, type);
+        
+        // Invalidate cache so that next fetch gets the updated watermarks
+        await redisClient.del(`conversation:${conversationId}`);
+    }
 }

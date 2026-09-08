@@ -49,4 +49,9 @@ export interface Conversation {
     primary_icon?: string;
     is_active?: boolean;
     receiver_id?: string;
+    watermarks?: {
+        user_id: string;
+        last_delivered_msg_id?: string | null;
+        last_read_msg_id?: string | null;
+    }[];
 }

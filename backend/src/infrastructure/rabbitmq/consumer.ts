@@ -75,6 +75,27 @@ export const startConsumers = async () => {
         setupConsumer('sync_conversation_es', 'conversations');
         setupConsumer('sync_message_es', 'messages');
 
+        // Special consumer for DB watermarks
+        channel.consume('sync_watermark_db', async (msg) => {
+            if (msg !== null) {
+                try {
+                    const payload: SyncPayload<{ conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read' }> = JSON.parse(msg.content.toString());
+                    const { conversationId, userId, messageId, type } = payload.data;
+                    
+                    // Import dynamically to avoid circular dependencies
+                    const { conversationFacade } = await import('#@/modules/conversation/conversation.facade.js');
+                    await conversationFacade.updateWatermark(conversationId, userId, messageId, type);
+
+                    console.log(`✅ [RabbitMQ Consumer] Successfully synced watermark for user ${userId} in conversation ${conversationId}`);
+                    channel.ack(msg);
+                } catch (error) {
+                    console.error(`[RabbitMQ Consumer] Error processing watermark message:`, error);
+                    channel.nack(msg, false, false);
+                }
+            }
+        });
+        console.log(`✅ Started consumer for queue: sync_watermark_db`);
+
     } catch (error) {
         console.error('❌ Failed to start RabbitMQ consumers:', error);
     }

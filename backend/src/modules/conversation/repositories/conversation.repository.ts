@@ -22,6 +22,8 @@ export interface IConversationRepository {
     removeMembers(conversationId: string, userIds: string[]): Promise<void>;
 
     addAdmins(conversationId: string, adminIds: string[]): Promise<Conversation>;
+
+    updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void>;
 }
 
 export class ConversationRepository implements IConversationRepository {
@@ -151,5 +153,39 @@ export class ConversationRepository implements IConversationRepository {
         if (!Types.ObjectId.isValid(conversationId) || !Types.ObjectId.isValid(messageId)) throw new Error("Invalid conversation ID or message ID");
         const updatedConv = await this.db.update<ConversationDB>('conversations', { _id: new Types.ObjectId(conversationId) }, { last_message_id: new Types.ObjectId(messageId) }, { populate: this.getPopulateOptions() });
         return this.formatConversation(updatedConv)!;
+    }
+
+    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void> {
+        if (!Types.ObjectId.isValid(conversationId) || !Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(messageId)) return;
+        
+        const convId = new Types.ObjectId(conversationId);
+        const uId = new Types.ObjectId(userId);
+        const msgId = new Types.ObjectId(messageId);
+
+        // Check if user exists in watermarks array
+        const conv = await this.db.findOne<ConversationDB>('conversations', { 
+            _id: convId, 
+            "watermarks.user_id": uId 
+        });
+
+        if (!conv) {
+            // Push new watermark
+            const newWatermark: any = { user_id: uId };
+            if (type === 'delivered') newWatermark.last_delivered_msg_id = msgId;
+            if (type === 'read') newWatermark.last_read_msg_id = msgId;
+            
+            await this.db.update<ConversationDB>('conversations', 
+                { _id: convId }, 
+                { $push: { watermarks: newWatermark } }
+            );
+        } else {
+            // Update existing watermark using arrayFilters
+            const fieldToUpdate = type === 'delivered' ? "watermarks.$[elem].last_delivered_msg_id" : "watermarks.$[elem].last_read_msg_id";
+            await this.db.update<ConversationDB>('conversations',
+                { _id: convId },
+                { $set: { [fieldToUpdate]: msgId } },
+                { arrayFilters: [{ "elem.user_id": uId }] }
+            );
+        }
     }
 }
