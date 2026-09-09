@@ -43,9 +43,17 @@ export class MessageService {
         }
 
         // Step 1: Check permissions - Does the user really belong to this group?
-        const isMember = await this.conversationFacade.isUserInConversation(conversation_id.toString(), sender_id);
-        if (!isMember) {
+        const conv = await this.conversationFacade.getConversationById(conversation_id.toString(), sender_id);
+        if (!conv) {
             throw createHttpError.Forbidden("You are not a member of this conversation");
+        }
+
+        if (conv.is_active === false) {
+            throw createHttpError.Forbidden("Nhóm này đã bị giải tán, không thể gửi tin nhắn");
+        }
+
+        if (conv.block) {
+            throw createHttpError.Forbidden("Cuộc trò chuyện đang bị chặn, không thể gửi tin nhắn");
         }
 
         // Step 2: Create the base Message object

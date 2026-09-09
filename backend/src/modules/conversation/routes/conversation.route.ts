@@ -77,4 +77,28 @@ router.post(
     asyncHandler(conversationContainer.conversationController.leaveGroup)
 );
 
+// API Block 1-1 conversation
+router.post(
+    "/:id/block",
+    AuthMiddleware.verifyAccessToken,
+    validate(GetConversationParamSchema),
+    asyncHandler(conversationContainer.conversationController.blockConversation)
+);
+
+// API Unblock 1-1 conversation
+router.post(
+    "/:id/unblock",
+    AuthMiddleware.verifyAccessToken,
+    validate(GetConversationParamSchema),
+    asyncHandler(conversationContainer.conversationController.unblockConversation)
+);
+
+// API Disband group conversation
+router.delete(
+    "/:id",
+    AuthMiddleware.verifyAccessToken,
+    validate(GetConversationParamSchema),
+    asyncHandler(conversationContainer.conversationController.disbandGroup)
+);
+
 export default router;

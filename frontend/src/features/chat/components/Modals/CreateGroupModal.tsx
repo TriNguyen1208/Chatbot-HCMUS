@@ -40,7 +40,7 @@ export default function CreateGroupModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors"
+            className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>

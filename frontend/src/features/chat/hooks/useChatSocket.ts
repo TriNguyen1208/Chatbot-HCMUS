@@ -322,7 +322,76 @@ export const useChatSocket = () => {
             }
         });
 
-        // 10. Cleanup function: Ngắt kết nối socket khi người dùng đóng trang
+        // 10. LẮNG NGHE SỰ KIỆN: CHẶN / BỎ CHẶN CUỘC TRÒ CHUYỆN
+        socket.on('conversation_blocked', (updatedConv: Conversation) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: Conversation) => conv.id === updatedConv.id ? { ...conv, ...updatedConv } : conv)
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            const { activeConversation, setActiveConversation } = useChatStore.getState();
+            if (activeConversation && activeConversation.id === updatedConv.id) {
+                setActiveConversation({ ...activeConversation, ...updatedConv });
+            }
+        });
+
+        socket.on('conversation_unblocked', (updatedConv: Conversation) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: Conversation) => conv.id === updatedConv.id ? { ...conv, ...updatedConv, block: null } : conv)
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            const { activeConversation, setActiveConversation } = useChatStore.getState();
+            if (activeConversation && activeConversation.id === updatedConv.id) {
+                setActiveConversation({ ...activeConversation, ...updatedConv, block: null });
+            }
+        });
+
+        // 11. LẮNG NGHE SỰ KIỆN: GIẢI TÁN NHÓM
+        socket.on('group_disbanded', (data: { conversationId: string, disbanded_by: string, group_name?: string }) => {
+            // Remove conversation from query caches
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.filter((conv: Conversation) => conv.id !== data.conversationId)
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            const { activeConversation, setActiveConversation } = useChatStore.getState();
+            if (activeConversation && activeConversation.id === data.conversationId) {
+                setActiveConversation(null);
+                router.push('/group-chat');
+                const { user } = useAuthStore.getState();
+                if (user?.id !== data.disbanded_by) {
+                    alert(`Nhóm "${data.group_name || 'này'}" đã bị Quản trị viên giải tán.`);
+                }
+            }
+        });
+
+        // 12. LẮNG NGHE SỰ KIỆN: CẬP NHẬT THÔNG TIN CUỘC HỘI THOẠI (PRIMARY_ICON, NAME, AVATAR)
+        socket.on('conversation_updated', (updatedConv: Conversation) => {
+            queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
+                if (!oldData) return oldData;
+                const newPages = oldData.pages.map((page: any[]) =>
+                    page.map((conv: Conversation) => conv.id === updatedConv.id ? { ...conv, ...updatedConv } : conv)
+                );
+                return { ...oldData, pages: newPages };
+            });
+
+            const { activeConversation, setActiveConversation } = useChatStore.getState();
+            if (activeConversation && activeConversation.id === updatedConv.id) {
+                setActiveConversation({ ...activeConversation, ...updatedConv });
+            }
+        });
+
+        // 12. Cleanup function: Ngắt kết nối socket khi người dùng đóng trang
         return () => {
             socket.disconnect();
             socketRef.current = null;

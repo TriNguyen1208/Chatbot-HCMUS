@@ -19,7 +19,7 @@ export default function SearchUserModal({ isOpen, onClose }: Props) {
       <div className="bg-surface/90 backdrop-blur-2xl rounded-[2rem] w-[400px] max-h-[80vh] flex flex-col overflow-hidden shadow-2xl border border-glass-border animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-5 border-b border-glass-border bg-surface-solid/50">
           <h2 className="font-semibold text-lg text-txt-primary">Tin nhắn mới</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors">
+          <button onClick={onClose} className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors cursor-pointer">
             <X size={20} />
           </button>
         </div>

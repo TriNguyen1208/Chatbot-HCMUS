@@ -37,12 +37,6 @@ const tabButtons: Array<TabButtonInterface> = [
     label: "Direct Chat",
     href: "/direct-chat",
   },
-  {
-    index: 4,
-    icon: Settings,
-    label: "Setting",
-    href: "/setting",
-  },
 ];
 
 const TabButtonList = () => {

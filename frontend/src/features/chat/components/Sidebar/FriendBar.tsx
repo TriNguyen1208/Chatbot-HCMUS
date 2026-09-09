@@ -30,7 +30,7 @@ const FriendBar = () => {
           {isSearchMode && (
             <button 
                 onClick={() => setSearchMode(false)}
-                className="p-1.5 hover:bg-glass-panel rounded-full text-txt-primary shrink-0 transition-colors"
+                className="p-1.5 hover:bg-glass-panel rounded-full text-txt-primary shrink-0 transition-colors cursor-pointer"
             >
                 <ArrowLeft size={18} />
             </button>

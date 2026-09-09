@@ -37,7 +37,8 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
   useEffect(() => {
     if (cId) {
         const currentActiveId = activeConversation?.id;
-        if (currentActiveId !== cId) {
+        const isMissingDetails = !activeConversation?.member_ids || activeConversation.member_ids.length === 0;
+        if (currentActiveId !== cId || isMissingDetails) {
             const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
             let conversations: Conversation[] = [];
             allCaches.forEach(([_, data]) => {

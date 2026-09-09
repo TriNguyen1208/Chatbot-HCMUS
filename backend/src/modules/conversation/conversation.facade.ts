@@ -49,6 +49,7 @@ export class ConversationFacade {
     async getConversation(conversationId: string): Promise<string[]> {
         try {
             const conv = await this.conversationRepo.findByID(conversationId);
+            if (!conv || conv.is_active === false) return [];
             return conv?.member_ids?.map((id: any) => id.toString()) || [];
         } catch {
             return [];
@@ -57,6 +58,22 @@ export class ConversationFacade {
 
     async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void> {
         return this.conversationService.updateWatermark(conversationId, userId, messageId, type);
+    }
+
+    async getConversationById(conversationId: string, userId: string): Promise<Conversation> {
+        return this.conversationService.getConversationById(conversationId, userId);
+    }
+
+    async blockConversation(userId: string, conversationId: string): Promise<Conversation> {
+        return this.conversationService.blockConversation(userId, conversationId);
+    }
+
+    async unblockConversation(userId: string, conversationId: string): Promise<Conversation> {
+        return this.conversationService.unblockConversation(userId, conversationId);
+    }
+
+    async disbandGroup(adminId: string, conversationId: string): Promise<void> {
+        return this.conversationService.disbandGroup(adminId, conversationId);
     }
 }
 export const conversationFacade = new ConversationFacade();

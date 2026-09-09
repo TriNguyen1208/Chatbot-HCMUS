@@ -28,37 +28,54 @@ const MessageList = () => {
 
     const watermarksByMessageId = useMemo(() => {
         const result: Record<string, { type: 'delivered' | 'read', userId: string }[]> = {};
-        const watermarks = activeConversation?.watermarks || [];
+        const rawWatermarks = activeConversation?.watermarks || [];
         
-        watermarks.forEach(w => {
-            if (w.user_id !== user?.id) {
-                // Find indices in the descending messages array
-                const readIdx = w.last_read_msg_id ? messages.findIndex(m => m.id === w.last_read_msg_id || (m as any)._id === w.last_read_msg_id) : -1;
-                const deliveredIdx = w.last_delivered_msg_id ? messages.findIndex(m => m.id === w.last_delivered_msg_id || (m as any)._id === w.last_delivered_msg_id) : -1;
-
-                // If readIdx is found, all messages from readIdx to the end of the array are "read"
-                if (readIdx !== -1) {
-                    for (let i = readIdx; i < messages.length; i++) {
-                        const msgId = messages[i].id || (messages[i] as any)._id;
-                        if (!result[msgId]) result[msgId] = [];
-                        result[msgId].push({ type: 'read', userId: w.user_id });
-                    }
+        // Deduplicate watermarks by userId
+        const watermarksMap = new Map<string, { user_id: string; last_delivered_msg_id?: string | null; last_read_msg_id?: string | null }>();
+        rawWatermarks.forEach(w => {
+            if (w.user_id && w.user_id !== user?.id) {
+                const existing = watermarksMap.get(w.user_id);
+                if (!existing) {
+                    watermarksMap.set(w.user_id, { ...w });
+                } else {
+                    watermarksMap.set(w.user_id, {
+                        user_id: w.user_id,
+                        last_delivered_msg_id: w.last_delivered_msg_id || existing.last_delivered_msg_id,
+                        last_read_msg_id: w.last_read_msg_id || existing.last_read_msg_id,
+                    });
                 }
+            }
+        });
 
-                // If deliveredIdx is found, all messages from deliveredIdx to the end of the array are "delivered"
-                // But only if they haven't been marked as read by this user
+        watermarksMap.forEach(w => {
+            // Find index of the latest message read by this user
+            const readIdx = w.last_read_msg_id 
+                ? messages.findIndex(m => m.id === w.last_read_msg_id || (m as any)._id === w.last_read_msg_id) 
+                : -1;
+
+            if (readIdx !== -1) {
+                // Only attach the read avatar to the exact latest message read by this user
+                const msgId = messages[readIdx].id || (messages[readIdx] as any)._id;
+                if (!result[msgId]) result[msgId] = [];
+                if (!result[msgId].some(r => r.userId === w.user_id)) {
+                    result[msgId].push({ type: 'read', userId: w.user_id });
+                }
+            } else {
+                // If user hasn't read any message yet, check delivered
+                const deliveredIdx = w.last_delivered_msg_id 
+                    ? messages.findIndex(m => m.id === w.last_delivered_msg_id || (m as any)._id === w.last_delivered_msg_id) 
+                    : -1;
+
                 if (deliveredIdx !== -1) {
-                    for (let i = deliveredIdx; i < messages.length; i++) {
-                        const msgId = messages[i].id || (messages[i] as any)._id;
-                        if (!result[msgId]) result[msgId] = [];
-                        // Ensure we don't duplicate if already marked as read
-                        if (!result[msgId].some(r => r.userId === w.user_id && r.type === 'read')) {
-                            result[msgId].push({ type: 'delivered', userId: w.user_id });
-                        }
+                    const msgId = messages[deliveredIdx].id || (messages[deliveredIdx] as any)._id;
+                    if (!result[msgId]) result[msgId] = [];
+                    if (!result[msgId].some(r => r.userId === w.user_id)) {
+                        result[msgId].push({ type: 'delivered', userId: w.user_id });
                     }
                 }
             }
         });
+
         return result;
     }, [activeConversation?.watermarks, user?.id, messages]);
 

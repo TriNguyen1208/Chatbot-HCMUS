@@ -27,7 +27,7 @@ const SidebarProfile = () => {
         </Link>
         <button 
           onClick={handleLogout}
-          className="p-2 hover:bg-hover rounded-xl text-ic-primary hover:text-red-500 transition-colors shrink-0"
+          className="p-2 hover:bg-hover rounded-xl text-ic-primary hover:text-red-500 transition-colors shrink-0 cursor-pointer"
           title="Logout"
         >
           <LogOut size={18} />

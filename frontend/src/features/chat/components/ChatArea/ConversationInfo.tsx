@@ -2,7 +2,8 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import { X, Bell, Search, UserPlus, LogOut, ChevronRight, ChevronDown, ShieldCheck, UserMinus, Settings, ArrowLeft, Image as ImageIcon, Video as VideoIcon, File as FileIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Bell, Search, UserPlus, LogOut, ChevronRight, ChevronDown, ShieldCheck, UserMinus, Settings, ArrowLeft, Image as ImageIcon, Video as VideoIcon, File as FileIcon, Ban, Trash2 } from "lucide-react";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useSearchStore } from "@/features/chat/stores/searchStore";
 import { useChatHeader } from "@/features/chat/hooks/useChatHeader";
@@ -12,15 +13,19 @@ import { DEFAULT_AVATAR } from "@/utils/constants";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useModalStore } from "@/features/chat/stores/modalStore";
 import { messageApi } from "@/features/chat/api/message.api";
+import { conversationApi } from "@/features/chat/api/conversation.api";
 import { SearchResult } from "@/features/chat/api/search.api";
 import MediaViewerModal from "../Modals/MediaViewerModal";
 import { EditGroupModal } from "../Modals/EditGroupModal";
+import BlockUserModal from "../Modals/BlockUserModal";
+import DisbandGroupModal from "../Modals/DisbandGroupModal";
 
 const MIN_WIDTH = 250;
 const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 320;
 
 const ConversationInfo = () => {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const showInfoPanel = useChatStore((state) => state.showInfoPanel);
   const toggleInfoPanel = useChatStore((state) => state.toggleInfoPanel);
@@ -58,6 +63,68 @@ const ConversationInfo = () => {
   const [selectedMedia, setSelectedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
 
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showDisbandModal, setShowDisbandModal] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [isDisbanding, setIsDisbanding] = useState(false);
+
+  const handleDisbandGroup = async () => {
+    if (!activeConversation?.id || isDisbanding) return;
+
+    try {
+      setIsDisbanding(true);
+      const convId = activeConversation.id as string;
+      await conversationApi.disbandGroup(convId);
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations", "group"] });
+
+      // Close modal and redirect
+      setShowDisbandModal(false);
+      useChatStore.getState().setActiveConversation(null);
+      router.push("/group-chat");
+    } catch (error: any) {
+      console.error("Lỗi khi giải tán nhóm:", error);
+      alert(error?.response?.data?.message || error?.message || "Không thể giải tán nhóm");
+    } finally {
+      setIsDisbanding(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!activeConversation?.id || isBlocking) return;
+
+    try {
+      setIsBlocking(true);
+      const res = await conversationApi.blockConversation(activeConversation.id as string);
+      const updatedConv = (res as any).data || res;
+      useChatStore.getState().setActiveConversation(updatedConv);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setShowBlockModal(false);
+    } catch (error: any) {
+      console.error("Lỗi khi chặn người dùng:", error);
+      alert(error?.response?.data?.message || error?.message || "Không thể chặn người dùng");
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!activeConversation?.id || isBlocking) return;
+    try {
+      setIsBlocking(true);
+      const res = await conversationApi.unblockConversation(activeConversation.id as string);
+      const updatedConv = (res as any).data || res;
+      useChatStore.getState().setActiveConversation(updatedConv);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    } catch (error: any) {
+      console.error("Lỗi khi bỏ chặn người dùng:", error);
+      alert(error?.response?.data?.message || error?.message || "Không thể bỏ chặn người dùng");
+    } finally {
+      setIsBlocking(false);
+    }
+  };
 
   useEffect(() => {
     if (!mediaMode || !activeConversation) {
@@ -343,7 +410,7 @@ const ConversationInfo = () => {
         {/* Quick Actions */}
         <div className="flex flex-row justify-center gap-4 py-4 border-b border-glass-border shrink-0">
           <button 
-            className="flex flex-col items-center gap-1 group"
+            className="flex flex-col items-center gap-1 group cursor-pointer"
             onClick={() => setIsSearchMode(true)}
           >
             <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary cursor-pointer">
@@ -354,7 +421,7 @@ const ConversationInfo = () => {
 
           {activeConversation.type === "utu" && (
             <button 
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-1 group cursor-pointer"
               onClick={() => setCreateGroupOpen(true)}
             >
               <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary cursor-pointer">
@@ -364,7 +431,7 @@ const ConversationInfo = () => {
             </button>
           )}
 
-          {activeConversation.type === "group" && isAdmin && (
+          {(activeConversation.type === "utu" || (activeConversation.type === "group" && isAdmin)) && (
             <button 
               className="flex flex-col items-center gap-1 group cursor-pointer"
               onClick={() => setShowEditGroupModal(true)}
@@ -375,7 +442,7 @@ const ConversationInfo = () => {
               <span className="text-[11px] text-text-secondary group-hover:text-brand-primary">Chỉnh sửa</span>
             </button>
           )}
-          <button className="flex flex-col items-center gap-1 group">
+          <button className="flex flex-col items-center gap-1 group cursor-pointer">
             <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary">
               <Bell size={20} />
             </div>
@@ -383,7 +450,7 @@ const ConversationInfo = () => {
           </button>
           {activeConversation.type === "group" && (
             <button 
-              className="flex flex-col items-center gap-1 group"
+              className="flex flex-col items-center gap-1 group cursor-pointer"
               onClick={() => setCreateGroupOpen(true)}
             >
               <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary cursor-pointer">
@@ -525,13 +592,59 @@ const ConversationInfo = () => {
           )}
 
           {activeConversation.type === "group" && (
-            <button
-              onClick={handleLeaveGroup}
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors w-full cursor-pointer"
-            >
-              <LogOut size={20} />
-              <span className="font-medium text-sm">Rời khỏi nhóm</span>
-            </button>
+            <>
+              <button
+                onClick={handleLeaveGroup}
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-hover text-txt-primary transition-colors w-full cursor-pointer"
+              >
+                <LogOut size={20} />
+                <span className="font-medium text-sm">Rời khỏi nhóm</span>
+              </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setShowDisbandModal(true)}
+                  disabled={isDisbanding}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors w-full cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 size={20} />
+                  <span className="font-medium text-sm">
+                    {isDisbanding ? "Đang xử lý..." : "Giải tán nhóm"}
+                  </span>
+                </button>
+              )}
+            </>
+          )}
+
+          {/* 1-on-1 Block / Unblock */}
+          {activeConversation.type === "utu" && (
+            <>
+              {activeConversation.block ? (
+                activeConversation.block.block_by === user?.id && (
+                  <button
+                    onClick={handleUnblockUser}
+                    disabled={isBlocking}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-brand-primary/10 text-brand-primary transition-colors w-full cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldCheck size={20} />
+                    <span className="font-medium text-sm">
+                      {isBlocking ? "Đang xử lý..." : "Bỏ chặn người dùng"}
+                    </span>
+                  </button>
+                )
+              ) : (
+                <button
+                  onClick={() => setShowBlockModal(true)}
+                  disabled={isBlocking}
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors w-full cursor-pointer disabled:opacity-50"
+                >
+                  <Ban size={20} />
+                  <span className="font-medium text-sm">
+                    {isBlocking ? "Đang xử lý..." : "Chặn người dùng"}
+                  </span>
+                </button>
+              )}
+            </>
           )}
         </div>
         </>
@@ -572,6 +685,26 @@ const ConversationInfo = () => {
           updateQueryCache(['conversations']);
           updateQueryCache(['conversations', 'group']);
         }}
+      />
+
+      <BlockUserModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        onConfirm={handleBlockUser}
+        userName={displayName}
+        userAvatar={displayAvatar}
+        userEmail={otherMember?.email}
+        isSubmitting={isBlocking}
+      />
+
+      <DisbandGroupModal
+        isOpen={showDisbandModal}
+        onClose={() => setShowDisbandModal(false)}
+        onConfirm={handleDisbandGroup}
+        groupName={displayName}
+        groupAvatar={displayAvatar}
+        memberCount={activeConversation?.member_ids?.length || 0}
+        isSubmitting={isDisbanding}
       />
     </div>
   );

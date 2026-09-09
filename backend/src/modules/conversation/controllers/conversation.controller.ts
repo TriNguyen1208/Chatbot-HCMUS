@@ -162,4 +162,55 @@ export class ConversationController {
             message: "Group updated successfully"
         });
     }
+
+    /**
+     * Blocks a 1-1 conversation.
+     * @param req The Express request object.
+     * @param res The Express response object.
+     */
+    blockConversation = async (req: Request, res: Response) => {
+        const userId = req.user!.userID;
+        const params = req.params as GetConversationParamDto;
+
+        const updated = await this.conversationService.blockConversation(userId, params.id);
+
+        return apiResponse.success(res, updated, {
+            statusCode: 200,
+            message: "Conversation blocked successfully"
+        });
+    }
+
+    /**
+     * Unblocks a 1-1 conversation.
+     * @param req The Express request object.
+     * @param res The Express response object.
+     */
+    unblockConversation = async (req: Request, res: Response) => {
+        const userId = req.user!.userID;
+        const params = req.params as GetConversationParamDto;
+
+        const updated = await this.conversationService.unblockConversation(userId, params.id);
+
+        return apiResponse.success(res, updated, {
+            statusCode: 200,
+            message: "Conversation unblocked successfully"
+        });
+    }
+
+    /**
+     * Disbands a group conversation (soft-delete).
+     * @param req The Express request object.
+     * @param res The Express response object.
+     */
+    disbandGroup = async (req: Request, res: Response) => {
+        const userId = req.user!.userID;
+        const params = req.params as GetConversationParamDto;
+
+        await this.conversationService.disbandGroup(userId, params.id);
+
+        return apiResponse.success(res, { success: true }, {
+            statusCode: 200,
+            message: "Group disbanded successfully"
+        });
+    }
 }

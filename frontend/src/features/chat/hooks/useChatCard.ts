@@ -43,6 +43,7 @@ export const useChatCard = (conversation: Conversation) => {
   }
   
   const lastMsg = conversation.last_message;
+  console.log(lastMsg?.type)
   const rawLastSenderId = lastMsg?.sender_id;
   const lastMsgSender = users[rawLastSenderId || ''];
 
@@ -51,22 +52,30 @@ export const useChatCard = (conversation: Conversation) => {
       requestUser(rawLastSenderId);
     }
   }, [rawLastSenderId, lastMsgSender, requestUser]);
-    
+
   if (conversation.type === 'group' && lastMsg && rawLastSenderId !== 'system') {
     const isMe = rawLastSenderId === user?.id;
-    const senderName = lastMsgSender?.name || "Ai đó";
+    const senderName = lastMsgSender?.name || lastMsg?.type == 'system' && "System";
     messagePreview = `${isMe ? "Bạn" : senderName}: ${messagePreview}`;
   }
 
   const isOnline = conversation.type === 'utu' 
-    ? (otherMember?.is_online || false) 
+    ? (conversation.block ? false : (otherMember?.is_online || false)) 
     : (conversation.member_ids?.some(id => id !== user?.id && users[id]?.is_online) || false);
+
+  // Check if last message is unread for the current user
+  const lastMsgId = lastMsg?.id || (lastMsg as any)?._id;
+  const isSentByMe = Boolean(lastMsg && user?.id && lastMsg.sender_id === user.id);
+  const myWatermark = conversation.watermarks?.find((w) => w.user_id === user?.id);
+  const isRead = Boolean(lastMsgId && myWatermark?.last_read_msg_id === lastMsgId);
+  const isUnread = Boolean(lastMsg && !isSentByMe && !isRead);
 
   return {
     displayName,
     displayAvatar,
     timeDisplay,
     messagePreview,
-    isOnline
+    isOnline,
+    isUnread
   };
 };

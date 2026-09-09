@@ -80,6 +80,7 @@ export const UpdateConversationSchema = z.object({
     body: z.object({
         name: z.string().optional(),
         avatar_url: z.string("Invalid image URL").optional(),
+        primary_icon: z.string().min(1).max(10).optional(),
     }).strict().refine((data) => {
         if (data.avatar_url && !isUrl(data.avatar_url)) {
             return false;

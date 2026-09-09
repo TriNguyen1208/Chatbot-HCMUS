@@ -235,6 +235,36 @@ export const useChatInput = () => {
   const handleEmojiSelect = (emoji: { native: string }) => {
     setContent((prev) => prev + emoji.native);
   };
+
+  const handleSendPrimaryIcon = async () => {
+    if (!activeConversation || isUploading || isPreviewLoading) return;
+
+    const primaryIcon = activeConversation.primary_icon || '👍';
+    setIsUploading(true);
+
+    try {
+      const payload: Record<string, unknown> = {
+        type: 'text',
+        content: primaryIcon
+      };
+
+      const convId = activeConversation.id;
+      if (!convId && activeConversation.type === 'utu') {
+        const members = activeConversation.member_ids || [];
+        const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
+        payload.receiver_id = receiverId;
+      } else {
+        payload.conversation_id = convId;
+      }
+
+      await messageApi.sendMessage(payload);
+    } catch (error) {
+      console.error("Failed to send primary icon", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return {
     content,
     setContent: handleContentChange,
@@ -244,6 +274,7 @@ export const useChatInput = () => {
     isPreviewLoading,
     isUploading,
     handleSend,
+    handleSendPrimaryIcon,
     handleKeyDown,
     handleFileClick,
     handleFileChange,

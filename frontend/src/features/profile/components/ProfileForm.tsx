@@ -42,7 +42,7 @@ export const ProfileForm = () => {
         <div className="flex items-center gap-4 mb-8">
           <button 
             onClick={handleCancel}
-            className="p-2 bg-surface hover:bg-hover rounded-xl border border-glass-border transition-colors group"
+            className="p-2 bg-surface hover:bg-hover rounded-xl border border-glass-border transition-colors group cursor-pointer"
             title="Go back"
           >
             <ArrowLeft size={20} className="text-txt-primary group-hover:-translate-x-1 transition-transform" />
@@ -91,7 +91,7 @@ export const ProfileForm = () => {
                 type="button"
                 onClick={handleAvatarClick}
                 disabled={isUploading}
-                className="mt-2 text-sm px-4 py-2 bg-surface hover:bg-hover border border-glass-border rounded-xl text-txt-primary transition-colors flex items-center gap-2 justify-center sm:justify-start w-max mx-auto sm:mx-0"
+                className="mt-2 text-sm px-4 py-2 bg-surface hover:bg-hover border border-glass-border rounded-xl text-txt-primary transition-colors flex items-center gap-2 justify-center sm:justify-start w-max mx-auto sm:mx-0 cursor-pointer"
               >
                 <Camera size={16} />
                 {isUploading ? 'Uploading...' : 'Change Avatar'}
@@ -148,14 +148,14 @@ export const ProfileForm = () => {
             <button 
               type="button"
               onClick={handleCancel}
-              className="px-6 py-3 bg-surface hover:bg-hover border border-glass-border rounded-xl text-txt-primary font-medium transition-colors"
+              className="px-6 py-3 bg-surface hover:bg-hover border border-glass-border rounded-xl text-txt-primary font-medium transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button 
               type="submit"
               disabled={isUploading || isSaving}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-blue-500/25 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-blue-500/25 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
               Save Changes

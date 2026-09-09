@@ -126,7 +126,7 @@ export default function ForwardModal() {
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-hover text-txt-extra rounded-xl transition-colors cursor-pointer cursor-pointer"
           >
             <X size={20} />
           </button>

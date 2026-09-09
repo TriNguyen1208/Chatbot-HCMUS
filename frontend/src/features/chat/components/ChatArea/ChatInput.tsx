@@ -1,11 +1,23 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Plus, Image as ImageIcon, Smile, SendHorizontal, X, Loader2 } from "lucide-react";
+import { Plus, Image as ImageIcon, Smile, SendHorizontal, X, Loader2, Ban, ShieldAlert } from "lucide-react";
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { useChatInput } from "@/features/chat/hooks/useChatInput";
+import { useChatStore } from "@/features/chat/stores/chatStore";
+import { useAuthStore } from "@/features/auth/stores/authStore";
+import { useUserStore } from "@/features/chat/stores/userStore";
+import { conversationApi } from "@/features/chat/api/conversation.api";
+import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 const ChatInput = () => {
+  const activeConversation = useChatStore((state) => state.activeConversation);
+  const { user } = useAuthStore();
+  const users = useUserStore((state) => state.users);
+  const queryClient = useQueryClient();
+  const [isUnblocking, setIsUnblocking] = useState(false);
+
   const {
     content,
     setContent,
@@ -15,6 +27,7 @@ const ChatInput = () => {
     isPreviewLoading,
     isUploading,
     handleSend,
+    handleSendPrimaryIcon,
     handleKeyDown,
     handleFileClick,
     handleFileChange,
@@ -26,6 +39,78 @@ const ChatInput = () => {
     editingMessage,
     cancelEdit
   } = useChatInput();
+
+  useEffect(() => {
+    if (activeConversation?.block?.block_by) {
+      const bId = activeConversation.block.block_by;
+      if (!users[bId]) {
+        useUserStore.getState().requestUser(bId);
+      }
+    }
+  }, [activeConversation?.block?.block_by, users]);
+
+  if (activeConversation?.type === "utu" && activeConversation?.block) {
+    const isBlocker = activeConversation.block.block_by === user?.id;
+    const blockerUser = users[activeConversation.block.block_by];
+    const blockerName = blockerUser?.name || "Người này";
+
+    let blockTimeDisplay = "";
+    try {
+      blockTimeDisplay = format(new Date(activeConversation.block.block_at), "HH:mm - dd/MM/yyyy");
+    } catch {
+      blockTimeDisplay = String(activeConversation.block.block_at);
+    }
+
+    const handleUnblock = async () => {
+      if (!activeConversation?.id || isUnblocking) return;
+      try {
+        setIsUnblocking(true);
+        const res = await conversationApi.unblockConversation(activeConversation.id as string);
+        const updatedConv = (res as any).data || res;
+        useChatStore.getState().setActiveConversation(updatedConv);
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      } catch (error: any) {
+        console.error("Lỗi bỏ chặn:", error);
+        alert(error?.response?.data?.message || error?.message || "Không thể bỏ chặn người dùng");
+      } finally {
+        setIsUnblocking(false);
+      }
+    };
+
+    return (
+      <div className="w-full flex flex-col px-4 pb-6 pt-2 bg-transparent">
+        <div className="w-full max-w-3xl mx-auto flex items-center justify-between gap-4 p-4 bg-surface/90 backdrop-blur-xl border border-glass-border shadow-lg rounded-2xl animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2.5 rounded-xl shrink-0 ${isBlocker ? "bg-red-500/10 text-red-500 border border-red-500/20" : "bg-orange-500/10 text-orange-500 border border-orange-500/20"}`}>
+              {isBlocker ? <Ban size={22} /> : <ShieldAlert size={22} />}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-txt-primary truncate">
+                {isBlocker
+                  ? "Bạn đã chặn cuộc trò chuyện này"
+                  : `${blockerName} đã chặn bạn`}
+              </span>
+              <span className="text-xs text-txt-extra mt-0.5">
+                {isBlocker
+                  ? `Chặn vào lúc ${blockTimeDisplay}. Bỏ chặn để tiếp tục nhắn tin.`
+                  : `Vào lúc ${blockTimeDisplay}. Bạn không thể gửi tin nhắn trong cuộc trò chuyện này.`}
+              </span>
+            </div>
+          </div>
+
+          {isBlocker && (
+            <button
+              onClick={handleUnblock}
+              disabled={isUnblocking}
+              className="px-4 py-2 text-sm font-medium text-white bg-gradient-primary rounded-xl shadow hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {isUnblocking ? "Đang xử lý..." : "Bỏ chặn"}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col px-4 pb-6 pt-2 bg-transparent">
@@ -121,6 +206,17 @@ const ChatInput = () => {
               </div>
             )}
           </div>
+          {!editingMessage && (
+            <button
+              type="button"
+              onClick={handleSendPrimaryIcon}
+              disabled={isUploading || isPreviewLoading}
+              className="text-xl p-1 hover:scale-125 active:scale-95 transition-transform flex items-center justify-center cursor-pointer select-none disabled:opacity-50"
+              title={`Gửi nhanh ${activeConversation?.primary_icon || '👍'}`}
+            >
+              <span>{activeConversation?.primary_icon || '👍'}</span>
+            </button>
+          )}
           <button 
             onClick={handleSend}
             className="bg-gradient-primary text-white p-2 rounded-full shadow-md hover:shadow-lg disabled:opacity-50 disabled:shadow-none flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"

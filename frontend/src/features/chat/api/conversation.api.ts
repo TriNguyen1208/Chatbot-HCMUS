@@ -35,7 +35,7 @@ export const conversationApi = {
         
         return response.data;
     },
-    updateConversation: async (id: string, data: { name?: string; avatar_url?: string }) => {
+    updateConversation: async (id: string, data: { name?: string; avatar_url?: string; primary_icon?: string }) => {
         const response = await api.put(`/conversation/${id}`, data);
         return response.data;
     },
@@ -53,6 +53,18 @@ export const conversationApi = {
     },
     addMembers: async (id: string, member_ids: string[]) => {
         const response = await api.post(`/conversation/${id}/members`, { member_ids });
+        return response.data;
+    },
+    blockConversation: async (id: string) => {
+        const response = await api.post(`/conversation/${id}/block`);
+        return response.data;
+    },
+    unblockConversation: async (id: string) => {
+        const response = await api.post(`/conversation/${id}/unblock`);
+        return response.data;
+    },
+    disbandGroup: async (id: string) => {
+        const response = await api.delete(`/conversation/${id}`);
         return response.data;
     },
 };

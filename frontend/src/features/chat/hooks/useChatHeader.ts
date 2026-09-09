@@ -66,7 +66,7 @@ export const useChatHeader = () => {
         handleLeaveGroup,
         otherMember,
         isOnline: activeConversation?.type === 'utu' 
-            ? (otherMember?.is_online || false) 
+            ? (activeConversation?.block ? false : (otherMember?.is_online || false)) 
             : (activeConversation?.member_ids?.some((id: string) => id !== user?.id && users[id]?.is_online) || false)
     };
 };

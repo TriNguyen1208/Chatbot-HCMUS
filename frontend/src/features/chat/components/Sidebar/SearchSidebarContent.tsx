@@ -10,7 +10,7 @@ const SearchSidebarContent = () => {
     const { isSearchMode, setSearchMode, searchQuery, setSearchQuery, activeTab, setActiveTab } = useSearchStore();
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    
+    console.log(results)
     const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -71,7 +71,7 @@ const TabButton = ({ label, isActive, onClick }: { label: string; isActive: bool
     return (
         <button 
             onClick={onClick}
-            className={`text-xs font-medium px-2 py-1.5 rounded-md transition-colors ${
+            className={`cursor-pointer text-xs font-medium px-2 py-1.5 rounded-md transition-colors ${
                 isActive ? 'bg-brand-primary text-white' : 'text-txt-extra hover:bg-glass-panel hover:text-txt-primary'
             }`}
         >

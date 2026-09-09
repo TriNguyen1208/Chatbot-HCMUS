@@ -1,4 +1,4 @@
-import type { Conversation, ConversationDB } from "../entities/conversation.entity.js";
+import type { Conversation, ConversationDB, BlockInfo } from "../entities/conversation.entity.js";
 import type { IDatabase } from "#@/infrastructure/database/database.interface.js";
 import { Types } from "mongoose";
 
@@ -28,6 +28,8 @@ export interface IConversationRepository {
     addAdmins(conversationId: string, adminIds: string[]): Promise<Conversation>;
 
     updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void>;
+
+    updateBlockStatus(conversationId: string, block: BlockInfo | null): Promise<Conversation | null>;
 }
 
 export class ConversationRepository implements IConversationRepository {
@@ -37,7 +39,7 @@ export class ConversationRepository implements IConversationRepository {
 
     private formatConversation(doc: any): Conversation | null {
         if (!doc) return null;
-        const { _id, __v, last_message_id, ...rest } = doc;
+        const { _id, __v, last_message_id, block, ...rest } = doc;
 
         let last_message = last_message_id;
         if (last_message_id && typeof last_message_id === 'object' && '_id' in last_message_id) {
@@ -52,6 +54,10 @@ export class ConversationRepository implements IConversationRepository {
         return {
             id: _id?.toString(),
             last_message,
+            block: block ? {
+                block_by: block.block_by?.toString() || block.block_by,
+                block_at: block.block_at
+            } : null,
             ...rest
         } as Conversation;
     }
@@ -79,13 +85,17 @@ export class ConversationRepository implements IConversationRepository {
     async checkUserInConversation(conversationId: string, userId: string): Promise<boolean> {
         if (!Types.ObjectId.isValid(conversationId)) return false;
         const conv = await this.db.findOne<ConversationDB>('conversations', { _id: new Types.ObjectId(conversationId) });
-        if (!conv) return false;
+        if (!conv || conv.is_active === false) return false;
         const memberIds = conv.member_ids?.map((id) => id.toString()) || [];
         return memberIds.includes(userId);
     }
 
     async getConversationsByUser(userId: string, limit: number = 20, cursorId?: string, type?: 'utu' | 'group'): Promise<Conversation[]> {
-        const conditions: any = { member_ids: userId, last_message_id: { $ne: null } };
+        const conditions: any = { 
+            member_ids: userId, 
+            last_message_id: { $ne: null },
+            is_active: { $ne: false }
+        };
 
         if (type) {
             conditions.type = type;
@@ -107,7 +117,8 @@ export class ConversationRepository implements IConversationRepository {
     async findSelfConversation(userId: string): Promise<Conversation | null> {
         const conditions: Record<string, unknown> = {
             type: 'self',
-            member_ids: { $all: [userId], $size: 1 }
+            member_ids: { $all: [userId], $size: 1 },
+            is_active: { $ne: false }
         };
         const conv = await this.db.findOne<ConversationDB>('conversations', conditions, { populate: this.getPopulateOptions() });
         return this.formatConversation(conv);
@@ -116,7 +127,8 @@ export class ConversationRepository implements IConversationRepository {
     async findDirectConversation(user1: string, user2: string): Promise<Conversation | null> {
         const conditions: Record<string, unknown> = {
             type: 'utu',
-            member_ids: { $all: [user1, user2], $size: 2 }
+            member_ids: { $all: [user1, user2], $size: 2 },
+            is_active: { $ne: false }
         };
         const conv = await this.db.findOne<ConversationDB>('conversations', conditions, { populate: this.getPopulateOptions() });
         return this.formatConversation(conv);
@@ -212,6 +224,22 @@ export class ConversationRepository implements IConversationRepository {
             { populate: this.getPopulateOptions() }
         );
         console.log("Repo", this.formatConversation(updated))
+        return this.formatConversation(updated);
+    }
+
+    async updateBlockStatus(conversationId: string, block: BlockInfo | null): Promise<Conversation | null> {
+        if (!Types.ObjectId.isValid(conversationId)) throw new Error("Invalid conversation ID");
+        const blockToSave = block ? {
+            block_by: new Types.ObjectId(block.block_by.toString()),
+            block_at: block.block_at || new Date()
+        } : null;
+
+        const updated = await this.db.update<ConversationDB>(
+            'conversations',
+            { _id: new Types.ObjectId(conversationId) },
+            { $set: { block: blockToSave } as any },
+            { populate: this.getPopulateOptions() }
+        );
         return this.formatConversation(updated);
     }
 }

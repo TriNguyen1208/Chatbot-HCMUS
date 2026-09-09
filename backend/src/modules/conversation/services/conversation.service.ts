@@ -101,8 +101,8 @@ export class ConversationService {
             }
         }
 
-        if (!conversation) {
-            throw createError(404, "This conversation was not found");
+        if (!conversation || conversation.is_active === false) {
+            throw createError(404, "Cuộc trò chuyện này đã bị giải tán hoặc không tồn tại");
         }
         
         const memberIds = conversation.member_ids?.map((id: any) => id.toString()) || [];
@@ -136,25 +136,42 @@ export class ConversationService {
     }
 
     /**
-     * Updates conversation info (name, avatar_url) for a group.
+     * Updates conversation info (name, avatar_url, primary_icon) for group,
+     * or primary_icon for utu (1-on-1).
      */
     async updateConversation(userId: string, conversationId: string, data: UpdateConversationDto): Promise<any> {
         const conv = await this.getConversationById(conversationId, userId);
-        if (conv.type !== 'group') throw createError(400, "Only group conversations can be updated");
         
-        const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
-        if (!adminIds.includes(userId)) throw createError(403, "Only admins can update group info");
-        
-        if (Object.keys(data).length === 0) return conv;
+        let updatePayload: Partial<ConversationDB> = {};
 
-        const updatedConv = await this.conversationRepo.updateConversation(conversationId, data);
+        if (conv.type === 'utu') {
+            if (data.primary_icon !== undefined) {
+                updatePayload.primary_icon = data.primary_icon;
+            }
+        } else if (conv.type === 'group') {
+            const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
+            if (!adminIds.includes(userId)) throw createError(403, "Only admins can update group info");
+
+            if (data.name !== undefined) updatePayload.name = data.name;
+            if (data.avatar_url !== undefined) updatePayload.avatar_url = data.avatar_url;
+            if (data.primary_icon !== undefined) updatePayload.primary_icon = data.primary_icon;
+        } else {
+            throw createError(400, "Only group and utu conversations can be updated");
+        }
+
+        if (Object.keys(updatePayload).length === 0) return conv;
+
+        const updatedConv = await this.conversationRepo.updateConversation(conversationId, updatePayload);
         if (!updatedConv) throw createError(500, "Failed to update conversation");
 
         // Invalidate cache
         await redisClient.del(`conversation:${conversationId}`);
 
-        // The user explicitly stated no socket events needed for now
         triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
+
+        // Emit real-time socket event to all members
+        const memberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
+        socketManager.emitToUsers(memberIds, "conversation_updated", updatedConv);
         
         return updatedConv;
     }
@@ -316,5 +333,109 @@ export class ConversationService {
         
         // Invalidate cache so that next fetch gets the updated watermarks
         await redisClient.del(`conversation:${conversationId}`);
+    }
+
+    /**
+     * Blocks a 1-on-1 (utu) conversation.
+     * @param userId The ID of the user requesting the block
+     * @param conversationId The ID of the conversation
+     */
+    async blockConversation(userId: string, conversationId: string): Promise<Conversation> {
+        const conv = await this.getConversationById(conversationId, userId);
+        if (conv.type !== 'utu') {
+            throw createError(400, "Chỉ có thể chặn cuộc trò chuyện 1-1");
+        }
+
+        if (conv.block) {
+            if (conv.block.block_by?.toString() === userId) {
+                throw createError(400, "Bạn đã chặn người dùng này rồi");
+            } else {
+                throw createError(400, "Cuộc trò chuyện đã bị đối phương chặn");
+            }
+        }
+
+        const updated = await this.conversationRepo.updateBlockStatus(conversationId, {
+            block_by: userId,
+            block_at: new Date()
+        });
+
+        if (!updated) throw createError(500, "Không thể cập nhật trạng thái chặn");
+
+        // Invalidate cache
+        await redisClient.del(`conversation:${conversationId}`);
+
+        // Emit socket to all members
+        const memberIds = conv.member_ids.map((id: any) => id.toString());
+        socketManager.emitToUsers(memberIds, "conversation_blocked", updated);
+
+        return updated;
+    }
+
+    /**
+     * Unblocks a 1-on-1 (utu) conversation.
+     * @param userId The ID of the user requesting the unblock
+     * @param conversationId The ID of the conversation
+     */
+    async unblockConversation(userId: string, conversationId: string): Promise<Conversation> {
+        const conv = await this.getConversationById(conversationId, userId);
+        if (conv.type !== 'utu') {
+            throw createError(400, "Chỉ có thể bỏ chặn cuộc trò chuyện 1-1");
+        }
+
+        if (!conv.block) {
+            throw createError(400, "Cuộc trò chuyện chưa bị chặn");
+        }
+
+        if (conv.block.block_by?.toString() !== userId) {
+            throw createError(403, "Bạn không có quyền bỏ chặn vì bạn không phải người đã chặn");
+        }
+
+        const updated = await this.conversationRepo.updateBlockStatus(conversationId, null);
+        if (!updated) throw createError(500, "Không thể cập nhật trạng thái bỏ chặn");
+
+        // Invalidate cache
+        await redisClient.del(`conversation:${conversationId}`);
+
+        // Emit socket to all members
+        const memberIds = conv.member_ids.map((id: any) => id.toString());
+        socketManager.emitToUsers(memberIds, "conversation_unblocked", updated);
+
+        return updated;
+    }
+
+    /**
+     * Disbands a group conversation (soft-delete with is_active = false).
+     * Only group admins can disband the group.
+     * @param adminId The ID of the admin performing the action
+     * @param conversationId The ID of the conversation
+     */
+    async disbandGroup(adminId: string, conversationId: string): Promise<void> {
+        const conv = await this.getConversationById(conversationId, adminId);
+        if (conv.type !== 'group') {
+            throw createError(400, "Chỉ có thể giải tán cuộc trò chuyện nhóm");
+        }
+
+        const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
+        if (!adminIds.includes(adminId)) {
+            throw createError(403, "Chỉ Quản trị viên mới có quyền giải tán nhóm");
+        }
+
+        const memberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
+
+        // 1. Update database: is_active = false (keep member_ids for audit/history)
+        await this.conversationRepo.updateConversation(conversationId, { is_active: false });
+
+        // 2. Invalidate redis cache
+        await redisClient.del(`conversation:${conversationId}`);
+
+        // 3. Remove from Elasticsearch index
+        triggerSync('conversations', SyncOperation.DELETE, { id: conversationId });
+
+        // 4. Emit socket event to all members in real-time
+        socketManager.emitToUsers(memberIds, "group_disbanded", {
+            conversationId,
+            disbanded_by: adminId,
+            group_name: conv.name
+        });
     }
 }

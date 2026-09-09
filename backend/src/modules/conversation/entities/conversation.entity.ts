@@ -1,8 +1,10 @@
 import type { Message } from "#@/modules/message/entities/message.entity.js";
-import type { User } from "#@/modules/user/entities/user.entity.js";
 import mongoose, { Schema, Document, Types } from "mongoose";
-import { syncConversationES } from "../../../infrastructure/rabbitmq/producer.js";
-import { SyncOperation } from "../../../infrastructure/rabbitmq/types.js";
+
+export interface BlockInfo {
+    block_by: Types.ObjectId | string;
+    block_at: Date;
+}
 
 export interface Conversation {
     id?: string;
@@ -15,6 +17,7 @@ export interface Conversation {
     type: 'group' | 'utu' | 'self';
     primary_icon: string;
     is_active: boolean;
+    block?: BlockInfo | null;
 }
 
 export interface ConversationDB extends Omit<Conversation, 'id' | "last_message" > {
@@ -47,7 +50,15 @@ export const ConversationSchema = new Schema<ConversationDB>({
     avatar_url: { type: String, required: false },
     type: { type: String, enum: ['group', 'utu', 'self'], required: true },
     primary_icon: { type: String, required: true },
-    is_active: { type: Boolean, default: true, required: true }
+    is_active: { type: Boolean, default: true, required: true },
+    block: {
+        type: {
+            block_by: { type: Types.ObjectId, ref: 'User', required: true },
+            block_at: { type: Date, default: Date.now }
+        },
+        default: null,
+        _id: false
+    }
 });
 
 // Xóa các Mongoose hooks vì logic đã được chuyển sang mongoDBAtlas.ts

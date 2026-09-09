@@ -55,4 +55,8 @@ export interface Conversation {
         last_delivered_msg_id?: string | null;
         last_read_msg_id?: string | null;
     }[];
+    block?: {
+        block_by: string;
+        block_at: Date | string;
+    } | null;
 }
