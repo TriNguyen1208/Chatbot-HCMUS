@@ -4,6 +4,7 @@ import { redisClient } from "#@/infrastructure/redis/redis.js"
 import { supabaseDB } from "#@/infrastructure/database/supabaseClient.js"
 import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js"
 import "#@/modules/queue/queue.worker.js"
+import { queueService } from "#@/modules/queue/queue.service.js"
 import { checkElasticsearchConnection } from "#@/infrastructure/elasticsearch/index.js"
 import { initializeIndices } from "#@/infrastructure/elasticsearch/mapping.js"
 import { rabbitmq } from "#@/infrastructure/rabbitmq/index.js"
@@ -15,7 +16,8 @@ const start = async(): Promise<void> => {
         supabaseDB.connect(),
         redisClient.connect(),
         checkElasticsearchConnection().then(() => initializeIndices()),
-        rabbitmq.connect().then(() => startConsumers())
+        rabbitmq.connect().then(() => startConsumers()),
+        queueService.initCronJobs()
     ])
     
     server.listen(config.port, () => {

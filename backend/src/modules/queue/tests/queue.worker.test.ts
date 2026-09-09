@@ -9,14 +9,28 @@ vi.mock("bullmq", () => {
                 this.processor = processor; // Expose the processor for the test to call directly
             }
             on = vi.fn();
+        },
+        Queue: class {
+            add = vi.fn();
         }
     };
 });
 
 // Mock dependencies
-import { mediaFacade } from "#@/modules/media/media.container.js";
+import { mediaContainer } from "#@/modules/media/media.container.js";
 vi.mock("#@/modules/media/media.container.js", () => ({
-    mediaFacade: { uploadImage: vi.fn() }
+    mediaContainer: {
+        mediaService: {
+            processAndUploadImage: vi.fn()
+        }
+    }
+}));
+
+import { conversationFacade } from "#@/modules/conversation/conversation.facade.js";
+vi.mock("#@/modules/conversation/conversation.facade.js", () => ({
+    conversationFacade: {
+        getConversation: vi.fn().mockResolvedValue(["u1", "u2"])
+    }
 }));
 
 import { messageContainer } from "#@/modules/message/message.container.js";
@@ -30,7 +44,8 @@ import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
 vi.mock("#@/infrastructure/websocket/socket-manager.js", () => ({
     socketManager: {
         emitToUser: vi.fn(),
-        emitToGroup: vi.fn()
+        emitToGroup: vi.fn(),
+        emitToUsers: vi.fn()
     }
 }));
 
@@ -41,19 +56,18 @@ describe("QueueWorker", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        // Get the worker's main processing function to test
         processorFn = (worker as any).processor;
     });
 
     it("should process 'upload_image' job successfully", async () => {
-        vi.mocked(mediaFacade.uploadImage).mockResolvedValue("https://fakeurl.com/anh.jpg");
+        vi.mocked(mediaContainer.mediaService.processAndUploadImage).mockResolvedValue("https://fakeurl.com/anh.jpg" as any);
 
         const mockJob = {
             name: 'upload_image',
             id: 'job-1',
             data: {
                 userID: "u1",
-                file_buffer: { data: [1, 2, 3] }, // simulate Buffer JSON
+                file_buffer: { data: [1, 2, 3] },
                 file_name: "test.jpg",
                 mime_type: "image/jpeg"
             }
@@ -61,7 +75,7 @@ describe("QueueWorker", () => {
 
         await processorFn(mockJob);
 
-        expect(mediaFacade.uploadImage).toHaveBeenCalled();
+        expect(mediaContainer.mediaService.processAndUploadImage).toHaveBeenCalled();
         expect(socketManager.emitToUser).toHaveBeenCalledWith("u1", "image_uploaded_success", {
             resource_url: "https://fakeurl.com/anh.jpg"
         });
@@ -84,7 +98,22 @@ describe("QueueWorker", () => {
         await processorFn(mockJob);
 
         expect(messageContainer.messageRepo.create).toHaveBeenCalledWith(mockJob.data);
-        expect(socketManager.emitToGroup).toHaveBeenCalledWith("c1", "new_message", mockSavedMessage);
+        expect(socketManager.emitToUsers).toHaveBeenCalledWith(["u1", "u2"], "new_message", mockSavedMessage);
+    });
+
+    it("should process cron jobs successfully", async () => {
+        const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        const mockJob = {
+            name: 'cleanup_orphaned_media',
+            id: 'cron_cleanup_orphaned_media',
+            data: {}
+        };
+
+        await processorFn(mockJob);
+
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining("Bắt đầu quét rác Cloudflare R2"));
+        consoleLogSpy.mockRestore();
     });
 
     it("should log warning if job name is unknown", async () => {
