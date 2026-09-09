@@ -73,9 +73,28 @@ export const GetListQuerySchema = z.object({
     })
 });
 
+export const UpdateConversationSchema = z.object({
+    params: z.object({
+        id: objectIdSchema
+    }),
+    body: z.object({
+        name: z.string().optional(),
+        avatar_url: z.string("Invalid image URL").optional(),
+    }).strict().refine((data) => {
+        if (data.avatar_url && !isUrl(data.avatar_url)) {
+            return false;
+        }
+        return true;
+    }, {
+        message: "Invalid avatar url",
+        path: ["avatar_url"]
+    })
+});
+
 export type CreateConversationDto = z.infer<typeof CreateConversationSchema>['body'];
 export type GetConversationParamDto = z.infer<typeof GetConversationParamSchema>['params'];
 export type AddMembersDto = z.infer<typeof AddMembersSchema>['body'];
 export type RemoveMemberDto = z.infer<typeof RemoveMemberSchema>['body'];
 export type AssignAdminDto = z.infer<typeof AssignAdminSchema>['body'];
 export type GetListQueryDto = z.infer<typeof GetListQuerySchema>['query'];
+export type UpdateConversationDto = z.infer<typeof UpdateConversationSchema>['body'];

@@ -1,5 +1,5 @@
 import { type IConversationRepository } from "../repositories/conversation.repository.js";
-import type { CreateConversationDto } from "../dto/conversation.dto.js";
+import type { CreateConversationDto, UpdateConversationDto } from "../dto/conversation.dto.js";
 import type { Conversation, ConversationDB } from "../entities/conversation.entity.js";
 import createError from "http-errors";
 import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
@@ -133,6 +133,30 @@ export class ConversationService {
      */
     private async sendSystemMessage(conversationId: string, text: string) {
         await this.messageFacade.createSystemMessage(conversationId, text);
+    }
+
+    /**
+     * Updates conversation info (name, avatar_url) for a group.
+     */
+    async updateConversation(userId: string, conversationId: string, data: UpdateConversationDto): Promise<any> {
+        const conv = await this.getConversationById(conversationId, userId);
+        if (conv.type !== 'group') throw createError(400, "Only group conversations can be updated");
+        
+        const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
+        if (!adminIds.includes(userId)) throw createError(403, "Only admins can update group info");
+        
+        if (Object.keys(data).length === 0) return conv;
+
+        const updatedConv = await this.conversationRepo.updateConversation(conversationId, data);
+        if (!updatedConv) throw createError(500, "Failed to update conversation");
+
+        // Invalidate cache
+        await redisClient.del(`conversation:${conversationId}`);
+
+        // The user explicitly stated no socket events needed for now
+        triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
+        
+        return updatedConv;
     }
 
     /**

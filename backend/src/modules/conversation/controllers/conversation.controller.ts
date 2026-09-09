@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import { ConversationService } from "../services/conversation.service.js";
-import type { CreateConversationDto, GetConversationParamDto, AddMembersDto, RemoveMemberDto, AssignAdminDto, GetListQueryDto } from "../dto/conversation.dto.js";
+import type { CreateConversationDto, GetConversationParamDto, AddMembersDto, RemoveMemberDto, AssignAdminDto, GetListQueryDto, UpdateConversationDto } from "../dto/conversation.dto.js";
 import { apiResponse } from "#@/shared/utils/api-response.js";
 import { SearchService } from "#@/modules/search/search.service.js";
 
 export class ConversationController {
-    constructor(private readonly conversationService: ConversationService) {}
+    constructor(private readonly conversationService: ConversationService) { }
 
     /**
      * Handles the creation of a new conversation (either 1-1 or group).
@@ -49,8 +49,8 @@ export class ConversationController {
      */
     getList = async (req: Request, res: Response) => {
         const userId = req.user!.userID;
-        const {limit, cursor_id, type, search} = req.query as unknown as GetListQueryDto;
-        
+        const { limit, cursor_id, type, search } = req.query as unknown as GetListQueryDto;
+
         if (search) {
             // Thực hiện tìm kiếm qua Elasticsearch
             const searchResults = await SearchService.searchConversations(search, userId);
@@ -62,7 +62,7 @@ export class ConversationController {
         }
 
         const list = await this.conversationService.getConversationList(userId, limit, cursor_id, type);
-        
+
         return apiResponse.success(res, list, {
             statusCode: 200,
             message: "Conversations retrieved successfully"
@@ -141,6 +141,25 @@ export class ConversationController {
         return apiResponse.success(res, null, {
             statusCode: 200,
             message: "Left group successfully"
+        });
+    }
+
+    /**
+     * Updates group conversation info (name, avatar_url).
+     * Requires admin privileges.
+     * @param req The Express request object.
+     * @param res The Express response object.
+     */
+    updateConversation = async (req: Request, res: Response) => {
+        const userId = req.user!.userID;
+        const params = req.params as GetConversationParamDto;
+        const body = req.body as UpdateConversationDto;
+
+        const updated = await this.conversationService.updateConversation(userId, params.id, body);
+        console.log(updated)
+        return apiResponse.success(res, updated, {
+            statusCode: 200,
+            message: "Group updated successfully"
         });
     }
 }

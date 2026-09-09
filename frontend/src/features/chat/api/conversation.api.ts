@@ -35,6 +35,10 @@ export const conversationApi = {
         
         return response.data;
     },
+    updateConversation: async (id: string, data: { name?: string; avatar_url?: string }) => {
+        const response = await api.put(`/conversation/${id}`, data);
+        return response.data;
+    },
     removeMembers: async (id: string, member_ids: string[]) => {
         const response = await api.delete(`/conversation/${id}/members`, { data: { member_ids } } as any);
         return response.data;

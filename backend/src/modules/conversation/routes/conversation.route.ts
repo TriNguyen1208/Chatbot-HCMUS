@@ -8,10 +8,19 @@ import {
     AddMembersSchema,
     RemoveMemberSchema,
     AssignAdminSchema, 
-    GetListQuerySchema 
+    GetListQuerySchema,
+    UpdateConversationSchema
 } from "#@/modules/conversation/dto/conversation.dto.js"
 import { conversationContainer } from "#@/modules/conversation/conversation.container.js";
 const router = Router();
+
+// API Update conversation
+router.put(
+    "/:id",
+    AuthMiddleware.verifyAccessToken,
+    validate(UpdateConversationSchema),
+    asyncHandler(conversationContainer.conversationController.updateConversation)
+);
 
 // API Get conversation list
 router.get(

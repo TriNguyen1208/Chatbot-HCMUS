@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { X, Bell, Search, UserPlus, LogOut, ChevronRight, ChevronDown, ShieldCheck, UserMinus, Settings, ArrowLeft, Image as ImageIcon, Video as VideoIcon, File as FileIcon } from "lucide-react";
 import { useChatStore } from "@/features/chat/stores/chatStore";
@@ -13,12 +14,14 @@ import { useModalStore } from "@/features/chat/stores/modalStore";
 import { messageApi } from "@/features/chat/api/message.api";
 import { SearchResult } from "@/features/chat/api/search.api";
 import MediaViewerModal from "../Modals/MediaViewerModal";
+import { EditGroupModal } from "../Modals/EditGroupModal";
 
 const MIN_WIDTH = 250;
 const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 320;
 
 const ConversationInfo = () => {
+  const queryClient = useQueryClient();
   const showInfoPanel = useChatStore((state) => state.showInfoPanel);
   const toggleInfoPanel = useChatStore((state) => state.toggleInfoPanel);
   const setTargetMessageId = useSearchStore((state) => state.setTargetMessageId);
@@ -41,7 +44,7 @@ const ConversationInfo = () => {
     handleLeaveGroup,
     isAdmin,
   } = useChatHeader();
-
+  console.log(activeConversation)
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
   const isResizing = useRef(false);
   
@@ -53,6 +56,8 @@ const ConversationInfo = () => {
   const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
+
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
 
   useEffect(() => {
     if (!mediaMode || !activeConversation) {
@@ -360,8 +365,11 @@ const ConversationInfo = () => {
           )}
 
           {activeConversation.type === "group" && isAdmin && (
-            <button className="flex flex-col items-center gap-1 group">
-              <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary">
+            <button 
+              className="flex flex-col items-center gap-1 group cursor-pointer"
+              onClick={() => setShowEditGroupModal(true)}
+            >
+              <div className="p-3 bg-glass rounded-full group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors text-text-secondary cursor-pointer">
                 <Settings size={20} />
               </div>
               <span className="text-[11px] text-text-secondary group-hover:text-brand-primary">Chỉnh sửa</span>
@@ -535,6 +543,35 @@ const ConversationInfo = () => {
         onClose={() => setSelectedMedia(null)}
         mediaType={selectedMedia?.type || 'image'}
         mediaUrl={selectedMedia?.url || ''}
+      />
+
+      <EditGroupModal 
+        isOpen={showEditGroupModal}
+        onClose={() => setShowEditGroupModal(false)}
+        conversation={activeConversation}
+        onSuccess={(updatedConv) => {
+          // Sync with chatStore
+          const { setActiveConversation } = useChatStore.getState();
+          setActiveConversation(updatedConv);
+
+          // Update React Query cache for sidebar
+          const updateQueryCache = (queryKey: any[]) => {
+            queryClient.setQueryData(queryKey, (oldData: any) => {
+              if (!oldData || !oldData.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any[]) =>
+                  page.map((conv: any) =>
+                    conv.id === updatedConv.id ? { ...conv, ...updatedConv } : conv
+                  )
+                ),
+              };
+            });
+          };
+
+          updateQueryCache(['conversations']);
+          updateQueryCache(['conversations', 'group']);
+        }}
       />
     </div>
   );
