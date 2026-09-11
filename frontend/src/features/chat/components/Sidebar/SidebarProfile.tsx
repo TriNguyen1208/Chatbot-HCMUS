@@ -22,7 +22,12 @@ const SidebarProfile = () => {
           />
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-sm font-semibold truncate text-txt-primary">{user?.name || 'User'}</span>
-            <span className="text-[11px] text-txt-extra font-medium truncate">Active Researcher</span>
+            <span 
+              className="text-[11px] text-txt-extra font-medium truncate"
+              title={(user as any)?.role || "Khách"}
+            >
+              {(user as any)?.role || "Khách"}
+            </span>
           </div>
         </Link>
         <button 

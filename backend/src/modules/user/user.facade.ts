@@ -18,7 +18,8 @@ export class UserFacade {
             email: string;
             name: string;
             avatar_url?: string;
-            student_id?: string
+            student_id?: string;
+            role?: string;
         }) {
         return this.userRepository.create(payload);
     }

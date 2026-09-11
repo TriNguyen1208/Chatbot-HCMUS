@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import jwt from "jsonwebtoken";
+import { FACULTY_PROGRAM_MAPPING, getUserRoleFromStudentID } from "./role-user.js";
 
 dotenv.config()
 
@@ -110,5 +111,7 @@ class Config {
             webhook_secret: process.env.R2_WEBHOOK_SECRET as string
         }
     }
+    readonly getUserRole = getUserRoleFromStudentID;
 }
-export const config = new Config()
+export const config = new Config();
+export * from "./role-user.js";

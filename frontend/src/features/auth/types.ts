@@ -8,10 +8,11 @@ export type UserProfile = {
     name: string;
     email: string;
     student_id?: string;
+    role?: string;
     phone?: string;
     avatar_url?: string;
 }
 export type AuthResult = {
     tokens: TokenPair,
-    user: Pick<UserProfile, "id" | "name" | "email" | "avatar_url">
+    user: Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role">
 }

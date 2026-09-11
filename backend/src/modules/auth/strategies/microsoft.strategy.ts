@@ -6,6 +6,7 @@ import { extractStudentID } from "#@/modules/auth/utils/student-email.js";
 import { generateAvatarURI } from "#@/utils/avatar.util.js";
 import { UserFacade } from "#@/modules/user/user.facade.js";
 import { type IAuthStrategy } from "./auth.strategy.js";
+import type { User } from "#@/modules/user/entities/user.entity.js";
 
 export class MicrosoftAuthStrategy implements IAuthStrategy {
     constructor(
@@ -47,12 +48,33 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
 
     private async getOrCreateUser(microsoftPayload: OAuthTokenPayload) {
         const foundUser = await this.userFacade.findByEmail(microsoftPayload.email);
+        const extractedStudentId = extractStudentID(microsoftPayload.email);
+        const studentId = extractedStudentId || foundUser?.student_id;
+        const role = config.getUserRole(studentId);
+
         if (foundUser) {
+            const updates: Partial<User> = {};
+
             // Tự động sinh avatar nếu user cũ chưa có
             if (!foundUser.avatar_url) {
                 const newAvatar = generateAvatarURI(foundUser.name);
-                await this.userFacade.update(foundUser.id!.toString(), { avatar_url: newAvatar });
+                updates.avatar_url = newAvatar;
                 foundUser.avatar_url = newAvatar;
+            }
+
+            // Tự động cập nhật role nếu chưa có hoặc có sự thay đổi
+            if (!foundUser.role || foundUser.role !== role) {
+                updates.role = role;
+                foundUser.role = role;
+            }
+
+            if (!foundUser.student_id && extractedStudentId) {
+                updates.student_id = extractedStudentId;
+                foundUser.student_id = extractedStudentId;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await this.userFacade.update(foundUser.id!.toString(), updates);
             }
 
             return {
@@ -60,17 +82,17 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
                 email: foundUser.email,
                 name: foundUser.name,
                 student_id: foundUser?.student_id,
-                avatar_url: foundUser.avatar_url
+                avatar_url: foundUser.avatar_url,
+                role: foundUser.role || role
             };
         }
-
-        const extractedStudentId = extractStudentID(microsoftPayload.email);
 
         const newUserParams: any = {
             email: microsoftPayload.email,
             name: microsoftPayload.name,
             student_id: extractedStudentId || "",
-            avatar_url: generateAvatarURI(microsoftPayload.name)
+            avatar_url: generateAvatarURI(microsoftPayload.name),
+            role: role
         };
 
         const createdUser = await this.userFacade.create(newUserParams);
@@ -80,7 +102,8 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
             email: newUserParams.email,
             name: newUserParams.name,
             student_id: newUserParams.student_id,
-            avatar_url: newUserParams.avatar_url
+            avatar_url: newUserParams.avatar_url,
+            role: newUserParams.role
         };
     }
 
@@ -101,7 +124,8 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
                 email: user.email,
                 name: user.name,
                 student_id: user.student_id,
-                avatar_url: user.avatar_url
+                avatar_url: user.avatar_url,
+                role: user.role
             }
         }
     }

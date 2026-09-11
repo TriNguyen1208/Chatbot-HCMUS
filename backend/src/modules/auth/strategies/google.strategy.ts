@@ -6,6 +6,7 @@ import { jwtService } from "#@/shared/utils/jwt-services.js";
 import { extractEmail, extractStudentID } from "#@/modules/auth/utils/student-email.js"
 import { UserFacade } from "#@/modules/user/user.facade.js"
 import { type IAuthStrategy } from "./auth.strategy.js";
+import type { User } from "#@/modules/user/entities/user.entity.js";
 
 export class GoogleAuthStrategy implements IAuthStrategy {
     private readonly googleClient: OAuth2Client;
@@ -51,24 +52,49 @@ export class GoogleAuthStrategy implements IAuthStrategy {
      */
     private async getOrCreateUser(googlePayload: OAuthTokenPayload) {
         const foundUser = await this.userFacade.findByEmail(googlePayload.email);
+        const extractedStudentId = extractStudentID(googlePayload.email);
+        const studentId = extractedStudentId || foundUser?.student_id;
+        const role = config.getUserRole(studentId);
+
         if (foundUser) {
+            const updates: Partial<User> = {};
+
+            if (!foundUser.avatar_url && googlePayload.picture) {
+                updates.avatar_url = googlePayload.picture;
+                foundUser.avatar_url = googlePayload.picture;
+            }
+
+            // Tự động cập nhật role nếu chưa có hoặc có sự thay đổi
+            if (!foundUser.role || foundUser.role !== role) {
+                updates.role = role;
+                foundUser.role = role;
+            }
+
+            if (!foundUser.student_id && extractedStudentId) {
+                updates.student_id = extractedStudentId;
+                foundUser.student_id = extractedStudentId;
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await this.userFacade.update(foundUser.id!.toString(), updates);
+            }
+
             return {
                 id: foundUser.id!.toString(),
                 email: foundUser.email,
                 name: foundUser.name,
                 student_id: foundUser?.student_id,
-                avatar_url: foundUser.avatar_url
+                avatar_url: foundUser.avatar_url,
+                role: foundUser.role || role
             };
         }
-
-        const emailProcessed = extractEmail(googlePayload.email);
-        const extractedStudentId = extractStudentID(googlePayload.email);
 
         const newUserParams = {
             email: googlePayload.email,
             name: googlePayload.name,
             avatar_url: googlePayload.picture,
-            student_id: extractedStudentId
+            student_id: extractedStudentId,
+            role: role
         };
 
         const createdUser = await this.userFacade.create(newUserParams);
@@ -78,7 +104,8 @@ export class GoogleAuthStrategy implements IAuthStrategy {
             email: newUserParams.email,
             name: newUserParams.name,
             student_id: newUserParams.student_id,
-            avatar_url: newUserParams.avatar_url
+            avatar_url: newUserParams.avatar_url,
+            role: newUserParams.role
         };
     }
 
@@ -106,7 +133,8 @@ export class GoogleAuthStrategy implements IAuthStrategy {
                 email: user.email,
                 name: user.name,
                 student_id: user.student_id,
-                avatar_url: user.avatar_url
+                avatar_url: user.avatar_url,
+                role: user.role
             }
         }
     }

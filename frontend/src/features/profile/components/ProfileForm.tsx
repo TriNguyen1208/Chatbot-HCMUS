@@ -115,9 +115,20 @@ export const ProfileForm = () => {
               <label className="text-sm font-medium text-txt-secondary ml-1">Student ID (MSSV)</label>
               <input 
                 type="text" 
-                value={currentUser.studentID || "N/A"} 
+                value={currentUser.studentID || (currentUser as any).student_id || "N/A"} 
                 disabled 
                 className="w-full px-4 py-3 bg-surface/40 border border-glass-border rounded-xl text-txt-secondary cursor-not-allowed focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-txt-secondary ml-1">Khoa & Chương trình (Role)</label>
+              <input 
+                type="text" 
+                value={(currentUser as any).role || "Khách"} 
+                disabled 
+                title={(currentUser as any).role || "Khách"}
+                className="w-full px-4 py-3 bg-surface/40 border border-glass-border rounded-xl text-txt-secondary cursor-not-allowed focus:outline-none truncate"
               />
             </div>
 
@@ -131,7 +142,7 @@ export const ProfileForm = () => {
               />
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <label className="text-sm font-medium text-txt-secondary ml-1">Phone Number</label>
               <input 
                 type="tel" 

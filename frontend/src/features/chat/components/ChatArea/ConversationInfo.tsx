@@ -393,17 +393,22 @@ const ConversationInfo = () => {
             {displayName}
           </h2>
           {activeConversation.type === "utu" && otherMember && (
-            <div className="text-sm mt-1">
-              {isOnline ? (
-                <span className="text-green-500 font-medium">Đang hoạt động</span>
-              ) : (
-                <span className="text-gray-500">
-                  {otherMember.last_active
-                    ? `Hoạt động ${getRelativeTime(otherMember.last_active)}`
-                    : "Ngoại tuyến"}
-                </span>
-              )}
-            </div>
+            <>
+              <span className="text-xs px-2.5 py-0.5 mt-1.5 rounded-full bg-brand-primary/10 text-brand-primary font-medium text-center max-w-[90%] truncate" title={otherMember.role || "Khách"}>
+                {otherMember.role || "Khách"}
+              </span>
+              <div className="text-sm mt-1">
+                {isOnline ? (
+                  <span className="text-green-500 font-medium">Đang hoạt động</span>
+                ) : (
+                  <span className="text-gray-500">
+                    {otherMember.last_active
+                      ? `Hoạt động ${getRelativeTime(otherMember.last_active)}`
+                      : "Ngoại tuyến"}
+                  </span>
+                )}
+              </div>
+            </>
           )}
         </div>
 
@@ -556,11 +561,18 @@ const ConversationInfo = () => {
                       <span className="text-sm font-medium text-text-primary truncate">
                         {name}
                       </span>
-                      {activeConversation.admin_ids?.includes(memberId) && (
-                        <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded w-fit">
-                          Quản trị viên
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {activeConversation.admin_ids?.includes(memberId) && (
+                          <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded w-fit">
+                            Quản trị viên
+                          </span>
+                        )}
+                        {member?.role && (
+                          <span className="text-[10px] text-text-secondary truncate max-w-[150px]" title={member.role}>
+                            {member.role}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

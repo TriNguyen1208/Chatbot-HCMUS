@@ -276,24 +276,46 @@ export const useChatSocket = () => {
 
         // 9. LẮNG NGHE SỰ KIỆN: CẬP NHẬT WATERMARK
         socket.on('watermark_updated', (data: { conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read' }) => {
+            const mergeWatermarks = (currentWatermarks: any[] = []) => {
+                const map = new Map<string, { user_id: string; last_delivered_msg_id?: string | null; last_read_msg_id?: string | null }>();
+
+                for (const w of currentWatermarks) {
+                    if (!w || !w.user_id) continue;
+                    const uid = String(w.user_id);
+                    const prev = map.get(uid);
+                    if (!prev) {
+                        map.set(uid, {
+                            user_id: uid,
+                            last_delivered_msg_id: w.last_delivered_msg_id || null,
+                            last_read_msg_id: w.last_read_msg_id || null,
+                        });
+                    } else {
+                        map.set(uid, {
+                            user_id: uid,
+                            last_delivered_msg_id: w.last_delivered_msg_id || prev.last_delivered_msg_id || null,
+                            last_read_msg_id: w.last_read_msg_id || prev.last_read_msg_id || null,
+                        });
+                    }
+                }
+
+                const targetUid = String(data.userId);
+                const existing = map.get(targetUid);
+                map.set(targetUid, {
+                    user_id: targetUid,
+                    last_delivered_msg_id: data.type === 'delivered' ? data.messageId : (existing?.last_delivered_msg_id || null),
+                    last_read_msg_id: data.type === 'read' ? data.messageId : (existing?.last_read_msg_id || null),
+                });
+
+                return Array.from(map.values());
+            };
+
             queryClient.setQueriesData({ queryKey: ['conversations'] }, (oldData: { pages: any[], pageParams: any[] } | undefined) => {
                 if (!oldData) return oldData;
                 const newPages = oldData.pages.map((page: any[]) =>
                     page.map((conv: Conversation) => {
                         if (conv.id === data.conversationId) {
-                            const newWatermarks = [...(conv.watermarks || [])];
-                            const existingIdx = newWatermarks.findIndex(w => w.user_id === data.userId);
-                            
-                            if (existingIdx !== -1) {
-                                if (data.type === 'delivered') newWatermarks[existingIdx].last_delivered_msg_id = data.messageId;
-                                if (data.type === 'read') newWatermarks[existingIdx].last_read_msg_id = data.messageId;
-                            } else {
-                                newWatermarks.push({
-                                    user_id: data.userId,
-                                    last_delivered_msg_id: data.type === 'delivered' ? data.messageId : null,
-                                    last_read_msg_id: data.type === 'read' ? data.messageId : null
-                                });
-                            }
+                            const newWatermarks = mergeWatermarks(conv.watermarks);
+                            console.log("Conversation watermarks updated:", newWatermarks);
                             return { ...conv, watermarks: newWatermarks };
                         }
                         return conv;
@@ -305,19 +327,8 @@ export const useChatSocket = () => {
             // Update activeConversation if it's currently open
             const { activeConversation, setActiveConversation } = useChatStore.getState();
             if (activeConversation && activeConversation.id === data.conversationId) {
-                const newWatermarks = [...(activeConversation.watermarks || [])];
-                const existingIdx = newWatermarks.findIndex(w => w.user_id === data.userId);
-                
-                if (existingIdx !== -1) {
-                    if (data.type === 'delivered') newWatermarks[existingIdx].last_delivered_msg_id = data.messageId;
-                    if (data.type === 'read') newWatermarks[existingIdx].last_read_msg_id = data.messageId;
-                } else {
-                    newWatermarks.push({
-                        user_id: data.userId,
-                        last_delivered_msg_id: data.type === 'delivered' ? data.messageId : null,
-                        last_read_msg_id: data.type === 'read' ? data.messageId : null
-                    });
-                }
+                const newWatermarks = mergeWatermarks(activeConversation.watermarks);
+                console.log("Active conversation watermarks updated:", newWatermarks);
                 setActiveConversation({ ...activeConversation, watermarks: newWatermarks });
             }
         });

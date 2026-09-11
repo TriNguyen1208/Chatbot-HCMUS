@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useModalStore } from '@/features/chat/stores/modalStore';
 import { useUserStore } from '@/features/chat/stores/userStore';
-import { Loader2, X, User } from 'lucide-react';
+import { Loader2, X, User, GraduationCap } from 'lucide-react';
 import { DEFAULT_AVATAR } from '@/utils/constants';
 
 export default function UserProfileModal() {
@@ -33,7 +33,7 @@ export default function UserProfileModal() {
 
         <button 
           onClick={closeUserProfileModal}
-          className="absolute top-4 right-4 p-2 bg-surface/50 hover:bg-hover rounded-full transition-colors text-txt-secondary hover:text-txt-primary z-10"
+          className="absolute top-4 right-4 p-2 bg-surface/50 hover:bg-hover rounded-full transition-colors text-txt-secondary hover:text-txt-primary z-10 cursor-pointer"
         >
           <X size={20} />
         </button>
@@ -65,10 +65,13 @@ export default function UserProfileModal() {
             <h2 className="text-2xl font-bold text-txt-primary text-center mb-1">
               {user.name}
             </h2>
-            <div className="flex items-center gap-1.5 text-txt-extra text-sm mb-6">
+            <div className="flex items-center gap-1.5 text-txt-extra text-sm mb-2">
               <span className={`w-2 h-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-400'}`} />
               {user.is_online ? 'Online' : 'Offline'}
             </div>
+            <span className="text-xs px-3 py-1 rounded-full bg-brand-primary/10 text-brand-primary font-medium mb-5 text-center max-w-[90%] truncate" title={user.role || "Khách"}>
+              {user.role || "Khách"}
+            </span>
 
             {/* Info Fields */}
             <div className="w-full flex flex-col gap-3">
@@ -78,7 +81,17 @@ export default function UserProfileModal() {
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="text-[11px] text-txt-extra font-medium uppercase tracking-wider">Student ID (MSSV)</span>
-                  <span className="text-sm text-txt-primary truncate">{(user as any).studentID || "N/A"}</span>
+                  <span className="text-sm text-txt-primary truncate">{(user as any).studentID || user.student_id || "N/A"}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center p-3 bg-surface/50 border border-glass-border rounded-xl">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mr-3 shrink-0">
+                  <GraduationCap size={16} />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[11px] text-txt-extra font-medium uppercase tracking-wider">Khoa & Chương trình</span>
+                  <span className="text-sm text-txt-primary truncate" title={user.role || "Khách"}>{user.role || "Khách"}</span>
                 </div>
               </div>
 

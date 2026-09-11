@@ -11,6 +11,9 @@ import { useModalStore } from "@/features/chat/stores/modalStore";
 import { messageApi } from "@/features/chat/api/message.api";
 import { format } from "date-fns";
 import { useChatStore } from "@/features/chat/stores/chatStore";
+import Linkify from "linkify-react";
+import { find } from "linkifyjs";
+import { LinkPreview } from "./LinkPreview";
 
 interface MessageItemProps {
   message: Message;
@@ -60,6 +63,9 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
     setShowMenu(false);
     setEditingMessage(message);
   };
+
+  const detectedLinks = message.content && message.status !== 'recalled' ? find(message.content, 'url') : [];
+  const previewUrl = detectedLinks.length > 0 ? detectedLinks[0].href : null;
 
   if (isSystem) {
     return (
@@ -192,8 +198,24 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
 
               {message.content && message.content.trim().length > 0 && (
                 <div className={`px-5 py-3 rounded-[20px] shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'bg-gradient-primary text-white rounded-br-sm' : 'bg-surface border border-glass-border text-txt-primary rounded-bl-sm backdrop-blur-sm'}`}>
-                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                    <Linkify 
+                      options={{ 
+                        target: '_blank', 
+                        rel: 'noopener noreferrer',
+                        className: isMe 
+                          ? 'text-white underline font-medium hover:opacity-80 break-all cursor-pointer' 
+                          : 'text-blue-500 underline font-medium hover:text-blue-600 break-all cursor-pointer'
+                      }}
+                    >
+                      {message.content}
+                    </Linkify>
+                  </p>
                 </div>
+              )}
+
+              {previewUrl && (
+                <LinkPreview url={previewUrl} />
               )}
             </>
           )}
@@ -247,36 +269,41 @@ const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItem
           </div>
         )}
         
-        {shouldShowDetails && isMe && (
+        {/* Read receipts: Always visible if someone's latest read message is this one */}
+        {watermarks && watermarks.some(w => w.type === 'read') && (
           <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
-            {(!watermarks || watermarks.length === 0) ? (
-              <span title="Đã gửi">
-                <Check className="w-3.5 h-3.5 text-txt-extra/60" />
+            {watermarks.filter(w => w.type === 'read').map((w, idx) => {
+              const wUser = useUserStore.getState().users[w.userId];
+              const avatar = wUser?.avatar_url || DEFAULT_AVATAR;
+              return (
+                <div key={`read-${idx}`} className="relative">
+                  <Image
+                    src={avatar}
+                    alt="watermark"
+                    width={14}
+                    height={14}
+                    className="rounded-full object-cover shadow-sm ring-1 ring-background"
+                    title={`${wUser?.name || 'Người dùng'} đã xem`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sent / Delivered status for my messages: shown when isLastMessage or when message details clicked */}
+        {shouldShowDetails && isMe && (!watermarks || !watermarks.some(w => w.type === 'read')) && (
+          <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
+            {watermarks && watermarks.some(w => w.type === 'delivered') ? (
+              <span title="Đã nhận" className="flex items-center gap-1 text-[11px] text-brand-primary font-medium">
+                {showDetails && <span>Đã nhận</span>}
+                <CheckCheck className="w-3.5 h-3.5" />
               </span>
             ) : (
-              <>
-                {watermarks.some(w => w.type === 'delivered') && !watermarks.some(w => w.type === 'read') && (
-                  <span title="Đã nhận">
-                    <CheckCheck className="w-3.5 h-3.5 text-brand-primary" />
-                  </span>
-                )}
-                {watermarks.filter(w => w.type === 'read').map((w, idx) => {
-                  const wUser = useUserStore.getState().users[w.userId];
-                  const avatar = wUser?.avatar_url || DEFAULT_AVATAR;
-                  return (
-                    <div key={`read-${idx}`} className="relative">
-                      <Image
-                        src={avatar}
-                        alt="watermark"
-                        width={14}
-                        height={14}
-                        className="rounded-full object-cover shadow-sm"
-                        title={`${wUser?.name || 'Người dùng'} đã xem`}
-                      />
-                    </div>
-                  );
-                })}
-              </>
+              <span title="Đã gửi" className="flex items-center gap-1 text-[11px] text-txt-extra/70">
+                {showDetails && <span>Đã gửi</span>}
+                <Check className="w-3.5 h-3.5" />
+              </span>
             )}
           </div>
         )}

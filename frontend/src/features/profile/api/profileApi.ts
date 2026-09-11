@@ -12,7 +12,9 @@ export type UserProfileResponse = {
     email: string;
     avatar_url: string | null;
     studentID?: string;
+    student_id?: string;
     phone?: string;
+    role?: string;
 };
 
 export const profileApi = {

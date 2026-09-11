@@ -5,7 +5,7 @@ import type { UserProfile } from "../types";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 type AuthState = {
-    user: Pick<UserProfile, "id" | "name" | "email" | "avatar_url"> & { studentID?: string, phone?: string } | null;
+    user: Pick<UserProfile, "id" | "name" | "email" | "avatar_url"> & { studentID?: string, student_id?: string, phone?: string, role?: string } | null;
     isAuthenticated: boolean,
     isCheckingAuth: boolean,
     setUser: (user: AuthState["user"]) => void

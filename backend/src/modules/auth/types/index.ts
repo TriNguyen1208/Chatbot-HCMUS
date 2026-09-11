@@ -8,6 +8,7 @@ export interface AuthResult {
         name: string;
         student_id?: string;
         avatar_url?: string;
+        role?: string;
     };
 }
 

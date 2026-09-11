@@ -47,33 +47,44 @@ const MessageList = () => {
             }
         });
 
+        // Helper to get string ID consistently
+        const getMsgId = (m: any) => String(m?.id || m?._id || '');
+
         watermarksMap.forEach(w => {
-            // Find index of the latest message read by this user
             const readIdx = w.last_read_msg_id 
-                ? messages.findIndex(m => m.id === w.last_read_msg_id || (m as any)._id === w.last_read_msg_id) 
+                ? messages.findIndex(m => getMsgId(m) === String(w.last_read_msg_id)) 
                 : -1;
 
-            if (readIdx !== -1) {
-                // Only attach the read avatar to the exact latest message read by this user
-                const msgId = messages[readIdx].id || (messages[readIdx] as any)._id;
-                if (!result[msgId]) result[msgId] = [];
-                if (!result[msgId].some(r => r.userId === w.user_id)) {
-                    result[msgId].push({ type: 'read', userId: w.user_id });
-                }
-            } else {
-                // If user hasn't read any message yet, check delivered
-                const deliveredIdx = w.last_delivered_msg_id 
-                    ? messages.findIndex(m => m.id === w.last_delivered_msg_id || (m as any)._id === w.last_delivered_msg_id) 
-                    : -1;
+            const deliveredIdx = w.last_delivered_msg_id 
+                ? messages.findIndex(m => getMsgId(m) === String(w.last_delivered_msg_id)) 
+                : -1;
 
-                if (deliveredIdx !== -1) {
-                    const msgId = messages[deliveredIdx].id || (messages[deliveredIdx] as any)._id;
-                    if (!result[msgId]) result[msgId] = [];
-                    if (!result[msgId].some(r => r.userId === w.user_id)) {
+            // In flex-col-reverse list, index 0 is the NEWEST message, and larger indices are older messages.
+            // A message at idx is delivered if idx >= deliveredIdx (i.e. msg is older than or equal to last delivered).
+            // A message at idx is read if idx >= readIdx (i.e. msg is older than or equal to last read).
+            let effectiveDeliveredIdx = deliveredIdx;
+            if (readIdx !== -1) {
+                effectiveDeliveredIdx = effectiveDeliveredIdx === -1 ? readIdx : Math.min(effectiveDeliveredIdx, readIdx);
+            }
+
+            messages.forEach((msg, idx) => {
+                const msgId = getMsgId(msg);
+                if (!msgId) return;
+                if (!result[msgId]) result[msgId] = [];
+
+                // 1. Read: only attach avatar to the exact latest message read by this user
+                if (readIdx !== -1 && readIdx === idx) {
+                    if (!result[msgId].some(r => r.userId === w.user_id && r.type === 'read')) {
+                        result[msgId].push({ type: 'read', userId: w.user_id });
+                    }
+                } 
+                // 2. Delivered: message is at or older than delivered point, but newer than read point
+                else if (effectiveDeliveredIdx !== -1 && idx >= effectiveDeliveredIdx && (readIdx === -1 || idx < readIdx)) {
+                    if (!result[msgId].some(r => r.userId === w.user_id && r.type === 'delivered')) {
                         result[msgId].push({ type: 'delivered', userId: w.user_id });
                     }
                 }
-            }
+            });
         });
 
         return result;
@@ -134,14 +145,17 @@ const MessageList = () => {
                 </div>
             )}
             
-            {messages.map((msg, index) => (
-                <MessageItem
-                    key={msg.id || (msg as any).id}
-                    message={msg}
-                    watermarks={watermarksByMessageId[msg.id || '']}
-                    isLastMessage={index === 0}
-                />
-            ))}
+            {messages.map((msg, index) => {
+                const msgId = String(msg.id || (msg as any)._id || '');
+                return (
+                    <MessageItem
+                        key={msgId || index}
+                        message={msg}
+                        watermarks={watermarksByMessageId[msgId]}
+                        isLastMessage={index === 0}
+                    />
+                );
+            })}
 
             {hasMoreMessages && messages.length > 0 && (
                 <div ref={ref} className="h-4 flex items-center justify-center shrink-0">

@@ -2,6 +2,7 @@ import type { UpdateProfileDto } from "#@/modules/user/dto/user.dto.js";
 import { type IDatabase } from "#@/infrastructure/database/database.interface.js";
 import { type User, type UserDB } from "#@/modules/user/entities/user.entity.js";
 import { Types } from "mongoose";
+import { config } from "#@/config/config.js";
 
 export interface IUserRepository {
 
@@ -25,9 +26,11 @@ export class UserRepository implements IUserRepository {
     private mapToDomain(doc: UserDB | null): User | null {
         if (!doc) return null;
         const { _id, __v, ...rest } = doc;
+        const role = rest.role || (rest.student_id ? config.getUserRole(rest.student_id) : "Khách");
         return {
             id: _id?.toString(),
-            ...rest
+            ...rest,
+            role
         } as User;
     }
     /**

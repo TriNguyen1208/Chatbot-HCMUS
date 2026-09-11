@@ -5,6 +5,7 @@ export interface User {
     email: string;
     name: string;
     student_id?: string;
+    role?: string;
     phone?: string;
     avatar_url?: string;
     last_active?: Date | string;
@@ -22,6 +23,7 @@ export const UserSchema = new Schema<User>({
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     student_id: { type: String, required: false },
+    role: { type: String, default: "Khách" },
     phone: { type: String, required: false },
     avatar_url: { type: String, required: false },
     last_active: { type: Date, default: Date.now },

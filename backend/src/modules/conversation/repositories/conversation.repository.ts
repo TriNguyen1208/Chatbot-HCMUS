@@ -39,7 +39,7 @@ export class ConversationRepository implements IConversationRepository {
 
     private formatConversation(doc: any): Conversation | null {
         if (!doc) return null;
-        const { _id, __v, last_message_id, block, ...rest } = doc;
+        const { _id, __v, last_message_id, block, watermarks, ...rest } = doc;
 
         let last_message = last_message_id;
         if (last_message_id && typeof last_message_id === 'object' && '_id' in last_message_id) {
@@ -51,9 +51,34 @@ export class ConversationRepository implements IConversationRepository {
             };
         }
 
+        let cleanWatermarks: any[] = [];
+        if (Array.isArray(watermarks)) {
+            const map = new Map<string, any>();
+            for (const wm of watermarks) {
+                if (!wm || !wm.user_id) continue;
+                const uid = wm.user_id.toString();
+                const prev = map.get(uid);
+                if (!prev) {
+                    map.set(uid, {
+                        user_id: uid,
+                        last_delivered_msg_id: wm.last_delivered_msg_id ? wm.last_delivered_msg_id.toString() : null,
+                        last_read_msg_id: wm.last_read_msg_id ? wm.last_read_msg_id.toString() : null,
+                    });
+                } else {
+                    map.set(uid, {
+                        user_id: uid,
+                        last_delivered_msg_id: wm.last_delivered_msg_id ? wm.last_delivered_msg_id.toString() : prev.last_delivered_msg_id,
+                        last_read_msg_id: wm.last_read_msg_id ? wm.last_read_msg_id.toString() : prev.last_read_msg_id,
+                    });
+                }
+            }
+            cleanWatermarks = Array.from(map.values());
+        }
+
         return {
             id: _id?.toString(),
             last_message,
+            watermarks: cleanWatermarks,
             block: block ? {
                 block_by: block.block_by?.toString() || block.block_by,
                 block_at: block.block_at
@@ -188,31 +213,44 @@ export class ConversationRepository implements IConversationRepository {
         const uId = new Types.ObjectId(userId);
         const msgId = new Types.ObjectId(messageId);
 
-        // Check if user exists in watermarks array
-        const conv = await this.db.findOne<ConversationDB>('conversations', { 
-            _id: convId, 
-            "watermarks.user_id": uId 
-        } as any);
+        const conv = await this.db.findOne<ConversationDB>('conversations', { _id: convId });
+        if (!conv) return;
 
-        if (!conv) {
-            // Push new watermark
-            const newWatermark: any = { user_id: uId };
-            if (type === 'delivered') newWatermark.last_delivered_msg_id = msgId;
-            if (type === 'read') newWatermark.last_read_msg_id = msgId;
+        const currentWatermarks = conv.watermarks || [];
+        const map = new Map<string, any>();
 
-            await this.db.update<ConversationDB>('conversations',
-                { _id: convId },
-                { $push: { watermarks: newWatermark } }
-            );
-        } else {
-            // Update existing watermark using arrayFilters
-            const fieldToUpdate = type === 'delivered' ? "watermarks.$[elem].last_delivered_msg_id" : "watermarks.$[elem].last_read_msg_id";
-            await this.db.update<ConversationDB>('conversations',
-                { _id: convId },
-                { $set: { [fieldToUpdate]: msgId } },
-                { arrayFilters: [{ "elem.user_id": uId }] }
-            );
+        for (const wm of currentWatermarks) {
+            if (!wm || !wm.user_id) continue;
+            const uid = wm.user_id.toString();
+            const prev = map.get(uid);
+            if (!prev) {
+                map.set(uid, {
+                    user_id: new Types.ObjectId(uid),
+                    last_delivered_msg_id: wm.last_delivered_msg_id ? new Types.ObjectId(wm.last_delivered_msg_id.toString()) : null,
+                    last_read_msg_id: wm.last_read_msg_id ? new Types.ObjectId(wm.last_read_msg_id.toString()) : null,
+                });
+            } else {
+                map.set(uid, {
+                    user_id: new Types.ObjectId(uid),
+                    last_delivered_msg_id: wm.last_delivered_msg_id ? new Types.ObjectId(wm.last_delivered_msg_id.toString()) : prev.last_delivered_msg_id,
+                    last_read_msg_id: wm.last_read_msg_id ? new Types.ObjectId(wm.last_read_msg_id.toString()) : prev.last_read_msg_id,
+                });
+            }
         }
+
+        const targetUid = uId.toString();
+        const existing = map.get(targetUid);
+        map.set(targetUid, {
+            user_id: uId,
+            last_delivered_msg_id: type === 'delivered' ? msgId : (existing?.last_delivered_msg_id || null),
+            last_read_msg_id: type === 'read' ? msgId : (existing?.last_read_msg_id || null),
+        });
+
+        const newWatermarks = Array.from(map.values());
+        await this.db.update<ConversationDB>('conversations',
+            { _id: convId },
+            { $set: { watermarks: newWatermarks } }
+        );
     }
 
     async updateConversation(id: string, data: Partial<ConversationDB>): Promise<Conversation | null> {
