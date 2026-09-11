@@ -11,7 +11,7 @@ export const useConversationsQuery = (type?: 'utu' | 'group') => {
     
     queryFn: async ({ pageParam }) => {
       const res = await conversationApi.getConversations(20, pageParam as string | undefined, type);
-      const conversations = (Array.isArray(res.data) ? res.data : res) as Conversation[];
+      const conversations = res;
       
       const userStoreState = useUserStore.getState();
       const existingUsers = userStoreState.users;
@@ -50,7 +50,7 @@ export const useMessagesQuery = (conversationId?: string) => {
       if (!conversationId) return [];
       
       const res = await messageApi.getMessages(conversationId, 20, pageParam as string | undefined);
-      return (Array.isArray(res.data) ? res.data : res) as Message[];
+      return res;
     },
     
     initialPageParam: undefined as string | undefined,

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import { Socket } from "socket.io-client";
 import { useAuthStore } from "@/features/auth/stores/authStore";
+import { socketService } from "@/shared/services/socket.service";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -20,29 +21,28 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { isAuthenticated } = useAuthStore();
+
   useEffect(() => {
     if (!isAuthenticated) {
+      socketService.disconnect();
+      setSocket(null);
+      setIsConnected(false);
       return;
     }
 
-    const socketInstance = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
-      withCredentials: true,
-      transports: ["websocket"],
-    });
-
-    socketInstance.on("connect", () => {
-      setIsConnected(true);
-      console.log("Socket connected with ID:", socketInstance.id);
-    });
-
-    socketInstance.on("disconnect", () => {
-      setIsConnected(false);
-    });
-
+    const socketInstance = socketService.connect();
     setSocket(socketInstance);
+    setIsConnected(socketInstance.connected);
+
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+
+    socketInstance.on("connect", onConnect);
+    socketInstance.on("disconnect", onDisconnect);
 
     return () => {
-      socketInstance.disconnect();
+      socketInstance.off("connect", onConnect);
+      socketInstance.off("disconnect", onDisconnect);
     };
   }, [isAuthenticated]);
 

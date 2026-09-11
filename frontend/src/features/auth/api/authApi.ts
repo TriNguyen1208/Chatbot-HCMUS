@@ -1,17 +1,12 @@
-"use client";
-
-import { ApiResponse } from "@/types/type";
-import { api } from "@/lib/api";
-import { UserProfile } from "../types";
+import { http, api } from "@/lib/api";
+import type { User } from "@/types";
 
 export const authApi = {
-    googleLogin: async (idToken: string): Promise<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role">> => {
-        const res = await api.post<ApiResponse<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role">>>(`/auth/google`, { idToken });
-        return res.data.data;
+    googleLogin: async (idToken: string): Promise<User> => {
+        return http.post<User>(`/auth/google`, { idToken });
     },
-    microsoftLogin: async (idToken: string): Promise<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role">> => {
-        const res = await api.post<ApiResponse<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role">>>(`/auth/microsoft`, { idToken });
-        return res.data.data;
+    microsoftLogin: async (idToken: string): Promise<User> => {
+        return http.post<User>(`/auth/microsoft`, { idToken });
     },
     logout: async (): Promise<void> => {
         await api.post(`/auth/logout`);
@@ -19,8 +14,7 @@ export const authApi = {
     logoutAll: async (): Promise<void> => {
         await api.post(`/auth/logout-all`);
     },
-    getMe: async (): Promise<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role"> & { studentID?: string, student_id?: string }> => {
-        const res = await api.get<ApiResponse<Pick<UserProfile, "id" | "name" | "email" | "avatar_url" | "role"> & { studentID?: string, student_id?: string }>>(`/user/me`);
-        return res.data.data;
-    }
+    getMe: async (): Promise<User> => {
+        return http.get<User>(`/user/me`);
+    },
 };

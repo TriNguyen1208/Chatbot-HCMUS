@@ -1,0 +1,314 @@
+"use client";
+
+import { DEFAULT_AVATAR } from "@/config/constants";
+import type { Message } from "@/types";
+import { useMessageItem } from "./useMessageItem";
+import Image from "next/image";
+import { MoreVertical, CornerUpLeft, Forward, Smile, X, Check, CheckCheck, Edit2 } from "lucide-react";
+import { ReactionModal } from "./components/ReactionModal";
+import { LinkPreview } from "./components/LinkPreview";
+import { format } from "date-fns";
+import Linkify from "linkify-react";
+
+export interface MessageItemProps {
+  message: Message;
+  watermarks?: { type: 'delivered' | 'read', userId: string }[];
+  isLastMessage?: boolean;
+}
+
+export const MessageItem = ({ message, watermarks, isLastMessage = false }: MessageItemProps) => {
+  const {
+    isMe,
+    isSystem,
+    senderUser,
+    timeDisplay,
+    showMenu,
+    setShowMenu,
+    menuRef,
+    showReactMenu,
+    setShowReactMenu,
+    reactMenuRef,
+    showReactionList,
+    setShowReactionList,
+    showImageModal,
+    setShowImageModal,
+    showDetails,
+    setShowDetails,
+    shouldShowDetails,
+    showEditHistory,
+    setShowEditHistory,
+    canEdit,
+    handleEdit,
+    previewUrl,
+    handleRecall,
+    handleForward,
+    handleReact,
+    handleOpenUserProfile,
+    users
+  } = useMessageItem(message, { isLastMessage, watermarks });
+
+  if (isSystem) {
+    return (
+      <div className="flex flex-row justify-center w-full my-4">
+        <div className="bg-surface backdrop-blur-sm text-txt-extra text-xs px-5 py-2 rounded-full max-w-[80%] text-center border border-glass-border shadow-sm flex items-center gap-2">
+          <span>{message.content}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      id={`msg-${message.id || (message as any)._id}`} 
+      className={`group flex flex-row w-full my-3 ${isMe ? 'justify-end' : 'justify-start'} ${showMenu || showReactMenu ? 'z-50 relative' : 'z-0 relative'}`}
+      onMouseLeave={() => {
+        setShowMenu(false);
+        setShowReactMenu(false);
+      }}
+    >
+      {!isMe && (
+        <Image
+          src={senderUser?.avatar_url || DEFAULT_AVATAR}
+          alt="avatar"
+          width={36}
+          height={36}
+          className="rounded-full object-cover shrink-0 size-9 mt-auto mr-3 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleOpenUserProfile}
+        />
+      )}
+      <div className={`max-w-[75%] flex flex-col relative ${isMe ? 'items-end' : 'items-start'}`}>
+        
+        <div className="relative">
+          {/* Hover Actions */}
+          <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${isMe ? '-left-[84px]' : '-right-[84px]'} transition-all duration-200 ${showMenu || showReactMenu ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}>
+          
+          <div className="relative">
+            <button onClick={() => setShowReactMenu(!showReactMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors cursor-pointer">
+              <Smile size={18} />
+            </button>
+            
+            {showReactMenu && (
+              <div ref={reactMenuRef} className={`absolute z-10 bottom-full ${isMe ? 'right-0' : 'left-0'} mb-2 bg-surface-solid border border-glass-border shadow-xl rounded-full px-3 py-2 flex flex-row items-center gap-2`}>
+                {["❤️", "😆", "😮", "😢", "😡", "👍"].map(emoji => (
+                  <button 
+                    key={emoji} 
+                    onClick={() => handleReact(emoji)}
+                    className="text-2xl hover:scale-125 transition-transform origin-bottom cursor-pointer"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 text-txt-extra hover:text-txt-primary rounded-full hover:bg-hover transition-colors cursor-pointer">
+              <MoreVertical size={18} />
+            </button>
+            
+            {showMenu && (
+              <div ref={menuRef} className={`absolute z-10 bottom-full ${isMe ? 'right-0' : 'left-0'} mb-1 w-40 bg-surface-solid border border-glass-border shadow-xl rounded-xl py-1.5 flex flex-col text-sm overflow-hidden`}>
+                {isMe && message.status !== 'recalled' && (
+                  <>
+                    <button onClick={handleRecall} className="flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-500/10 text-left w-full transition-colors cursor-pointer">
+                      <CornerUpLeft size={16} /> Thu hồi
+                    </button>
+                    {message.type === 'text' && (
+                      <button 
+                        onClick={handleEdit} 
+                        disabled={!canEdit}
+                        className={`flex items-center gap-2 px-3 py-2 text-left w-full transition-colors ${canEdit ? 'text-txt-primary hover:bg-hover cursor-pointer' : 'text-txt-extra opacity-50 cursor-not-allowed'}`}
+                        title={!canEdit ? "Chỉ được sửa tin nhắn trong vòng 1 tiếng" : ""}
+                      >
+                        <Edit2 size={16} /> Chỉnh sửa
+                      </button>
+                    )}
+                  </>
+                )}
+                <button onClick={handleForward} className="flex items-center gap-2 px-3 py-2 text-txt-primary hover:bg-hover text-left w-full transition-colors cursor-pointer">
+                  <Forward size={16} /> Chuyển tiếp
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div 
+          className={`flex flex-col gap-1.5 cursor-pointer ${isMe ? 'items-end' : 'items-start'}`}
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          {message.status === 'recalled' ? (
+            <div className={`px-5 py-3 rounded-2xl border border-glass-border bg-transparent text-txt-extra italic shadow-sm backdrop-blur-sm`}>
+              <p className="text-sm">Tin nhắn đã bị thu hồi</p>
+            </div>
+          ) : (
+            <>
+              {message.type === 'image' && message.image?.url && (
+                <div 
+                  className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowImageModal(true);
+                  }}
+                >
+                  <img src={message.image.url} alt="Image message" className="w-full h-auto object-cover max-h-60 transition-transform hover:scale-105 duration-500" />
+                </div>
+              )}
+
+              {message.type === 'video' && !message.video?.url && message.video?.file_key && (
+                <div className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm bg-secondary flex flex-col items-center justify-center h-40 w-60">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mb-2"></div>
+                  <span className="text-txt-extra text-sm animate-pulse">Processing Video...</span>
+                </div>
+              )}
+
+              {message.type === 'video' && message.video?.url && (
+                <div 
+                  className="rounded-2xl overflow-hidden border border-glass-border shadow-sm max-w-sm bg-black"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <video src={message.video.url} poster={message.video.thumbnail_url} controls className="w-full h-auto max-h-60" />
+                </div>
+              )}
+
+              {message.content && message.content.trim().length > 0 && (
+                <div className={`px-5 py-3 rounded-[20px] shadow-sm transition-opacity hover:opacity-90 ${isMe ? 'bg-gradient-primary text-white rounded-br-sm' : 'bg-surface border border-glass-border text-txt-primary rounded-bl-sm backdrop-blur-sm'}`}>
+                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                    <Linkify 
+                      options={{ 
+                        target: '_blank', 
+                        rel: 'noopener noreferrer',
+                        className: isMe 
+                          ? 'text-white underline font-medium hover:opacity-80 break-all cursor-pointer' 
+                          : 'text-blue-500 underline font-medium hover:text-blue-600 break-all cursor-pointer'
+                      }}
+                    >
+                      {message.content}
+                    </Linkify>
+                  </p>
+                </div>
+              )}
+
+              {previewUrl && (
+                <LinkPreview url={previewUrl} />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+        
+      {message.status !== 'recalled' && message.reactions && message.reactions.length > 0 && (
+          <div className={`flex flex-wrap gap-1 mt-1 z-10 ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
+            {Object.entries(
+              message.reactions.reduce((acc, curr) => {
+                acc[curr.emoji] = (acc[curr.emoji] || 0);
+                return acc;
+              }, {} as Record<string, number>)
+            ).map(([emoji, count]) => (
+              <button 
+                key={emoji}
+                onClick={() => setShowReactionList(true)}
+                className="flex items-center gap-1 bg-surface-solid border border-glass-border px-1.5 py-0.5 rounded-full text-[11px] hover:bg-hover transition-colors shadow-sm cursor-pointer"
+              >
+                <span>{emoji}</span>
+                {count > 1 && <span className="text-txt-extra font-medium">{count}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {shouldShowDetails && (
+          <div className={`flex flex-row items-center gap-1 mt-1.5 relative ${isMe ? 'justify-end mr-1' : 'justify-start ml-1'}`}>
+            <span className="text-[11px] text-txt-extra/80 font-medium">{timeDisplay}</span>
+            {message.is_edited && (
+              <>
+                <span 
+                  className="text-[11px] text-brand-primary font-medium cursor-pointer hover:underline"
+                  onClick={() => setShowEditHistory(!showEditHistory)}
+                >
+                  (Đã chỉnh sửa)
+                </span>
+                {showEditHistory && message.edit_history && message.edit_history.length > 0 && (
+                  <div className={`absolute z-20 bottom-full mb-1 ${isMe ? 'right-0' : 'left-0'} w-64 bg-surface-solid border border-glass-border shadow-xl rounded-xl p-3 flex flex-col gap-2 max-h-60 overflow-y-auto`}>
+                    <p className="text-xs font-semibold text-txt-primary border-b border-glass-border pb-1">Lịch sử chỉnh sửa</p>
+                    {[...message.edit_history].reverse().map((historyItem, idx) => (
+                      <div key={idx} className="flex flex-col gap-0.5 bg-secondary/30 p-2 rounded-lg">
+                        <span className="text-[10px] text-txt-extra">{format(new Date(historyItem.updated_at), "dd/MM/yyyy HH:mm")}</span>
+                        <p className="text-sm text-txt-primary whitespace-pre-wrap break-words">{historyItem.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        
+        {/* Read receipts: Always visible if someone's latest read message is this one */}
+        {watermarks && watermarks.some(w => w.type === 'read') && (
+          <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
+            {watermarks.filter(w => w.type === 'read').map((w, idx) => {
+              const wUser = users[w.userId];
+              const avatar = wUser?.avatar_url || DEFAULT_AVATAR;
+              return (
+                <div 
+                  key={`read-${idx}`} 
+                  className="relative size-3.5 rounded-full overflow-hidden shrink-0 shadow-sm ring-1 ring-background aspect-square"
+                  title={`${wUser?.name || 'Người dùng'} đã xem`}
+                >
+                  <Image
+                    src={avatar}
+                    alt="watermark"
+                    fill
+                    className="rounded-full object-cover"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sent / Delivered status for my messages: shown when isLastMessage or when message details clicked */}
+        {shouldShowDetails && isMe && (!watermarks || !watermarks.some(w => w.type === 'read')) && (
+          <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
+            {watermarks && watermarks.some(w => w.type === 'delivered') ? (
+              <span title="Đã nhận" className="flex items-center gap-1 text-[11px] text-brand-primary font-medium">
+                {(isLastMessage || showDetails) && <span>Đã nhận</span>}
+                <CheckCheck className="w-3.5 h-3.5" />
+              </span>
+            ) : (
+              <span title="Đã gửi" className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 opacity-60">
+                {(isLastMessage || showDetails) && <span>Đã gửi</span>}
+                <Check className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showReactionList && <ReactionModal message={message} onClose={() => setShowReactionList(false)} />}
+        {showImageModal && message.image?.url && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setShowImageModal(false)}
+        >
+          <img 
+            src={message.image.url} 
+            alt="Zoomed image" 
+            className="max-w-[90vw] max-h-[90vh] object-contain cursor-default" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+          <button 
+            onClick={() => setShowImageModal(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full transition-colors cursor-pointer"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MessageItem;

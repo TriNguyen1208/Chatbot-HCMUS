@@ -1,21 +1,18 @@
-import { api } from "@/lib/api";
+import { http } from "@/lib/api";
+import type { User } from "@/types";
 
 export const userApi = {
-    getUsers: async (limit: number = 20, cursorId?: string) => {
+    getUsers: async (limit: number = 20, cursorId?: string): Promise<User[]> => {
         const params: Record<string, any> = { limit };
         if (cursorId) params.cursor_id = cursorId;
-        
-        const response = await api.get('/user', { params });
-        return response.data;
+        return http.get<User[]>('/user', { params });
     },
 
-    getUserById: async (id: string) => {
-        const response = await api.get(`/user/${id}`);
-        return response.data;
+    getUserById: async (id: string): Promise<User> => {
+        return http.get<User>(`/user/${id}`);
     },
 
-    getBulkUsers: async (user_ids: string[]) => {
-        const response = await api.post('/user/bulk', { user_ids });
-        return response.data;
+    getBulkUsers: async (user_ids: string[]): Promise<User[]> => {
+        return http.post<User[]>('/user/bulk', { user_ids });
     }
 };

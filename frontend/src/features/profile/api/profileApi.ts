@@ -1,25 +1,11 @@
-import { api } from "@/lib/api";
-import type { ApiResponse } from "@/types/type";
+import { http } from "@/lib/api";
+import type { User, UpdateProfileDto } from "@/types";
 
-export type UpdateProfileDto = {
-    phone?: string;
-    avatar_url?: string;
-};
-
-export type UserProfileResponse = {
-    id: string;
-    name: string;
-    email: string;
-    avatar_url: string | null;
-    studentID?: string;
-    student_id?: string;
-    phone?: string;
-    role?: string;
-};
+export type { UpdateProfileDto };
+export type UserProfileResponse = User;
 
 export const profileApi = {
-    updateProfile: async (data: UpdateProfileDto): Promise<UserProfileResponse> => {
-        const res = await api.patch<ApiResponse<UserProfileResponse>>('/user', data);
-        return res.data.data;
+    updateProfile: async (data: UpdateProfileDto): Promise<User> => {
+        return http.patch<User>('/user', data);
     }
 };

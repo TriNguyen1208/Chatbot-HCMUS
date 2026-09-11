@@ -81,7 +81,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
 
     try {
       const response = await userApi.getBulkUsers(pendingIds);
-      const fetchedUsers = response.data
+      const fetchedUsers = Array.isArray(response) ? response : (response as any)?.data || [];
       if (Array.isArray(fetchedUsers)) {
         set((state) => {
           const newUsers = { ...state.users };

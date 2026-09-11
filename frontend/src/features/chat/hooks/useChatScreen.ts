@@ -52,7 +52,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                 setActiveConversation(found);
             } else {
                 conversationApi.getConversationById(cId).then(res => {
-                    const conv = res.data || res;
+                    const conv = res;
                     setActiveConversation(conv);
                 }).catch((err) => {
                     console.error("Không thể load hội thoại từ URL", err);
@@ -82,7 +82,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
             }
         } else if (currentActiveReceiverId !== receiverId) {
             userApi.getUserById(receiverId).then(res => {
-                const targetUser = res.data || res;
+                const targetUser = res;
                 setActiveConversation({
                     _id: '',
                     type: 'utu',

@@ -10,7 +10,7 @@ export const useSearchUserModal = (isOpen: boolean, onClose: () => void) => {
   useEffect(() => {
     if (isOpen) {
       userApi.getUsers()
-        .then(res => setUsers(res.data || res))
+        .then(res => setUsers(res))
         .catch(console.error);
     }
   }, [isOpen]);

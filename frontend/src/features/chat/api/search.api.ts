@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { http } from "@/lib/api";
 
 export interface SearchResult {
     search_type: 'user' | 'conversation' | 'message';
@@ -22,9 +22,8 @@ export interface SearchResult {
 
 export const searchApi = {
     globalSearch: async (keyword: string): Promise<SearchResult[]> => {
-        const response = await api.get('/search/global', {
+        return http.get<SearchResult[]>('/search/global', {
             params: { q: keyword }
         });
-        return response.data.data;
     }
 };

@@ -1,5 +1,6 @@
-import Sidebar from "./Sidebar/Sidebar";
-import ChatArea from "./ChatArea/ChatArea";
-import ChatScreen from "./ChatScreen/ChatScreen";
-
-export { Sidebar, ChatArea, ChatScreen };
+export * from "./Sidebar";
+export * from "./ChatArea";
+export * from "./ChatScreen";
+export * from "./ChatCard";
+export * from "./Messages";
+export * from "./Modals";

@@ -1,6 +1,6 @@
 "use client";
 import { Navbar } from "./NavBar";
-import { HomePlaceholder } from "./HomePlaceHover";
+import { HomePlaceholder } from "./HomePlaceholder";
 
 export function DashboardOverview() {
   return (

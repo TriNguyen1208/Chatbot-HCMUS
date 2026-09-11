@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { messageApi } from "../api/message.api";
 import { mediaApi } from "../api/media.api";
+import { uploadService } from "@/shared/services/upload.service";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useEffect, useCallback } from "react";
@@ -70,39 +71,7 @@ export const useChatInput = () => {
   };
 
   const uploadVideoMultipart = async (file: File) => {
-    const CHUNK_SIZE = 5 * 1024 * 1024; 
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    
-    const initRes = await mediaApi.initMultipartUpload(file.name, file.type);
-    const { uploadId, fileKey } = initRes.data;
-
-    const partNumbers = Array.from({ length: totalChunks }, (_, i) => i + 1);
-    const urlRes = await mediaApi.getPresignedUrlsForMultipart(fileKey, uploadId, partNumbers);
-    const presignedUrls = urlRes.data.urls;
-
-    const uploadedParts: { ETag: string; PartNumber: number }[] = [];
-
-    const uploadPromises = partNumbers.map(async (partNumber, index) => {
-      const start = (partNumber - 1) * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
-      const presignedUrl = presignedUrls[index];
-
-      const uploadRes = await fetch(presignedUrl, {
-        method: "PUT",
-        body: chunk,
-      });
-
-      const eTag = uploadRes.headers.get("ETag")?.replace(/"/g, "") || "";
-      uploadedParts.push({ ETag: eTag, PartNumber: partNumber });
-    });
-
-    await Promise.all(uploadPromises);
-
-    const completeRes = await mediaApi.completeMultipartUpload(fileKey, uploadId, uploadedParts);
-    const resourceUrl = completeRes?.data?.resource_url || completeRes?.resource_url;
-
-    return { fileKey, resourceUrl };
+    return uploadService.uploadVideoMultipart(file);
   };
 
   const handleSend = async () => {
@@ -193,7 +162,7 @@ export const useChatInput = () => {
         const blobUrl = URL.createObjectURL(file);
         setPreviewUrl(blobUrl);
         const res = await mediaApi.uploadImage(file);
-        const url = res.data?.resource_url;
+        const url = (res as any)?.resource_url || res.url;
         if (url) {
           setPreviewUrl(url); 
           setUploadedMedia({ type: 'image', url }); 

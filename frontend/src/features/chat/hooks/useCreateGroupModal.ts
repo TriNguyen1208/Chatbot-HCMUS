@@ -30,7 +30,7 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
 
       userApi
         .getUsers()
-        .then((res) => setAllUsers(res.data || res))
+        .then((res) => setAllUsers(res))
         .catch(console.error);
     }
   }, [isOpen]);
@@ -43,7 +43,7 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       id: user.id,
       name: user.name || "Tôi",
       email: user.email || "",
-      avatar_url: user?.avatar_url,
+      avatar_url: user.avatar_url || undefined,
     });
   }
 
@@ -112,7 +112,7 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
         `Nhóm ${existingMembers.map((m) => m.name).join(", ")}`;
 
       const res = await conversationApi.createGroup(defaultName, allMemberIds);
-      const newGroup = res.data || res;
+      const newGroup = res;
 
       setActiveConversation(newGroup);
       queryClient.invalidateQueries({ queryKey: ["conversations"] });

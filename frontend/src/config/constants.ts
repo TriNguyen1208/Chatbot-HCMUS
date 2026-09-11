@@ -1,0 +1,11 @@
+export const ALLOWED_DOMAINS = [
+  "@student.hcmus.edu.vn",
+  "@hcmus.edu.vn",
+  "@clc.fitus.edu.vn",
+  "@fitus.edu.vn",
+  "@fit.hcmus.edu.vn",
+  "@apcs.fitus.edu.vn",
+];
+
+export const DEFAULT_AVATAR =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTNlM2UzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNDAiIGZvbnQtd2VpZ2h0PSJib2xkIj5VPC90ZXh0Pjwvc3ZnPg==";

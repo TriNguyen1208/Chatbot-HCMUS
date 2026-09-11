@@ -45,7 +45,7 @@ export const useProfileForm = () => {
         try {
             setIsUploading(true);
             const res = await mediaApi.uploadImage(file);
-            const url = res.data.resource_url;
+            const url = (res as any)?.resource_url || res.url;
             if (url) {
                 setAvatarUrl(url);
                 // toast.success("Avatar uploaded! Remember to save changes.");

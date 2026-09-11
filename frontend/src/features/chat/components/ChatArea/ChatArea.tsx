@@ -1,8 +1,8 @@
 "use client";
-import { useChatArea } from "@/features/chat/hooks/useChatArea";
-import ChatHeader from "./ChatHeader";
+import { useChatArea } from "./useChatArea";
+import ChatHeader from "./components/ChatHeader";
 import MessageList from "../Messages/MessageList";
-import ChatInput from "./ChatInput";
+import ChatInput from "./components/ChatInput";
 
 const ChatArea = () => {
   const { activeConversation } = useChatArea();

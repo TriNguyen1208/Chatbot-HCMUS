@@ -3,7 +3,6 @@ import type jwt from "jsonwebtoken";
 import { envSchema } from "./env.schema.js";
 
 dotenv.config();
-console.log(process.env)
 const parsedEnv = envSchema.parse(process.env);
 
 class Config {
