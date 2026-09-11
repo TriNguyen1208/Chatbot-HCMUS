@@ -1,7 +1,7 @@
-import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js";
-import { UserRepository } from "./repositories/user.repository.js";
-import { UserService } from "./services/user.service.js";
-import { UserController } from "./controllers/user.controller.js";
+import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
+import { UserRepository } from "./user.repository.js";
+import { UserService } from "./user.service.js";
+import { UserController } from "./user.controller.js";
 
 class UserContainer {
     private _userRepository?: UserRepository;

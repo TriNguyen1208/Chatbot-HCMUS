@@ -1,6 +1,6 @@
-import { CloudflareR2Storage } from "#@/infrastructure/storage/r2.service.js";
-import { MediaService } from "./services/media.service.js";
-import { MediaController } from "./controllers/media.controller.js";
+import { CloudflareR2Storage } from "#@/infrastructure/storage/r2-storage.service.js";
+import { MediaService } from "./media.service.js";
+import { MediaController } from "./media.controller.js";
 
 class MediaContainer {
     private _storageService?: CloudflareR2Storage;

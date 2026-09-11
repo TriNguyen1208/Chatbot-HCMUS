@@ -1,22 +1,18 @@
 import app, { server } from "#@/app.js"
 import {config} from "#@/config/config.js"
-import { redisClient } from "#@/infrastructure/redis/redis.js"
-import { supabaseDB } from "#@/infrastructure/database/supabaseClient.js"
-import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js"
-import "#@/modules/queue/queue.worker.js"
-import { queueService } from "#@/modules/queue/queue.service.js"
-import { checkElasticsearchConnection } from "#@/infrastructure/elasticsearch/index.js"
-import { initializeIndices } from "#@/infrastructure/elasticsearch/mapping.js"
-import { rabbitmq } from "#@/infrastructure/rabbitmq/index.js"
-import { startConsumers } from "#@/infrastructure/rabbitmq/consumer.js"
+import { redisClient } from "#@/infrastructure/redis/redis.client.js"
+import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js"
+import { initializeDatabaseModels } from "#@/infrastructure/database/init-models.js"
+import "#@/background/workers/index.js"
+import { queueService } from "#@/background/queue.service.js"
+import { checkElasticsearchConnection } from "#@/infrastructure/elasticsearch/es.client.js"
+import { initializeIndices } from "#@/infrastructure/elasticsearch/es.indices.js"
 
 const start = async(): Promise<void> => {
     await Promise.all([
-        mongoDB.connect(),
-        supabaseDB.connect(),
+        mongoDB.connect().then(() => initializeDatabaseModels()),
         redisClient.connect(),
         checkElasticsearchConnection().then(() => initializeIndices()),
-        rabbitmq.connect().then(() => startConsumers()),
         queueService.initCronJobs()
     ])
     

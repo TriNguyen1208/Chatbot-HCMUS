@@ -1,9 +1,9 @@
 import { conversationFacade } from "#@/modules/conversation/conversation.facade.js";
 
-import { MessageRepository } from "./repositories/message.repository.js";
-import { MessageService } from "./services/message.service.js";
-import { MessageController } from "./controllers/message.controller.js";
-import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js";
+import { MessageRepository } from "./message.repository.js";
+import { MessageService } from "./message.service.js";
+import { MessageController } from "./message.controller.js";
+import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
 
 class MessageContainer {
     private _messageRepo?: MessageRepository;

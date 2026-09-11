@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MessageRepository } from "../../repositories/message.repository.js";
+import { MessageRepository } from "../../message.repository.js";
 import type { IDatabase } from "#@/infrastructure/database/database.interface.js";
-import type { Message } from "../../entities/message.entity.js";
+import type { Message } from "../../message.entity.js";
 
 describe("MessageRepository", () => {
     let mockDB: IDatabase;
@@ -21,7 +21,7 @@ describe("MessageRepository", () => {
         } as unknown as IDatabase;
 
         // 3. Inject virtual DB into Repository
-        repository = new MessageRepository(mockDB, mockDB);
+        repository = new MessageRepository(mockDB);
     });
 
     it("should insert a new message successfully", async () => {
@@ -35,7 +35,7 @@ describe("MessageRepository", () => {
         };
 
         const returnedMessageFromDB = {
-            id: "msg-123",
+            _id: "msg-123",
             ...testMessage,
             created_at: new Date()
         };
@@ -47,8 +47,12 @@ describe("MessageRepository", () => {
         const result = await repository.create(testMessage);
 
         // ASSERT: Check results
-        // Make sure the create function returns the correct data from the DB
-        expect(result).toEqual(returnedMessageFromDB);
+        // Make sure the create function returns the correct data from the DB mapped to domain (id instead of _id)
+        expect(result).toEqual({
+            ...testMessage,
+            id: "msg-123",
+            created_at: returnedMessageFromDB.created_at
+        });
         
         // Make sure the DB calls the correct 'messages' table and transmits the correct data
         expect(mockInsert).toHaveBeenCalledWith('messages', testMessage);

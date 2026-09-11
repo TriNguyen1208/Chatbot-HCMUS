@@ -1,4 +1,4 @@
-import { jwtService } from "#@/shared/utils/jwt-services.js";
+import { jwtService } from "#@/shared/utils/jwt.util.js";
 import type { JWTPayload } from "#@/shared/types/index.js";
 import type { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";

@@ -10,7 +10,7 @@ export interface PopulateFieldConfig<T> {
 
 /**
  * Hàm dùng chung để populate các field từ một external database (VD: từ MongoDB sang Supabase)
- * @param db Instance của IDatabase (ví dụ: supabaseDB)
+ * @param db Instance của IDatabase (ví dụ: mongoDB)
  * @param items Danh sách các record gốc cần populate
  * @param tableName Tên bảng ở external DB
  * @param fields Cấu hình các field cần populate (bao gồm cách trích xuất ID và cách gán data)

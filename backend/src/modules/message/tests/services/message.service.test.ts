@@ -1,28 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MessageService } from "../../services/message.service.js";
-import type { ConversationFacade } from "../../../conversation/conversation.facade.js";
-import type { MessageRepository } from "../../repositories/message.repository.js";
+import { MessageService } from "../../message.service.js";
+import type { ConversationFacade } from "#@/modules/conversation/conversation.facade.js";
+import type { MessageRepository } from "../../message.repository.js";
 
 // Mock module SocketManager
-import { socketManager } from "#@/infrastructure/websocket/socket-manager.js";
-vi.mock("#@/infrastructure/websocket/socket-manager.js", () => ({
+import { socketManager } from "#@/infrastructure/websocket/socket.manager.js";
+vi.mock("#@/infrastructure/websocket/socket.manager.js", () => ({
     socketManager: {
-        emitToGroup: vi.fn()
+        emitToGroup: vi.fn(),
+        emitToUsers: vi.fn()
     }
 }));
 
-// Mock module QueueContainer
-import { queueService } from "#@/modules/queue/queue.container.js";
-vi.mock("#@/modules/queue/queue.container.js", () => ({
+// Mock module QueueService
+import { queueService } from "#@/background/queue.service.js";
+vi.mock("#@/background/queue.service.js", () => ({
     queueService: {
         addJob: vi.fn()
     }
 }));
 
-// Mock system-monitor
-import { checkSystemLoad } from "#@/shared/utils/system-monitor.js";
-vi.mock("#@/shared/utils/system-monitor.js", () => ({
+import { checkSystemLoad } from "#@/shared/utils/system-monitor.util.js";
+vi.mock("#@/shared/utils/system-monitor.util.js", () => ({
     checkSystemLoad: vi.fn()
+}));
+
+// Mock triggerSync
+vi.mock("#@/shared/utils/sync.util.js", () => ({
+    triggerSync: vi.fn(),
+    SyncOperation: { CREATE: 'CREATE', UPDATE: 'UPDATE', DELETE: 'DELETE' }
 }));
 
 describe("MessageService", () => {
@@ -34,7 +40,9 @@ describe("MessageService", () => {
         vi.clearAllMocks();
 
         mockConversationFacade = {
-            isUserInConversation: vi.fn()
+            getConversationById: vi.fn(),
+            updateLastMessage: vi.fn().mockResolvedValue(undefined),
+            getConversationMembers: vi.fn().mockResolvedValue(["u1", "u2"])
         } as unknown as ConversationFacade;
 
         mockMessageRepo = {
@@ -45,7 +53,7 @@ describe("MessageService", () => {
     });
 
     it("should throw Forbidden if user is not in conversation", async () => {
-        vi.mocked(mockConversationFacade.isUserInConversation).mockResolvedValue(false);
+        vi.mocked(mockConversationFacade.getConversationById).mockResolvedValue(null as any);
 
         const payload = { conversation_id: "c1", type: "text" as const };
         await expect(messageService.handleIncomingMessage("u1", payload)).rejects.toThrow("You are not a member of this conversation");
@@ -53,7 +61,8 @@ describe("MessageService", () => {
 
     it("should save to DB and emit socket when system load is normal", async () => {
         // ARRANGE
-        vi.mocked(mockConversationFacade.isUserInConversation).mockResolvedValue(true);
+        vi.mocked(mockConversationFacade.getConversationById).mockResolvedValue({ id: "c1", is_active: true } as any);
+        vi.mocked(mockConversationFacade.getConversationMembers).mockResolvedValue(["u1", "u2"]);
         vi.mocked(checkSystemLoad).mockResolvedValue(false); // System free
         
         const mockSavedMessage = { id: "msg-123", content: "Test" };
@@ -67,13 +76,13 @@ describe("MessageService", () => {
         // ASSERT
         expect(result.status).toBe('success');
         expect(mockMessageRepo.create).toHaveBeenCalled();
-        expect(socketManager.emitToGroup).toHaveBeenCalledWith("c1", "new_message", mockSavedMessage);
+        expect(socketManager.emitToUsers).toHaveBeenCalledWith(["u1", "u2"], "new_message", mockSavedMessage);
         expect(queueService.addJob).not.toHaveBeenCalled();
     });
 
     it("should push to queue and NOT emit socket when system is overloaded", async () => {
         // ARRANGE
-        vi.mocked(mockConversationFacade.isUserInConversation).mockResolvedValue(true);
+        vi.mocked(mockConversationFacade.getConversationById).mockResolvedValue({ id: "c1", is_active: true } as any);
         vi.mocked(checkSystemLoad).mockResolvedValue(true); // System is busy
         
         const payload = { conversation_id: "c1", content: "Test", type: "text" as const };

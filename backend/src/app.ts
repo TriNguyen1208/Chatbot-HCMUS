@@ -9,10 +9,7 @@ import { errorHandler } from "#@/shared/middlewares/error.middleware.js"
 import cookieParser from "cookie-parser"
 import "dotenv/config"
 import http from "http";
-import { initSocket } from "./infrastructure/websocket/socket-manager.js"
-
-import { conversationContainer } from "#@/modules/conversation/conversation.container.js"
-import { userContainer } from "#@/modules/user/user.container.js"
+import { initSocket } from "./infrastructure/websocket/socket.manager.js";
 
 const app = express()
 app.set("trust proxy", 1);

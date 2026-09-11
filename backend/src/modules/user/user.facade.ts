@@ -1,4 +1,4 @@
-import type { User } from "./entities/user.entity.js";
+import type { User } from "./user.entity.js";
 import { userContainer } from "./user.container.js";
 
 export class UserFacade {
@@ -26,6 +26,10 @@ export class UserFacade {
 
     async update(id: string, payload: Partial<User>) {
         return this.userRepository.update(id, payload);
+    }
+
+    async updatePresence(userId: string, lastActive: Date): Promise<void> {
+        return userContainer.userService.updatePresence(userId, lastActive);
     }
 }
 

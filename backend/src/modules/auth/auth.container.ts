@@ -1,11 +1,11 @@
-import { mongoDB } from "#@/infrastructure/database/mongoDBAtlas.js"
-import { KeystoreService } from "#@/modules/auth/services/keystore.service.js"
-import { KeyStoreRepository } from "#@/modules/auth/repositories/keystore.repository.js"
-import { AuthController } from "#@/modules/auth/controllers/auth.controller.js"
-import { AuthService } from "#@/modules/auth/services/auth.service.js"
-import { MicrosoftAuthStrategy } from "#@/modules/auth/strategies/microsoft.strategy.js"
-import { userFacade } from "#@/modules/user/user.facade.js"
-import { GoogleAuthStrategy } from "#@/modules/auth/strategies/google.strategy.js"
+import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
+import { KeystoreService } from "./keystore.service.js";
+import { KeyStoreRepository } from "./keystore.repository.js";
+import { AuthController } from "./auth.controller.js";
+import { AuthService } from "./auth.service.js";
+import { MicrosoftAuthStrategy } from "./strategies/microsoft.strategy.js";
+import { userFacade } from "#@/modules/user/user.facade.js";
+import { GoogleAuthStrategy } from "./strategies/google.strategy.js";
 
 class AuthContainer {
     private _keystoreRepo?: KeyStoreRepository;
@@ -32,37 +32,41 @@ class AuthContainer {
         return this._authService;
     }
 
-    private _authStrategy?: MicrosoftAuthStrategy;
-    public get authStrategy() {
-        if (!this._authStrategy) {
-            this._authStrategy = new MicrosoftAuthStrategy(userFacade);
+    private _microsoftAuthStrategy?: MicrosoftAuthStrategy;
+    public get microsoftAuthStrategy() {
+        if (!this._microsoftAuthStrategy) {
+            this._microsoftAuthStrategy = new MicrosoftAuthStrategy(userFacade);
         }
-        return this._authStrategy;
+        return this._microsoftAuthStrategy;
     }
+    public get authStrategy() { return this.microsoftAuthStrategy; }
 
-    private _authGoogleStrategyTest?: GoogleAuthStrategy;
-    public get authGoogleStrategyTest() {
-        if (!this._authGoogleStrategyTest) {
-            this._authGoogleStrategyTest = new GoogleAuthStrategy(userFacade);
+    private _googleAuthStrategy?: GoogleAuthStrategy;
+    public get googleAuthStrategy() {
+        if (!this._googleAuthStrategy) {
+            this._googleAuthStrategy = new GoogleAuthStrategy(userFacade);
         }
-        return this._authGoogleStrategyTest;
+        return this._googleAuthStrategy;
     }
+    public get authGoogleStrategyTest() { return this.googleAuthStrategy; }
 
-    private _authController?: AuthController;
-    public get authController() {
-        if (!this._authController) {
-            this._authController = new AuthController(this.authService, this.authStrategy, this.keystoreService);
+    private _microsoftAuthController?: AuthController;
+    public get microsoftAuthController() {
+        if (!this._microsoftAuthController) {
+            this._microsoftAuthController = new AuthController(this.authService, this.microsoftAuthStrategy, this.keystoreService);
         }
-        return this._authController;
+        return this._microsoftAuthController;
     }
+    public get authController() { return this.microsoftAuthController; }
 
-    private _authGoogleControllerTest?: AuthController;
-    public get authGoogleControllerTest() {
-        if (!this._authGoogleControllerTest) {
-            this._authGoogleControllerTest = new AuthController(this.authService, this.authGoogleStrategyTest, this.keystoreService);
+    private _googleAuthController?: AuthController;
+    public get googleAuthController() {
+        if (!this._googleAuthController) {
+            this._googleAuthController = new AuthController(this.authService, this.googleAuthStrategy, this.keystoreService);
         }
-        return this._authGoogleControllerTest;
+        return this._googleAuthController;
     }
+    public get authGoogleControllerTest() { return this.googleAuthController; }
 }
 
 export const authContainer = new AuthContainer();

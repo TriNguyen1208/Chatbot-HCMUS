@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MessageController } from "../controllers/message.controller.js";
-import { MessageService } from "../services/message.service.js";
-import { apiResponse } from "#@/shared/utils/api-response.js";
+import { MessageController } from "../message.controller.js";
+import { MessageService } from "../message.service.js";
+import { apiResponse } from "#@/shared/utils/api-response.util.js";
 import type { Request, Response, NextFunction } from "express";
 
-vi.mock("#@/shared/utils/api-response.js", () => ({
+vi.mock("#@/shared/utils/api-response.util.js", () => ({
     apiResponse: {
         success: vi.fn((res) => res),
         error: vi.fn((res) => res)
@@ -50,21 +50,20 @@ describe("MessageController", () => {
             const mockPayload = { conversation_id: "conv_1", content: "Hello", type: "text" } as any;
             mockReq.body = mockPayload;
             
-            const mockResult = { id: "msg_1", ...mockPayload };
+            const mockResult = { status: 'success' as const, data: { id: "msg_1", ...mockPayload } };
             (mockService.handleIncomingMessage as any).mockResolvedValue(mockResult);
 
             await controller.sendMessage(mockReq as Request, mockRes as Response, mockNext);
 
             expect(mockService.handleIncomingMessage).toHaveBeenCalledWith("user_1", mockPayload);
-            expect(apiResponse.success).toHaveBeenCalledWith(mockRes, mockResult);
+            expect(apiResponse.success).toHaveBeenCalledWith(mockRes, mockResult.data);
         });
     });
 
     describe("getMessages", () => {
         it("should call service and return success response", async () => {
-            const dateStr = new Date().toISOString();
             mockReq.params = { conversation_id: "conv_1" };
-            mockReq.query = { limit: "20", cursor_date: dateStr, cursor_id: "msg_last" };
+            mockReq.query = { limit: "20", cursor_id: "msg_last", type: "text" };
             
             const mockMessages = { data: [], metadata: { hasNextPage: false } };
             (mockService.getMessages as any).mockResolvedValue(mockMessages);
@@ -75,8 +74,8 @@ describe("MessageController", () => {
                 "conv_1", 
                 "user_1", 
                 "20", 
-                dateStr, 
-                "msg_last"
+                "msg_last",
+                "text"
             );
             expect(apiResponse.success).toHaveBeenCalledWith(mockRes, mockMessages);
         });

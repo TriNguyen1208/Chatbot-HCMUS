@@ -1,12 +1,13 @@
 import { config } from "#@/config/config.js";
 import type { AuthResult, OAuthTokenPayload } from "#@/modules/auth/types/index.js";
 import createHttpError from "http-errors";
-import { jwtService } from "#@/shared/utils/jwt-services.js";
-import { extractStudentID } from "#@/modules/auth/utils/student-email.js";
-import { generateAvatarURI } from "#@/utils/avatar.util.js";
+import { jwtService } from "#@/shared/utils/jwt.util.js";
+import { extractStudentID } from "../auth.utils.js";
+import { generateAvatarURI } from "#@/shared/utils/avatar.util.js";
 import { UserFacade } from "#@/modules/user/user.facade.js";
 import { type IAuthStrategy } from "./auth.strategy.js";
-import type { User } from "#@/modules/user/entities/user.entity.js";
+import type { User } from "#@/modules/user/user.entity.js";
+import { getUserRoleFromStudentID } from "#@/modules/user/user.hcmus.js";
 
 export class MicrosoftAuthStrategy implements IAuthStrategy {
     constructor(
@@ -50,7 +51,7 @@ export class MicrosoftAuthStrategy implements IAuthStrategy {
         const foundUser = await this.userFacade.findByEmail(microsoftPayload.email);
         const extractedStudentId = extractStudentID(microsoftPayload.email);
         const studentId = extractedStudentId || foundUser?.student_id;
-        const role = config.getUserRole(studentId);
+        const role = getUserRoleFromStudentID(studentId);
 
         if (foundUser) {
             const updates: Partial<User> = {};

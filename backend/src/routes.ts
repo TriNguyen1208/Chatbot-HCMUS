@@ -1,9 +1,9 @@
 import { Router } from "express"
-import authRoutes from "#@/modules/auth/routes/auth.route.js"
-import userRoutes from "#@/modules/user/routes/user.route.js"
-import messageRoutes from "#@/modules/message/routes/message.route.js"
-import conversationRoutes from "#@/modules/conversation/routes/conversation.route.js"
-import mediaRoutes from "#@/modules/media/routes/media.route.js"
+import authRoutes from "#@/modules/auth/auth.route.js"
+import userRoutes from "#@/modules/user/user.route.js"
+import messageRoutes from "#@/modules/message/message.route.js"
+import conversationRoutes from "#@/modules/conversation/conversation.route.js"
+import mediaRoutes from "#@/modules/media/media.route.js"
 import searchRoutes from "#@/modules/search/search.route.js"
 
 const router = Router()

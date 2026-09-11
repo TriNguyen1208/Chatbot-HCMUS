@@ -13,5 +13,9 @@ export class MessageFacade {
     async createSystemMessage(conversationId: string, content: string) {
         return this.messageService.createSystemMessage(conversationId, content);
     }
+
+    async createMessageFromQueue(messageData: any) {
+        return this.messageService.createMessageFromQueue(messageData);
+    }
 }
 export const messageFacade = new MessageFacade();
