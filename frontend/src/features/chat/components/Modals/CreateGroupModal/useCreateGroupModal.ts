@@ -36,6 +36,18 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
     }
   }, [isOpen]);
 
+  // Request missing member users inside useEffect, not during render
+  useEffect(() => {
+    if (isOpen && activeConversation?.member_ids) {
+      activeConversation.member_ids.forEach((m) => {
+        const mId = m as string;
+        if (mId && !users[mId]) {
+          requestUser(mId);
+        }
+      });
+    }
+  }, [isOpen, activeConversation?.member_ids, users, requestUser]);
+
   // Members from active conversation + current user
   const existingMembersMap = new Map<string, User>();
 
@@ -53,9 +65,6 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       const mId = m as string;
       if (mId && !existingMembersMap.has(mId)) {
         const memberUser = users[mId];
-        if (!memberUser) {
-            requestUser(mId);
-        }
         existingMembersMap.set(mId, memberUser || { id: mId, name: 'Loading...', email: '' });
       }
     });

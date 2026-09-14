@@ -26,7 +26,7 @@ export const processCronJob = async (job: Job) => {
 
 export const cronWorker = new Worker(QueueName.CRON, processCronJob, {
     connection,
-    concurrency: 5
+    concurrency: 1
 });
 
 cronWorker.on('completed', (job) => {

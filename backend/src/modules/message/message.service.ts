@@ -3,17 +3,20 @@ import type { ConversationFacade } from "#@/modules/conversation/conversation.fa
 import type { MessageRepository } from "./message.repository.js";
 import type { Message, MessageDB } from "./message.entity.js";
 import { socketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import { SocketEvents } from "#@/infrastructure/websocket/socket.events.js";
 import { queueService } from "#@/background/queue.service.js";
 import { checkSystemLoad } from "#@/shared/utils/system-monitor.util.js";
-import { redisClient } from "#@/infrastructure/redis/redis.client.js";
 import type { SendMessageDto } from "./message.dto.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
+import { MessageCache } from "./message.cache.js";
+import { Types } from "mongoose";
 
 // This class contains all message processing logic (Business Logic)
 export class MessageService {
     constructor(
         private readonly conversationFacade: ConversationFacade,
-        private readonly messageRepo: MessageRepository
+        private readonly messageRepo: MessageRepository,
+        private readonly messageCache: MessageCache,
     ) { }
 
     /**
@@ -67,7 +70,6 @@ export class MessageService {
             tag_ids: payload.tag_ids,
             created_at: new Date()
         };
-
         // Step 3: Check system load
         const isOverloaded = await checkSystemLoad();
         if (isOverloaded) {
@@ -85,18 +87,116 @@ export class MessageService {
         // Update last message id in conversation
         await this.conversationFacade.updateLastMessage(conversation_id.toString(), savedMessage.id!);
 
-        // Invalidate caches
-        await redisClient.del(`conversation:${conversation_id}`);
+        // Push to dynamic message cache (50 recent messages)
+        const formattedSaved = {
+            ...savedMessage,
+            sender: savedMessage.type === 'system' ? { id: 'system', name: 'System' } : savedMessage.sender_id?.toString()
+        };
+        await this.messageCache.pushRecent(conversation_id.toString(), formattedSaved);
 
-        const members = await this.conversationFacade.getConversationMembers(conversation_id.toString(), sender_id);
-        socketManager.emitToUsers(members, "new_message", savedMessage);
-        
+        socketManager.emitToGroup(conversation_id.toString(), "new_message", savedMessage);
+
         triggerSync('messages', SyncOperation.CREATE, savedMessage);
-        
+
         return {
             status: 'success',
             data: savedMessage
         };
+    }
+
+    /**
+     * Gửi tin nhắn siêu tốc (Instant ACK & Non-blocking DB save):
+     * 1. Validate & kiểm tra quyền trong RAM (Redis ~0.1ms).
+     * 2. Tự sinh _id trên RAM (new Types.ObjectId()).
+     * 3. Ghi vào Redis cache & phát Socket vào Room O(1) (~1ms).
+     * 4. Trả về ngay đối tượng Message cho Socket Handler để gọi ACK (<1.5ms).
+     * 5. Ghi ngầm vào MongoDB và Elasticsearch trong Event Loop mà không block client.
+     */
+    async sendMessageFast(sender_id: string, payload: SendMessageDto): Promise<Message> {
+        let conversation_id = payload.conversation_id;
+        if (!conversation_id && payload.receiver_id) {
+            const conv = await this.conversationFacade.createConversation(sender_id, {
+                type: 'utu',
+                member_ids: [sender_id, payload.receiver_id.toString()]
+            });
+            conversation_id = conv.id!.toString();
+        }
+
+        if (!conversation_id) {
+            throw createHttpError.BadRequest("conversation_id or receiver_id is required");
+        }
+
+        const convIdStr = conversation_id.toString();
+
+        // Kiểm tra quyền thành viên (O(1) từ Redis/Facade)
+        const conv = await this.conversationFacade.getConversationById(convIdStr, sender_id);
+        if (!conv) {
+            throw createHttpError.Forbidden("You are not a member of this conversation");
+        }
+        if (conv.is_active === false) {
+            throw createHttpError.Forbidden("Nhóm này đã bị giải tán, không thể gửi tin nhắn");
+        }
+        if (conv.block) {
+            throw createHttpError.Forbidden("Cuộc trò chuyện đang bị chặn, không thể gửi tin nhắn");
+        }
+
+        // Sinh trước ObjectId trên RAM
+        const pregeneratedId = new Types.ObjectId();
+        const createdAt = new Date();
+
+        const messageData: MessageDB = {
+            _id: pregeneratedId,
+            sender_id,
+            conversation_id: convIdStr,
+            content: payload.content,
+            type: payload.type ?? 'text',
+            status: payload.status ?? 'sent',
+            image: payload.image,
+            video: payload.video,
+            tag_ids: payload.tag_ids,
+            created_at: createdAt
+        };
+
+        const domainMessage: Message = {
+            id: pregeneratedId.toString(),
+            sender_id,
+            conversation_id: convIdStr,
+            content: payload.content,
+            type: payload.type ?? 'text',
+            status: payload.status ?? 'sent',
+            image: payload.image,
+            video: payload.video,
+            tag_ids: payload.tag_ids,
+            created_at: createdAt
+        };
+
+        // 1. Cập nhật cache động (50 tin nhắn mới nhất)
+        const formattedSaved = {
+            ...domainMessage,
+            sender: domainMessage.type === 'system' ? { id: 'system', name: 'System' } : domainMessage.sender_id?.toString()
+        };
+        await this.messageCache.pushRecent(convIdStr, formattedSaved);
+
+        // 2. Phát Socket O(1) vào Room cho các thành viên
+        socketManager.emitToGroup(convIdStr, "new_message", domainMessage);
+
+        // 3. Ghi DB ngầm phía sau trong Event Loop (Non-blocking)
+        this.messageRepo.create(messageData)
+            .then(async (saved) => {
+                await this.conversationFacade.updateLastMessage(convIdStr, saved.id!);
+                triggerSync('messages', SyncOperation.CREATE, saved);
+            })
+            .catch((err) => {
+                console.error(`[MessageService] Background DB save error for message ${domainMessage.id}:`, err);
+                socketManager.emitToGroup(convIdStr, "message_save_failed", {
+                    conversationId: convIdStr,
+                    messageId: domainMessage.id,
+                    senderId: sender_id,
+                    error: err.message
+                });
+            });
+
+        return domainMessage;
     }
 
     /**
@@ -105,7 +205,11 @@ export class MessageService {
     async createMessageFromQueue(messageData: any): Promise<Message> {
         const savedMessage = await this.messageRepo.create(messageData);
         await this.conversationFacade.updateLastMessage(messageData.conversation_id.toString(), savedMessage.id!);
-        await redisClient.del(`conversation:${messageData.conversation_id}`);
+        const formattedSaved = {
+            ...savedMessage,
+            sender: savedMessage.type === 'system' ? { id: 'system', name: 'System' } : savedMessage.sender_id?.toString()
+        };
+        await this.messageCache.pushRecent(messageData.conversation_id.toString(), formattedSaved);
         triggerSync('messages', SyncOperation.CREATE, savedMessage);
         return savedMessage;
     }
@@ -124,12 +228,25 @@ export class MessageService {
         if (!isMember) {
             throw createHttpError.Forbidden("You are not a member of this conversation");
         }
+
+        // Ưu tiên đọc từ Redis List conv:{id}:recent (50 tin gần nhất, 0.5ms) khi đọc trang đầu tiên
+        if (!cursorId && !type) {
+            const cached = await this.messageCache.getRecent(conversationId, limit ?? 20);
+            if (cached && cached.length > 0) {
+                return cached;
+            }
+        }
+
         const messages = await this.messageRepo.getMessages(conversationId, limit, cursorId, type);
 
         const result = messages.map(m => ({
             ...m,
-            sender: m.type === 'system' ? { id: 'system', name: 'System' } : m.sender_id?.toString()
+            sender: m.sender_id?.toString()
         }));
+
+        if (!cursorId && !type && result.length > 0) {
+            this.messageCache.setRecent(conversationId, result).catch(() => { });
+        }
 
         return result;
     }
@@ -168,26 +285,28 @@ export class MessageService {
         }
 
         const updatedAt = new Date();
-        await this.messageRepo.updateContent(messageId, newContent, updatedAt);
+        const updatedMessage = await this.messageRepo.updateContent(messageId, newContent, updatedAt);
 
-        // Invalidate caches
+        // Update recent message cache
         const convIdStr = message.conversation_id.toString();
-        await redisClient.del(`conversation:${convIdStr}`);
+        await this.messageCache.updateRecent(convIdStr, messageId, (m) => ({
+            ...m,
+            content: newContent,
+            updated_at: updatedAt
+        }));
 
-        const updatedMessageForSync = await this.messageRepo.findByID(messageId);
-
-        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
-        socketManager.emitToUsers(members, "message_edited", { 
-            messageId, 
-            content: newContent, 
-            updated_at: updatedAt, 
+        socketManager.emitToGroup(convIdStr, "message_edited", {
+            messageId,
+            content: newContent,
+            updated_at: updatedAt,
             conversation_id: convIdStr,
-            edit_history: updatedMessageForSync?.edit_history
+            edit_history: updatedMessage?.edit_history
         });
 
-        if (updatedMessageForSync) {
-            triggerSync('messages', SyncOperation.UPDATE, updatedMessageForSync);
+        if (updatedMessage) {
+            triggerSync('messages', SyncOperation.UPDATE, updatedMessage);
         }
+        return updatedMessage;
     }
 
     /**
@@ -200,14 +319,18 @@ export class MessageService {
         if (!message) throw createHttpError.NotFound("Message not found");
         if (message.sender_id?.toString() !== userId) throw createHttpError.Forbidden("You can only recall your own messages");
 
-        await this.messageRepo.updateStatus(messageId, 'recalled');
+        const updatedMessage = await this.messageRepo.updateStatus(messageId, 'recalled');
 
-        // Invalidate caches
+        // Update recent message cache
         const convIdStr = message.conversation_id?.toString() as string;
-        await redisClient.del(`conversation:${convIdStr}`);
+        await this.messageCache.updateRecent(convIdStr, messageId, (m) => ({
+            ...m,
+            status: 'recalled'
+        }));
 
-        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
-        socketManager.emitToUsers(members, "message_recalled", { messageId, conversation_id: convIdStr });    }
+        socketManager.emitToGroup(convIdStr, "message_recalled", { messageId, conversation_id: convIdStr });
+        return updatedMessage;
+    }
 
     /**
      * Creates and emits a system-generated message (e.g., "User joined the group").
@@ -225,11 +348,14 @@ export class MessageService {
         const savedMessage = await this.messageRepo.create(messageData);
         await this.conversationFacade.updateLastMessage(conversationId, savedMessage.id!);
 
-        // Invalidate caches
-        await redisClient.del(`conversation:${conversationId}`);
+        // Push to dynamic message cache
+        const formattedSaved = {
+            ...savedMessage,
+            sender: { id: 'system', name: 'System' }
+        };
+        await this.messageCache.pushRecent(conversationId, formattedSaved);
 
-        const members = await this.conversationFacade.getConversation(conversationId);
-        socketManager.emitToUsers(members, "new_message", savedMessage);
+        socketManager.emitToGroup(conversationId, "new_message", savedMessage);
     }
 
     /**
@@ -252,11 +378,14 @@ export class MessageService {
         if (updatedMessage && updatedMessage.conversation_id) {
             const convIdStr = updatedMessage.conversation_id!.toString();
 
-            // Invalidate caches
-            await redisClient.del(`conversation:${convIdStr}`);
+            // Update recent message cache
+            await this.messageCache.updateRecent(convIdStr, updatedMessage.id!, (m) => ({
+                ...m,
+                status: 'sent',
+                video: updatedMessage.video
+            }));
 
-            const members = await this.conversationFacade.getConversation(convIdStr);
-            socketManager.emitToUsers(members, "new_message", updatedMessage);
+            socketManager.emitToGroup(convIdStr, "new_message", updatedMessage);
         }
     }
 
@@ -275,18 +404,55 @@ export class MessageService {
         // Toggle the reaction
         const updatedMessage = await this.messageRepo.toggleReaction(message, userId, emoji);
 
-        // Invalidate caches
+        const convIdStr = message.conversation_id.toString();
+        // Update recent message cache
+        await this.messageCache.updateRecent(convIdStr, messageId, (m) => ({
+            ...m,
+            reactions: updatedMessage.reactions
+        }));
 
-        const convIdStr = message.conversation_id.toString()
-        // Emit socket event
-        const members = await this.conversationFacade.getConversationMembers(convIdStr, userId);
-        socketManager.emitToUsers(members, "message_reaction_updated", {
+        // Emit socket event to room (O(1))
+        socketManager.emitToGroup(convIdStr, "message_reaction_updated", {
             message_id: updatedMessage.id,
             reactions: updatedMessage.reactions,
             conversation_id: convIdStr
         });
 
-
         return updatedMessage;
+    }
+
+    /**
+     * Cập nhật watermark (đã nhận / đã đọc) trực tiếp vào Database (MongoDB), đồng bộ cache và phát Socket vào nhóm.
+     * Không qua BullMQ để đảm bảo dữ liệu nhất quán ngay lập tức và client nhận ACK an toàn.
+     */
+    async updateWatermark(
+        userId: string,
+        payload: { conversationId: string; messageId: string; type: 'delivered' | 'read' }
+    ) {
+        const { conversationId, messageId, type } = payload;
+
+        // 1. Cập nhật trực tiếp vào MongoDB thông qua ConversationFacade (đồng thời update ConversationCache)
+        const updatedConv = await this.conversationFacade.updateWatermark(conversationId, userId, messageId, type);
+        if (!updatedConv) {
+            throw createHttpError.NotFound("Không tìm thấy cuộc trò chuyện để cập nhật watermark");
+        }
+
+        // 2. Cập nhật Redis watermark hash (O(1))
+        await this.messageCache.updateWatermark(conversationId, userId, messageId, type);
+
+        // 3. Broadcast sự kiện watermark_updated vào room (O(1))
+        socketManager.emitToGroup(conversationId, SocketEvents.WATERMARK_UPDATED, {
+            conversationId,
+            userId,
+            messageId,
+            type
+        });
+
+        return {
+            conversationId,
+            userId,
+            messageId,
+            type
+        };
     }
 }

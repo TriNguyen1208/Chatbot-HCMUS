@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MessageService } from "../../message.service.js";
 import type { ConversationFacade } from "#@/modules/conversation/conversation.facade.js";
 import type { MessageRepository } from "../../message.repository.js";
+import type { MessageCache } from "../../message.cache.js";
 
 // Mock module SocketManager
 import { socketManager } from "#@/infrastructure/websocket/socket.manager.js";
 vi.mock("#@/infrastructure/websocket/socket.manager.js", () => ({
     socketManager: {
         emitToGroup: vi.fn(),
-        emitToUsers: vi.fn()
+        emitToUser: vi.fn(),
+        joinGroup: vi.fn(),
+        leaveGroup: vi.fn()
     }
 }));
 
@@ -34,6 +37,7 @@ vi.mock("#@/shared/utils/sync.util.js", () => ({
 describe("MessageService", () => {
     let mockConversationFacade: ConversationFacade;
     let mockMessageRepo: MessageRepository;
+    let mockMessageCache: MessageCache;
     let messageService: MessageService;
 
     beforeEach(() => {
@@ -49,7 +53,15 @@ describe("MessageService", () => {
             create: vi.fn()
         } as unknown as MessageRepository;
 
-        messageService = new MessageService(mockConversationFacade, mockMessageRepo);
+        mockMessageCache = {
+            pushRecent: vi.fn().mockResolvedValue(undefined),
+            getRecent: vi.fn().mockResolvedValue(null),
+            setRecent: vi.fn().mockResolvedValue(undefined),
+            updateRecent: vi.fn().mockResolvedValue(undefined),
+            clearRecent: vi.fn().mockResolvedValue(undefined)
+        } as unknown as MessageCache;
+
+        messageService = new MessageService(mockConversationFacade, mockMessageRepo, mockMessageCache);
     });
 
     it("should throw Forbidden if user is not in conversation", async () => {
@@ -76,7 +88,7 @@ describe("MessageService", () => {
         // ASSERT
         expect(result.status).toBe('success');
         expect(mockMessageRepo.create).toHaveBeenCalled();
-        expect(socketManager.emitToUsers).toHaveBeenCalledWith(["u1", "u2"], "new_message", mockSavedMessage);
+        expect(socketManager.emitToGroup).toHaveBeenCalledWith("c1", "new_message", mockSavedMessage);
         expect(queueService.addJob).not.toHaveBeenCalled();
     });
 

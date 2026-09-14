@@ -99,3 +99,54 @@ export type RemoveMemberDto = z.infer<typeof RemoveMemberSchema>['body'];
 export type AssignAdminDto = z.infer<typeof AssignAdminSchema>['body'];
 export type GetListQueryDto = z.infer<typeof GetListQuerySchema>['query'];
 export type UpdateConversationDto = z.infer<typeof UpdateConversationSchema>['body'];
+
+// --- Socket Payload Schemas ---
+export const CreateConversationSocketSchema = z.object({
+    member_ids: z.array(z.string()).min(1, "Danh sách thành viên không được để trống"),
+    type: z.enum(['group', 'utu', 'self'], { message: "Loại cuộc trò chuyện phải là group, utu hoặc self" }),
+    name: z.string().optional(),
+    avatar_url: z.string().optional(),
+    primary_icon: z.string().optional().default('👍')
+}).refine((data) => {
+    if (data.type === 'self' && data.member_ids.length !== 1) return false;
+    if (data.type === 'group' && !data.name) return false;
+    if (data.type === 'utu' && data.avatar_url) return false;
+    if (data.avatar_url && !isUrl(data.avatar_url)) return false;
+    return true;
+}, {
+    message: "Dữ liệu tạo cuộc trò chuyện không hợp lệ",
+    path: ["name"]
+});
+
+export const UpdateConversationSocketSchema = z.object({
+    conversation_id: objectIdSchema,
+    name: z.string().optional(),
+    avatar_url: z.string().optional(),
+    primary_icon: z.string().min(1).max(10).optional(),
+}).refine((data) => {
+    if (data.avatar_url && !isUrl(data.avatar_url)) return false;
+    return true;
+}, {
+    message: "Avatar URL không hợp lệ",
+    path: ["avatar_url"]
+});
+
+export const AddMembersSocketSchema = z.object({
+    conversation_id: objectIdSchema,
+    member_ids: z.array(objectIdSchema).min(1, "Danh sách thành viên thêm mới không được để trống")
+});
+
+export const RemoveMembersSocketSchema = z.object({
+    conversation_id: objectIdSchema,
+    member_ids: z.array(objectIdSchema).min(1, "Danh sách thành viên xóa không được để trống")
+});
+
+export const AssignAdminsSocketSchema = z.object({
+    conversation_id: objectIdSchema,
+    admin_ids: z.array(objectIdSchema).min(1, "Danh sách admin không được để trống")
+});
+
+export const ConversationIdOnlySocketSchema = z.object({
+    conversation_id: objectIdSchema
+});
+

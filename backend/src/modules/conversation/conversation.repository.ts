@@ -17,19 +17,19 @@ export interface IConversationRepository {
 
     addMembers(conversationId: string, userIds: string[]): Promise<Conversation>;
 
-    removeMember(conversationId: string, userId: string): Promise<void>;
-
     updateLastMessage(conversationId: string, messageId: string): Promise<Conversation>;
 
-    removeMembers(conversationId: string, userIds: string[]): Promise<void>;
+    removeMembers(conversationId: string, userIds: string[]): Promise<Conversation>;
 
     updateConversation(id: string, data: Partial<ConversationDB>): Promise<Conversation | null>;
 
     addAdmins(conversationId: string, adminIds: string[]): Promise<Conversation>;
 
-    updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void>;
+    updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<Conversation | null>;
 
     updateBlockStatus(conversationId: string, block: BlockInfo | null): Promise<Conversation | null>;
+
+    getUserConversationIds(userId: string): Promise<string[]>;
 }
 
 export class ConversationRepository implements IConversationRepository {
@@ -139,6 +139,17 @@ export class ConversationRepository implements IConversationRepository {
         return conversations.map(c => this.formatConversation(c)).filter(Boolean) as Conversation[];
     }
 
+    async getUserConversationIds(userId: string): Promise<string[]> {
+        const conditions: any = {
+            member_ids: userId,
+            is_active: { $ne: false }
+        };
+        const convs = await this.db.query<ConversationDB>('conversations', conditions, {
+            select: '_id'
+        });
+        return convs.map(c => ((c as any)._id || (c as any).id)?.toString()).filter(Boolean);
+    }
+
     async findSelfConversation(userId: string): Promise<Conversation | null> {
         const conditions: Record<string, unknown> = {
             type: 'self',
@@ -166,27 +177,18 @@ export class ConversationRepository implements IConversationRepository {
         return this.formatConversation(updatedConv)!;
     }
 
-    async removeMember(conversationId: string, userId: string): Promise<void> {
-        if (!Types.ObjectId.isValid(conversationId)) throw new Error("Invalid conversation ID");
-
-        await this.db.update('conversations', { _id: new Types.ObjectId(conversationId) }, {
-            $pull: {
-                member_ids: new Types.ObjectId(userId),
-                admin_ids: new Types.ObjectId(userId)
-            }
-        });
-    }
-
-    async removeMembers(conversationId: string, userIds: string[]): Promise<void> {
+    async removeMembers(conversationId: string, userIds: string[]): Promise<Conversation> {
         if (!Types.ObjectId.isValid(conversationId)) throw new Error("Invalid conversation ID");
 
         const objectIds = userIds.map(id => new Types.ObjectId(id));
-        await this.db.update('conversations', { _id: new Types.ObjectId(conversationId) }, {
+        const removeMember = await this.db.update('conversations', { _id: new Types.ObjectId(conversationId) }, {
             $pullAll: {
                 member_ids: objectIds,
                 admin_ids: objectIds
             }
-        });
+        }, { populate: this.getPopulateOptions() });
+
+        return this.formatConversation(removeMember)!;
     }
 
     async addAdmins(conversationId: string, adminIds: string[]): Promise<Conversation> {
@@ -206,15 +208,15 @@ export class ConversationRepository implements IConversationRepository {
         return this.formatConversation(updatedConv)!;
     }
 
-    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<void> {
-        if (!Types.ObjectId.isValid(conversationId) || !Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(messageId)) return;
+    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<Conversation | null> {
+        if (!Types.ObjectId.isValid(conversationId) || !Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(messageId)) return null;
 
         const convId = new Types.ObjectId(conversationId);
         const uId = new Types.ObjectId(userId);
         const msgId = new Types.ObjectId(messageId);
 
         const conv = await this.db.findOne<ConversationDB>('conversations', { _id: convId });
-        if (!conv) return;
+        if (!conv) return null;
 
         const currentWatermarks = conv.watermarks || [];
         const map = new Map<string, any>();
@@ -247,10 +249,11 @@ export class ConversationRepository implements IConversationRepository {
         });
 
         const newWatermarks = Array.from(map.values());
-        await this.db.update<ConversationDB>('conversations',
+        const updatedWatermark = await this.db.update<ConversationDB>('conversations',
             { _id: convId },
             { $set: { watermarks: newWatermarks } }
         );
+        return this.formatConversation(updatedWatermark);
     }
 
     async updateConversation(id: string, data: Partial<ConversationDB>): Promise<Conversation | null> {

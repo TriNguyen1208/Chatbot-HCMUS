@@ -55,22 +55,22 @@ export class SocketManager {
         this.io.to(USER_ROOM(userId)).emit(event, data);
     }
 
-    public emitToUsers(userIds: string[], event: string, data: unknown): void {
-        for (const userId of userIds) {
-            this.emitToUser(userId, event, data);
-        }
+    public joinGroup(userIds: string | string[], conversationId: string): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
+        const room = CONVERSATION_ROOM(conversationId);
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.io.in(userRooms).socketsJoin(room);
+        console.log(`[Socket.IO] Users [${uids.join(", ")}] joined conversation '${conversationId}'`);
     }
 
-    public joinGroup(userId: string, conversationId: string): void {
+    public leaveGroup(userIds: string | string[], conversationId: string): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
         const room = CONVERSATION_ROOM(conversationId);
-        this.io.in(USER_ROOM(userId)).socketsJoin(room);
-        console.log(`[Socket.IO] User '${userId}' joined conversation '${conversationId}'`);
-    }
-
-    public leaveGroup(userId: string, conversationId: string): void {
-        const room = CONVERSATION_ROOM(conversationId);
-        this.io.in(USER_ROOM(userId)).socketsLeave(room);
-        console.log(`[Socket.IO] User '${userId}' left conversation '${conversationId}'`);
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.io.in(userRooms).socketsLeave(room);
+        console.log(`[Socket.IO] Users [${uids.join(", ")}] left conversation '${conversationId}'`);
     }
 
     public emitToGroup(conversationId: string, event: string, data: unknown): void {

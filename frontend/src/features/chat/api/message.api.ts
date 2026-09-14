@@ -1,4 +1,5 @@
 import { http } from "@/lib/api";
+import { socketService } from "@/shared/services/socket.service";
 import type { Message } from "@/types";
 
 export interface SendMessagePayload {
@@ -35,18 +36,19 @@ export const messageApi = {
     },
 
     sendMessage: async (payload: SendMessagePayload): Promise<Message> => {
-        return http.post<Message>('/message', payload);
+        return socketService.emitWithAck<Message>('new_message', payload);
     },
 
     editMessage: async (id: string, content: string): Promise<Message> => {
-        return http.put<Message>(`/message/${id}`, { content });
+        return socketService.emitWithAck<Message>('message_edited', { message_id: id, content });
     },
 
     recallMessage: async (id: string): Promise<Message> => {
-        return http.delete<Message>(`/message/${id}/recall`);
+        return socketService.emitWithAck<Message>('message_recalled', { message_id: id });
     },
 
     toggleReaction: async (id: string, emoji: string): Promise<Message> => {
-        return http.post<Message>(`/message/${id}/reactions`, { emoji });
+        return socketService.emitWithAck<Message>('message_reaction_updated', { message_id: id, emoji });
     }
 };
+

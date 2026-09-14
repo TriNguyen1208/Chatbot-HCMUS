@@ -203,4 +203,3 @@ export class MongoDBConnection implements IDatabase {
 }
 
 export const mongoDB = new MongoDBConnection();
-export { MongoDBConnection as MongoDBAtlas };

@@ -58,15 +58,25 @@ export const registerMessageHandlers = (
     chatCache.markMessageRecalled(queryClient, data);
   };
 
+  const onMessageSaveFailed = (data: {
+    conversationId: string;
+    messageId: string;
+    error?: string;
+  }) => {
+    console.error("❌ Message save failed:", data);
+  };
+
   socket.on("new_message", onNewMessage);
   socket.on("message_edited", onMessageEdited);
   socket.on("message_reaction_updated", onMessageReactionUpdated);
   socket.on("message_recalled", onMessageRecalled);
+  socket.on("message_save_failed", onMessageSaveFailed);
 
   return () => {
     socket.off("new_message", onNewMessage);
     socket.off("message_edited", onMessageEdited);
     socket.off("message_reaction_updated", onMessageReactionUpdated);
     socket.off("message_recalled", onMessageRecalled);
+    socket.off("message_save_failed", onMessageSaveFailed);
   };
 };

@@ -80,23 +80,41 @@ export class MessageRepository {
         return result.map(msg => this.mapToDomain(msg));
     }
 
-    async updateStatus(id: string, status: Message['status']): Promise<void> {
-        if (!Types.ObjectId.isValid(id)) return;
-        await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { status });
+    async updateStatus(id: string, status: Message['status']): Promise<Message> {
+        if (!Types.ObjectId.isValid(id)) {
+            throw createHttpError(400, 'Invalid message ID');
+        }
+        const updated = await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { status });
+        if (!updated) {
+            throw createHttpError(404, 'Message not found');
+        }
+        const updatedDoc = Array.isArray(updated) ? updated[0] : updated;
+        return this.mapToDomain(updatedDoc);
     }
 
-    async updateContent(id: string, content: string, updatedAt: Date): Promise<void> {
-        if (!Types.ObjectId.isValid(id)) return;
+    async updateContent(id: string, content: string, updatedAt: Date): Promise<Message> {
+        if (!Types.ObjectId.isValid(id)) {
+            throw createHttpError(400, 'Invalid message ID');
+        }
         const message = await this.db.findOne<MessageDB>('messages', { _id: new Types.ObjectId(id) });
-        if (!message) return;
+        if (!message) {
+            throw createHttpError(404, 'Message not found');
+        }
 
         const oldContent = message.content;
         const oldUpdatedAt = message.updated_at || message.created_at;
 
-        await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { 
+        const updated = await this.db.update<MessageDB>('messages', { _id: new Types.ObjectId(id) }, { 
             $set: { content, updated_at: updatedAt, is_edited: true },
             $push: { edit_history: { content: oldContent, updated_at: oldUpdatedAt } }
         } as any);
+
+        if (!updated) {
+            throw createHttpError(500, 'Failed to update message content');
+        }
+
+        const updatedDoc = Array.isArray(updated) ? updated[0] : updated;
+        return this.mapToDomain(updatedDoc);
     }
 
     async updateByFileKey(fileKey: string, updateData: Partial<MessageDB>): Promise<Message | null> {

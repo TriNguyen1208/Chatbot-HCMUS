@@ -11,10 +11,16 @@ export const initializeDatabaseModels = async (): Promise<void> => {
             MessageModel.createCollection(),
             KeyStoreModel.createCollection(),
         ]);
+        await Promise.all([
+            UserModel.syncIndexes(),
+            ConversationModel.syncIndexes(),
+            MessageModel.syncIndexes(),
+            KeyStoreModel.syncIndexes(),
+        ]);
         console.log("✅ MongoDB collections & indexes ensured successfully");
     } catch (err: any) {
         if (err.code !== 48) { // Ignore NamespaceExists error (code 48)
-            console.error("❌ Error ensuring MongoDB collections:", err);
+            console.error("❌ Error ensuring MongoDB collections & indexes:", err);
             throw err;
         }
     }

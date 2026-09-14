@@ -4,6 +4,7 @@ import { MessageRepository } from "./message.repository.js";
 import { MessageService } from "./message.service.js";
 import { MessageController } from "./message.controller.js";
 import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
+import { MessageCache } from "./message.cache.js";
 
 class MessageContainer {
     private _messageRepo?: MessageRepository;
@@ -17,7 +18,7 @@ class MessageContainer {
     private _messageService?: MessageService;
     public get messageService() {
         if (!this._messageService) {
-            this._messageService = new MessageService(conversationFacade, this.messageRepo);
+            this._messageService = new MessageService(conversationFacade, this.messageRepo, this.messageCache);
         }
         return this._messageService;
     }
@@ -28,6 +29,14 @@ class MessageContainer {
             this._messageController = new MessageController(this.messageService);
         }
         return this._messageController;
+    }
+
+    private _messageCache?: MessageCache;
+    public get messageCache() {
+        if (!this._messageCache) {
+            this._messageCache = new MessageCache();
+        }
+        return this._messageCache;
     }
 }
 

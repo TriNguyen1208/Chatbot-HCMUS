@@ -1,19 +1,22 @@
 import type { Server, Socket } from "socket.io";
-import type { SocketManager } from "../socket.manager.js";
-import { SocketEvents } from "../socket.events.js";
-import { redisClient } from "#@/infrastructure/redis/redis.client.js";
+import type { SocketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import { SocketEvents } from "#@/infrastructure/websocket/socket.events.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
 
-export const registerPresenceHandler = (
+/**
+ * Quản lý các sự kiện Socket liên quan đến User (Presence, Online/Offline)
+ */
+export const registerUserSocket = (
     io: Server,
     socket: Socket,
     socketManager: SocketManager,
     allUsersRoom: string
 ): void => {
     const userId = socket.data.userId as string;
+    if (!userId) return;
 
-    // Update presence in Redis (24h TTL)
-    redisClient.set(`presence:${userId}`, "online", 24 * 3600).catch(err => {
+    // Update presence (24h TTL) via Facade
+    userFacade.setPresenceOnline(userId).catch(err => {
         console.error("[Socket.IO] Failed to set redis presence", err);
     });
 
@@ -31,14 +34,8 @@ export const registerPresenceHandler = (
                 if (!isOnline) {
                     const lastActive = new Date();
 
-                    // Update presence in Redis to offline
-                    await redisClient.setJSON(`presence:${userId}`, {
-                        status: 'offline',
-                        last_active: lastActive
-                    }, 24 * 3600);
-
-                    // Update database via Facade
-                    await userFacade.updatePresence(userId, lastActive);
+                    // Update presence in Redis to offline & update DB via Facade
+                    await userFacade.setPresenceOffline(userId, lastActive);
 
                     // Broadcast offline event to all other users
                     io.to(allUsersRoom).emit(SocketEvents.USER_OFFLINE, {

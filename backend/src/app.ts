@@ -13,8 +13,7 @@ import { initSocket } from "./infrastructure/websocket/socket.manager.js";
 
 const app = express()
 app.set("trust proxy", 1);
-const server = http.createServer(app)
-initSocket(server);
+
 
 app.use(helmet())
 app.use(cors({
@@ -33,6 +32,8 @@ app.get("/health", (_req, res) => {
     res.status(200).json({ message: "OK" })
 })
 app.use(errorHandler)
+const server = http.createServer(app)
+initSocket(server);
 
 export { server };
 export default app;

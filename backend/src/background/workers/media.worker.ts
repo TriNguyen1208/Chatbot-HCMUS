@@ -31,13 +31,13 @@ export const processMediaJob = async (job: Job) => {
 
 export const mediaWorker = new Worker(QueueName.MEDIA, processMediaJob, {
     connection,
-    concurrency: 5
+    concurrency: 1
 });
 
-mediaWorker.on('completed', (job) => {
+mediaWorker.on('completed', (job: Job) => {
     console.log(`[MediaWorker] Job ${job.id} (${job.name}) completed.`);
 });
 
-mediaWorker.on('failed', (job, err) => {
+mediaWorker.on('failed', (job: Job | undefined, err: Error) => {
     console.error(`[MediaWorker] Job ${job?.id} failed:`, err.message);
 });

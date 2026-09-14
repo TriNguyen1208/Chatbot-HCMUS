@@ -73,3 +73,48 @@ export const ToggleReactionSchema = z.object({
 });
 
 export type ToggleReactionDto = z.infer<typeof ToggleReactionSchema>['body'];
+
+// --- Socket Payload Schemas ---
+export const SendMessageSocketSchema = z.object({
+    conversation_id: objectIdSchema.optional(),
+    receiver_id: z.string().optional(),
+    content: z.string().optional(),
+    type: z.enum(['text', 'file', 'link', 'image', 'video', 'ai', 'system']).default('text'),
+    tag_ids: z.array(z.string()).optional(),
+    image: z.object({
+        url: z.string(),
+        file_key: z.string().optional()
+    }).optional(),
+    video: z.object({
+        url: z.string().optional(),
+        file_key: z.string(),
+        thumbnail_url: z.string().optional()
+    }).optional(),
+    status: z.enum(['sent', 'received', 'recalled', 'removed']).optional()
+}).refine(data => data.conversation_id || data.receiver_id, {
+    message: "Phải cung cấp conversation_id hoặc receiver_id"
+}).refine(data => (data.content && data.content.trim().length > 0) || data.image || data.video, {
+    message: "Nội dung tin nhắn không được để trống"
+});
+
+export const EditMessageSocketSchema = z.object({
+    message_id: objectIdSchema,
+    content: z.string().min(1, "Nội dung tin nhắn không được để trống")
+});
+
+export const RecallMessageSocketSchema = z.object({
+    message_id: objectIdSchema
+});
+
+export const ToggleReactionSocketSchema = z.object({
+    message_id: objectIdSchema,
+    emoji: z.string().min(1, "Emoji không được để trống")
+});
+
+export const MarkWatermarkSocketSchema = z.object({
+    conversationId: objectIdSchema,
+    messageId: objectIdSchema
+});
+
+export type MarkWatermarkSocketDto = z.infer<typeof MarkWatermarkSocketSchema>;
+

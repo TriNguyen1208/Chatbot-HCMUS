@@ -39,4 +39,10 @@ export const KeyStoreSchema = new Schema<KeyStoreDB>({
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
 
+// Chỉ giữ 2 index tối quan trọng:
+// 1. refresh_token_hash: Phục vụ tra cứu token khi refresh (tần suất liên tục)
+// 2. expires_at (TTL): MongoDB tự động xoá token hết hạn khỏi disk, chống phình to dung lượng DB
+KeyStoreSchema.index({ refresh_token_hash: 1 });
+KeyStoreSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
+
 export const KeyStoreModel = mongoose.model<KeyStoreDB>('KeyStore', KeyStoreSchema);

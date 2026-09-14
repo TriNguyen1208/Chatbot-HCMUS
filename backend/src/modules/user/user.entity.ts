@@ -30,4 +30,8 @@ export const UserSchema = new Schema<User>({
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
+
+// Chỉ giữ unique index trên email (đã khai báo trong Schema field) phục vụ đăng nhập.
+// Loại bỏ các index không cần thiết (như student_id) để tiết kiệm dung lượng lưu trữ.
+
 export const UserModel = mongoose.model<User>('User', UserSchema);

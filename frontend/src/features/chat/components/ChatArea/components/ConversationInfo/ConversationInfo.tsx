@@ -20,12 +20,12 @@ const ConversationInfo = () => {
   if (!info.showInfoPanel || !info.activeConversation) return null;
 
   return (
-    <div 
+    <div
       className="relative flex flex-col h-full bg-surface/50 backdrop-blur-xl shrink-0 transition-none border-l border-glass-border overflow-hidden"
       style={{ width: `${info.panelWidth}px` }}
     >
       {/* Resizer Handle */}
-      <div 
+      <div
         className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-primary/50 transition-colors z-10"
         onMouseDown={info.handleMouseDown}
       />
@@ -35,14 +35,14 @@ const ConversationInfo = () => {
           <>
             {/* Search Header */}
             <div className="h-[64px] flex items-center gap-3 px-4 border-b border-glass-border shrink-0">
-              <button 
+              <button
                 onClick={() => info.setIsSearchMode(false)}
                 className="p-2 rounded-full hover:bg-glass cursor-pointer text-gray-500 hover:text-text-primary transition-colors shrink-0"
               >
                 <ArrowLeft size={20} />
               </button>
               <div className="flex-1 bg-surface-solid rounded-xl border border-glass-border flex items-center px-3 py-1.5 h-[36px]">
-                <input 
+                <input
                   autoFocus
                   placeholder="Tìm kiếm tin nhắn..."
                   className="bg-transparent border-none outline-none text-sm w-full text-text-primary placeholder:text-text-secondary"
@@ -56,7 +56,7 @@ const ConversationInfo = () => {
                 )}
               </div>
             </div>
-            
+
             {/* Search Results */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {info.isSearching && <div className="text-center text-sm text-text-secondary py-4">Đang tìm kiếm...</div>}
@@ -64,7 +64,7 @@ const ConversationInfo = () => {
                 <div className="text-center text-sm text-text-secondary py-4">Không tìm thấy kết quả.</div>
               )}
               {!info.isSearching && info.searchResults.map((result) => (
-                <div 
+                <div
                   key={result.id}
                   onClick={() => {
                     info.setTargetMessageId(result.id);
@@ -162,14 +162,14 @@ const ConversationInfo = () => {
         )}
       </div>
 
-      <MediaViewerModal 
+      <MediaViewerModal
         isOpen={!!info.selectedMedia}
         onClose={() => info.setSelectedMedia(null)}
         mediaType={info.selectedMedia?.type || 'image'}
         mediaUrl={info.selectedMedia?.url || ''}
       />
 
-      <EditGroupModal 
+      <EditGroupModal
         isOpen={info.showEditGroupModal}
         onClose={() => info.setShowEditGroupModal(false)}
         conversation={info.activeConversation}

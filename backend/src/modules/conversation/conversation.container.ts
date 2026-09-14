@@ -3,6 +3,7 @@ import { ConversationService } from "./conversation.service.js";
 import { ConversationController } from "./conversation.controller.js";
 import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
 import { messageFacade } from "#@/modules/message/message.facade.js";
+import { ConversationCache } from "./conversation.cache.js";
 
 class ConversationContainer {
     private _conversationRepo?: ConversationRepository;
@@ -15,7 +16,7 @@ class ConversationContainer {
     private _conversationService?: ConversationService;
     public get conversationService() {
         if (!this._conversationService) {
-            this._conversationService = new ConversationService(this.conversationRepo, messageFacade);
+            this._conversationService = new ConversationService(this.conversationRepo, this.conversationCache, messageFacade);
         }
         return this._conversationService;
     }
@@ -26,6 +27,14 @@ class ConversationContainer {
             this._conversationController = new ConversationController(this.conversationService);
         }
         return this._conversationController;
+    }
+
+    private _conversationCache?: ConversationCache;
+    public get conversationCache() {
+        if (!this._conversationCache) {
+            this._conversationCache = new ConversationCache();
+        }
+        return this._conversationCache;
     }
 }
 

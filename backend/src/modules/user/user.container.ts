@@ -2,6 +2,7 @@ import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js";
 import { UserRepository } from "./user.repository.js";
 import { UserService } from "./user.service.js";
 import { UserController } from "./user.controller.js";
+import { UserCache } from "./user.cache.js";
 
 class UserContainer {
     private _userRepository?: UserRepository;
@@ -11,11 +12,19 @@ class UserContainer {
         }
         return this._userRepository;
     }
+
+    private _userCache?: UserCache;
+    public get userCache() {
+        if (!this._userCache) {
+            this._userCache = new UserCache();
+        }
+        return this._userCache;
+    }
     
     private _userService?: UserService;
     public get userService() {
         if (!this._userService) {
-            this._userService = new UserService(this.userRepository);
+            this._userService = new UserService(this.userRepository, this.userCache);
         }
         return this._userService;
     }

@@ -78,4 +78,10 @@ export const MessageSchema = new Schema<MessageDB>({
     }
 });
 
+// Chỉ giữ index thực sự dùng thường xuyên để tối ưu dung lượng & RAM:
+// 1. { conversation_id: 1, _id: -1 }: Phục vụ tải tin nhắn theo hội thoại + cursor pagination (ObjectId đã có timestamp tự nhiên)
+// 2. { "video.file_key": 1 } (sparse): Kích thước cực nhỏ (chỉ lưu message có video), tránh full scan khi webhook video gọi về
+MessageSchema.index({ conversation_id: 1, _id: -1 });
+MessageSchema.index({ "video.file_key": 1 }, { sparse: true });
+
 export const MessageModel = mongoose.model<MessageDB>('Message', MessageSchema);

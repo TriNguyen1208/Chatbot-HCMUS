@@ -61,6 +61,8 @@ export const ConversationSchema = new Schema<ConversationDB>({
     }
 });
 
-// Xóa các Mongoose hooks vì logic đã được chuyển sang mongoDBAtlas.ts
+// Chỉ giữ 1 compound index duy nhất phục vụ tải danh sách hội thoại của user sắp xếp theo tin nhắn mới nhất.
+// Tiền tố `member_ids` cũng tự động phục vụ luôn cho các truy vấn kiểm tra thành viên / tìm hội thoại 1-1.
+ConversationSchema.index({ member_ids: 1, last_message_id: -1 });
 
 export const ConversationModel = mongoose.model<ConversationDB>('Conversation', ConversationSchema);

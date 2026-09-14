@@ -76,32 +76,26 @@ export class QueueService {
 
     /**
      * Đăng ký và lên lịch một Cron Job định kỳ chạy ngầm vào cronQueue.
-     * BullMQ sẽ tự động tạo repeatable job theo biểu thức cronExpression.
+     * BullMQ v5 tự động Upsert (tạo mới hoặc cập nhật nếu đã tồn tại) một cách nguyên tử.
      */
     async registerCronJob(cronDef: CronJobDefinition) {
         const { name, cronExpression, options } = cronDef;
 
         console.log(`[QueueService] ⏰ Registering Cron Job '${name}' with pattern: [${cronExpression}]`);
 
-        // Xoá bỏ các repeatable job cũ cùng tên nếu có để tránh chạy duplicate khi server restart
-        const existingRepeatables = await this.cronQueue.getRepeatableJobs();
-        for (const job of existingRepeatables) {
-            if (job.name === name) {
-                await this.cronQueue.removeRepeatableByKey(job.key);
-            }
-        }
-
-        // Đăng ký lịch chạy mới
-        return await this.cronQueue.add(
+        return await this.cronQueue.upsertJobScheduler(
             name,
-            {},
             {
-                repeat: {
-                    pattern: cronExpression
+                pattern: cronExpression,
+            },
+            {
+                name,
+                data: {},
+                opts: {
+                    removeOnComplete: options?.removeOnComplete ?? true,
+                    removeOnFail: options?.removeOnFail ?? false,
+                    attempts: options?.attempts ?? 1,
                 },
-                removeOnComplete: options?.removeOnComplete ?? true,
-                removeOnFail: options?.removeOnFail ?? false,
-                attempts: options?.attempts ?? 1
             }
         );
     }

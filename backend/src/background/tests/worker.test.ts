@@ -27,7 +27,7 @@ vi.mock("#@/modules/media/media.facade.js", () => ({
 import { conversationFacade } from "#@/modules/conversation/conversation.facade.js";
 vi.mock("#@/modules/conversation/conversation.facade.js", () => ({
     conversationFacade: {
-        getConversation: vi.fn().mockResolvedValue(["u1", "u2"])
+        getConversationMembers: vi.fn().mockResolvedValue(["u1", "u2"])
     }
 }));
 
@@ -43,7 +43,8 @@ vi.mock("#@/infrastructure/websocket/socket.manager.js", () => ({
     socketManager: {
         emitToUser: vi.fn(),
         emitToGroup: vi.fn(),
-        emitToUsers: vi.fn()
+        joinGroup: vi.fn(),
+        leaveGroup: vi.fn()
     }
 }));
 
@@ -94,9 +95,8 @@ describe("Background Workers", () => {
         await processFastJob(fakeJob as any);
 
         expect(messageFacade.createMessageFromQueue).toHaveBeenCalledWith(fakeJob.data);
-        expect(conversationFacade.getConversation).toHaveBeenCalledWith("c1");
-        expect(socketManager.emitToUsers).toHaveBeenCalledWith(
-            ["u1", "u2"],
+        expect(socketManager.emitToGroup).toHaveBeenCalledWith(
+            "c1",
             "new_message",
             { id: "msg-1", content: "hello" }
         );

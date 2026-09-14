@@ -101,6 +101,136 @@ export class RedisClient {
             console.error("[Redis] delByPattern error", error);
         }
     }
+
+    // Thêm 1 giá trị vào trong set
+    async sadd(key: string, ...members: (string | number)[]): Promise<number> {
+        if (members.length === 0) return 0;
+        try {
+            return await this.client.sadd(key, ...members.map(String));
+        } catch (error) {
+            console.error(`[Redis] SADD error on ${key}:`, error);
+            return 0;
+        }
+    }
+
+    //Kiểm tra 1 giá trị có nằm trong set không
+    async sismember(key: string, member: string | number): Promise<boolean> {
+        try {
+            const result = await this.client.sismember(key, String(member));
+            return result === 1;
+        } catch (error) {
+            console.error(`[Redis] SISMEMBER error on ${key}:`, error);
+            return false;
+        }
+    }
+
+    //Lấy toàn bộ giá trị trong set theo key
+    async smembers(key: string): Promise<string[]> {
+        try {
+            return await this.client.smembers(key);
+        } catch (error) {
+            console.error(`[Redis] SMEMBERS error on ${key}:`, error);
+            return [];
+        }
+    }
+
+    //Xoá 1 hoặc nhiều phần tử ra khỏi set
+    async srem(key: string, ...members: (string | number)[]): Promise<number> {
+        if (members.length === 0) return 0;
+        try {
+            return await this.client.srem(key, ...members.map(String));
+        } catch (error) {
+            console.error(`[Redis] SREM error on ${key}:`, error);
+            return 0;
+        }
+    }
+
+    // Chèn 1 hoặc nhiều value vào bên trái danh sách (đầu danh sách là left)
+    async lpush(key: string, ...values: string[]): Promise<number> {
+        if (values.length === 0) return 0;
+        try {
+            return await this.client.lpush(key, ...values);
+        } catch (error) {
+            console.error(`[Redis] LPUSH error on ${key}:`, error);
+            return 0;
+        }
+    }
+
+    //Lấy danh sách từ start đến stop
+    async lrange(key: string, start: number, stop: number): Promise<string[]> {
+        try {
+            return await this.client.lrange(key, start, stop);
+        } catch (error) {
+            console.error(`[Redis] LRANGE error on ${key}:`, error);
+            return [];
+        }
+    }
+
+    //Chỉ lấy phần từ start đến stop, loại bỏ phần còn lại
+    async ltrim(key: string, start: number, stop: number): Promise<void> {
+        try {
+            await this.client.ltrim(key, start, stop);
+        } catch (error) {
+            console.error(`[Redis] LTRIM error on ${key}:`, error);
+        }
+    }
+
+    // Set key value trong Hash
+    async hset(key: string, data: Record<string, any>): Promise<void> {
+        try {
+            const stringified: Record<string, string> = {};
+            for (const [k, v] of Object.entries(data)) {
+                if (v !== undefined && v !== null) {
+                    stringified[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                }
+            }
+            if (Object.keys(stringified).length > 0) {
+                await this.client.hset(key, stringified);
+            }
+        } catch (error) {
+            console.error(`[Redis] HSET error on ${key}:`, error);
+        }
+    }
+
+    //Lấy giá trị của 1 field của 1 key
+    async hget(key: string, field: string): Promise<string | null> {
+        try {
+            return await this.client.hget(key, field);
+        } catch (error) {
+            console.error(`[Redis] HGET error on ${key}:`, error);
+            return null;
+        }
+    }
+
+    //Lấy tất cả value trong key trong Hash
+    async hgetall(key: string): Promise<Record<string, string>> {
+        try {
+            return await this.client.hgetall(key);
+        } catch (error) {
+            console.error(`[Redis] HGETALL error on ${key}:`, error);
+            return {};
+        }
+    }
+
+
+    //Lưu thời gian sống của 1 key
+    async expire(key: string, ttlSeconds: number): Promise<void> {
+        try {
+            await this.client.expire(key, ttlSeconds);
+        } catch (error) {
+            console.error(`[Redis] EXPIRE error on ${key}:`, error);
+        }
+    }
+
+    //Check exists
+    async exists(key: string): Promise<boolean> {
+        try {
+            return (await this.client.exists(key)) === 1;
+        } catch (error) {
+            console.error(`[Redis] EXISTS error on ${key}:`, error);
+            return false;
+        }
+    }
 }
 
 export const redisClient = new RedisClient();

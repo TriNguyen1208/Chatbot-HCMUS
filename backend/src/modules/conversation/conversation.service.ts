@@ -4,13 +4,14 @@ import type { Conversation, ConversationDB } from "./conversation.entity.js";
 import createError from "http-errors";
 import { socketManager } from "#@/infrastructure/websocket/socket.manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
-import { redisClient } from "#@/infrastructure/redis/redis.client.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
+import { ConversationCache } from "./conversation.cache.js";
 
 export class ConversationService {
     constructor(
         private readonly conversationRepo: IConversationRepository,
+        private readonly conversationCache: ConversationCache,
         private readonly messageFacade: MessageFacade
     ) { }
 
@@ -33,11 +34,39 @@ export class ConversationService {
         // If utu or self, check if already exists
         if (data.type === 'utu') {
             const arr = Array.from(members);
+            const cachedId = await this.conversationCache.getDirectConvId(arr[0]!, arr[1]!);
+            if (cachedId) {
+                try {
+                    return await this.getConversationById(cachedId, userId);
+                } catch {
+                    // Fallback to database query if cache entry was stale/invalid
+                }
+            }
             const existing = await this.conversationRepo.findDirectConversation(arr[0]!, arr[1]!);
-            if (existing) return existing;
+            if (existing) {
+                if (existing.id) {
+                    await this.conversationCache.setDirectConvId(arr[0]!, arr[1]!, existing.id);
+                    await this.conversationCache.setConversation(existing.id, existing);
+                }
+                return existing;
+            }
         } else if (data.type === 'self') {
+            const cachedId = await this.conversationCache.getSelfConvId(userId);
+            if (cachedId) {
+                try {
+                    return await this.getConversationById(cachedId, userId);
+                } catch {
+                    // Fallback to database query if cache entry was stale/invalid
+                }
+            }
             const existing = await this.conversationRepo.findSelfConversation(userId);
-            if (existing) return existing;
+            if (existing) {
+                if (existing.id) {
+                    await this.conversationCache.setSelfConvId(userId, existing.id);
+                    await this.conversationCache.setConversation(existing.id, existing);
+                }
+                return existing;
+            }
         } else if (data.type === 'group' && !data.avatar_url) {
             // Assign creator's avatar if no avatar_url is provided
             const creator = await userFacade.findByID(userId);
@@ -55,13 +84,27 @@ export class ConversationService {
         };
         const created = await this.conversationRepo.create(newConversation);
 
+        // Populate Redis Cache (Full Conversation, UserConvs, Direct/Self mapping)
+        if (created.id) {
+            await this.conversationCache.setConversation(created.id, created);
+            const memberIds = created.member_ids?.map((member_id) => member_id.toString()) || [];
+            for (const mid of memberIds) {
+                await this.conversationCache.addUserConv(mid, created.id);
+            }
+            if (created.type === 'utu') {
+                const arr = Array.from(members);
+                await this.conversationCache.setDirectConvId(arr[0]!, arr[1]!, created.id);
+            } else if (created.type === 'self') {
+                await this.conversationCache.setSelfConvId(userId, created.id);
+            }
+        }
+
         // Force all members to join the new room via SocketManager
         const new_members = created.member_ids?.map((member_id) => member_id.toString()) || [];
-        socketManager.emitToUsers(
-            new_members,
-            "new_conversation",
-            created
-        );
+        if (created.id) {
+            socketManager.joinGroup(new_members, created.id);
+            socketManager.emitToGroup(created.id, "new_conversation", created);
+        }
 
         if (data.type === 'group') {
             await this.sendSystemMessage(created.id!, "Nhóm đã được tạo");
@@ -73,8 +116,23 @@ export class ConversationService {
     }
 
     async findOrCreateSelfConversation(userId: string): Promise<Conversation> {
+        const cachedId = await this.conversationCache.getSelfConvId(userId);
+        if (cachedId) {
+            try {
+                return await this.getConversationById(cachedId, userId);
+            } catch {
+                // Fallback to database query if cache entry was stale/invalid
+            }
+        }
+
         const existing = await this.conversationRepo.findSelfConversation(userId);
-        if (existing) return existing;
+        if (existing) {
+            if (existing.id) {
+                await this.conversationCache.setSelfConvId(userId, existing.id);
+                await this.conversationCache.setConversation(existing.id, existing);
+            }
+            return existing;
+        }
         
         return this.createConversation(userId, {
             type: 'self',
@@ -91,12 +149,11 @@ export class ConversationService {
      * @throws HttpError 404 if not found, 403 if the user is not a member.
      */
     async getConversationById(conversationId: string, userId: string): Promise<Conversation> {
-        const cacheKey = `conversation:${conversationId}`;
-        let conversation = await redisClient.getJSON(cacheKey);
+        let conversation = await this.conversationCache.getConversation(conversationId);
         if (!conversation) {
             conversation = await this.conversationRepo.findByID(conversationId);
             if (conversation) {
-                await redisClient.setJSON(cacheKey, conversation, 3600);
+                await this.conversationCache.setConversation(conversationId, conversation, 3600);
             }
         }
 
@@ -110,6 +167,51 @@ export class ConversationService {
         }
 
         return conversation;
+    }
+
+    /**
+     * Retrieves all conversation IDs for a given user.
+     * Caches in Redis Set user:{id}:convs.
+     */
+    async getUserConversationIds(userId: string): Promise<string[]> {
+        const cachedConvs = await this.conversationCache.getUserConvs(userId);
+        if (cachedConvs.length > 0) {
+            return cachedConvs;
+        }
+        const convIds = await this.conversationRepo.getUserConversationIds(userId);
+        if (convIds.length > 0) {
+            await this.conversationCache.setUserConvs(userId, convIds);
+        }
+        return convIds;
+    }
+
+    /**
+     * Retrieves member IDs of a conversation.
+     * Checks cache first; falls back to repository if cache misses and sets cache.
+     * If userId is provided, verifies that the user is a member.
+     */
+    async getConversationMembers(conversationId: string, userId?: string): Promise<string[]> {
+        const cachedMembers = await this.conversationCache.getMembers(conversationId);
+        if (cachedMembers.length > 0) {
+            if (userId && !cachedMembers.includes(userId)) {
+                return [];
+            }
+            return cachedMembers;
+        }
+
+        try {
+            const conv = await this.conversationRepo.findByID(conversationId);
+            if (!conv || conv.is_active === false) return [];
+            await this.conversationCache.setConversation(conversationId, conv);
+
+            const memberIds = conv?.member_ids?.map((id: any) => id.toString()) || [];
+            if (userId && !memberIds.includes(userId)) {
+                return [];
+            }
+            return memberIds;
+        } catch {
+            return [];
+        }
     }
 
     /**
@@ -163,14 +265,13 @@ export class ConversationService {
         const updatedConv = await this.conversationRepo.updateConversation(conversationId, updatePayload);
         if (!updatedConv) throw createError(500, "Failed to update conversation");
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
+        // Update cache (single source of truth)
+        await this.conversationCache.setConversation(conversationId, updatedConv);
 
         triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
 
-        // Emit real-time socket event to all members
-        const memberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
-        socketManager.emitToUsers(memberIds, "conversation_updated", updatedConv);
+        // Emit real-time socket event to room (O(1))
+        socketManager.emitToGroup(conversationId, "conversation_updated", updatedConv);
         
         return updatedConv;
     }
@@ -183,7 +284,7 @@ export class ConversationService {
      * @param newMemberIds An array of user IDs to add.
      * @throws HttpError 400 or 403 on invalid operations.
      */
-    async addMember(adminId: string, conversationId: string, newMemberIds: string[]) {
+    async addMember(adminId: string, conversationId: string, newMemberIds: string[]): Promise<Conversation> {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only add members to a group");
         const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
@@ -196,15 +297,32 @@ export class ConversationService {
 
         const updatedConv = await this.conversationRepo.addMembers(conversationId, membersToAdd);
         
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
+        // Update cache
+        if (updatedConv) {
+            await this.conversationCache.setConversation(conversationId, updatedConv);
+        }
+        for (const mid of membersToAdd) {
+            await this.conversationCache.addUserConv(mid, conversationId);
+        }
 
-        const allMembers = updatedConv?.member_ids?.map((id) => id.toString()) || [];
-        socketManager.emitToUsers(membersToAdd, "new_conversation", updatedConv);
-        socketManager.emitToUsers(allMembers, "members_added", { conversationId, newMemberIds: membersToAdd });
-        await this.sendSystemMessage(conversationId, `${membersToAdd.length} user(s) added to group`);
+        // Join new members into room
+        socketManager.joinGroup(membersToAdd, conversationId);
+
+        // Notify each new member with full conversation data
+        for (const mid of membersToAdd) {
+            socketManager.emitToUser(mid, "new_conversation", updatedConv);
+        }
+
+        // Broadcast to group room (O(1))
+        socketManager.emitToGroup(conversationId, "members_added", { conversationId, newMemberIds: membersToAdd });
+
+        const addedUsers = await userFacade.getBulk(membersToAdd);
+        const names = addedUsers.map(u => u.name?.trim()).filter(Boolean);
+        const nameStr = names.length > 0 ? names.join(", ") : `${membersToAdd.length} user(s)`;
+        await this.sendSystemMessage(conversationId, `${nameStr} is added to group`);
 
         triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
+        return updatedConv;
     }
 
     /**
@@ -215,7 +333,7 @@ export class ConversationService {
      * @param memberIds An array of member IDs to remove.
      * @throws HttpError 400 or 403 on invalid operations.
      */
-    async removeMembers(adminId: string, conversationId: string, memberIds: string[]) {
+    async removeMembers(adminId: string, conversationId: string, memberIds: string[]): Promise<Conversation> {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only remove members from a group");
         const adminIdsSet = new Set(conv.admin_ids?.map((id: any) => id.toString()) || []);
@@ -237,20 +355,22 @@ export class ConversationService {
             throw createError(400, "Nhóm phải duy trì tối thiểu 2 thành viên");
         }
 
-        await this.conversationRepo.removeMembers(conversationId, validMemberIds);
+        const updatedConv = await this.conversationRepo.removeMembers(conversationId, validMemberIds);
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
-
-        const remainingMembers = conv.member_ids?.map((id) => id.toString()).filter(id => !validMemberIds.includes(id)) || [];
-        // Thông báo cho cả người bị kick và người còn lại
-        socketManager.emitToUsers([...remainingMembers, ...validMemberIds], "members_kicked", { conversationId, memberIds: validMemberIds });
-        await this.sendSystemMessage(conversationId, `Admin đã xóa ${validMemberIds.length} thành viên khỏi nhóm`);
-
-        const updatedConvForSync = await this.conversationRepo.findByID(conversationId);
-        if (updatedConvForSync) {
-            triggerSync('conversations', SyncOperation.UPDATE, updatedConvForSync);
+        if (updatedConv) {
+            await this.conversationCache.setConversation(conversationId, updatedConv);
+            triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
         }
+        for (const mid of validMemberIds) {
+            await this.conversationCache.removeUserConv(mid, conversationId);
+        }
+
+        // Thông báo cho cả phòng (kể cả người bị kick) trước khi rút khỏi phòng
+        socketManager.emitToGroup(conversationId, "members_kicked", { conversationId, memberIds: validMemberIds });
+        socketManager.leaveGroup(validMemberIds, conversationId);
+
+        await this.sendSystemMessage(conversationId, `Admin đã xóa ${validMemberIds.length} thành viên khỏi nhóm`);
+        return updatedConv;
     }
 
     /**
@@ -261,7 +381,7 @@ export class ConversationService {
      * @param newAdminIds An array of member IDs to promote to admin.
      * @throws HttpError 400 or 403 on invalid operations.
      */
-    async assignAdmins(adminId: string, conversationId: string, newAdminIds: string[]) {
+    async assignAdmins(adminId: string, conversationId: string, newAdminIds: string[]): Promise<Conversation> {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') throw createError(400, "Can only assign admins in a group");
         const adminIds = conv.admin_ids?.map((id: any) => id.toString()) || [];
@@ -271,12 +391,15 @@ export class ConversationService {
         const validAdminIds = newAdminIds.filter(id => currentMemberIds.includes(id));
         if (validAdminIds.length === 0) throw createError(400, "No valid group members selected to promote to admin");
 
-        await this.conversationRepo.addAdmins(conversationId, validAdminIds);
+        const updatedConv = await this.conversationRepo.addAdmins(conversationId, validAdminIds);
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
-        socketManager.emitToUsers(currentMemberIds, "admins_updated", { conversationId, adminIds: validAdminIds });
+        if (updatedConv) {
+            await this.conversationCache.setConversation(conversationId, updatedConv);
+        }
+        // Broadcast to group room (O(1))
+        socketManager.emitToGroup(conversationId, "admins_updated", { conversationId, adminIds: validAdminIds });
         await this.sendSystemMessage(conversationId, `Admin đã cấp quyền Quản trị viên cho thành viên mới`);
+        return updatedConv;
     }
 
     /**
@@ -286,7 +409,7 @@ export class ConversationService {
      * @param conversationId The ID of the group conversation.
      * @throws HttpError 400 on invalid operations.
      */
-    async leaveGroup(userId: string, conversationId: string) {
+    async leaveGroup(userId: string, conversationId: string): Promise<Conversation> {
         const conv = await this.getConversationById(conversationId, userId);
         if (conv.type !== 'group') throw createError(400, "Can only leave a group");
 
@@ -303,18 +426,34 @@ export class ConversationService {
 
         const userName = "Một thành viên";
 
-        await this.conversationRepo.removeMember(conversationId, userId);
+        const updatedConv = await this.conversationRepo.removeMembers(conversationId, [userId]);
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
+        await this.conversationCache.removeUserConv(userId, conversationId);
 
-        socketManager.emitToUsers(memberIds, "member_left", { conversationId, userId });
-        await this.sendSystemMessage(conversationId, `${userName} đã rời khỏi nhóm`);
-
-        const updatedConvForSync = await this.conversationRepo.findByID(conversationId);
-        if (updatedConvForSync) {
-            triggerSync('conversations', SyncOperation.UPDATE, updatedConvForSync);
+        if (updatedConv) {
+            await this.conversationCache.setConversation(conversationId, updatedConv);
+            triggerSync('conversations', SyncOperation.UPDATE, updatedConv);
         }
+
+        // Broadcast member_left to room BEFORE leaving
+        socketManager.emitToGroup(conversationId, "member_left", { conversationId, userId });
+        socketManager.leaveGroup(userId, conversationId);
+
+        await this.sendSystemMessage(conversationId, `${userName} đã rời khỏi nhóm`);
+        return updatedConv;
+    }
+
+    /**
+     * Updates the last message for a conversation and refreshes the cache.
+     * @param conversationId The ID of the conversation
+     * @param messageId The ID of the message
+     */
+    async updateLastMessage(conversationId: string, messageId: string): Promise<Conversation> {
+        const updated = await this.conversationRepo.updateLastMessage(conversationId, messageId);
+        if (updated) {
+            await this.conversationCache.setConversation(conversationId, updated);
+        }
+        return updated;
     }
 
     /**
@@ -324,14 +463,15 @@ export class ConversationService {
      * @param messageId The ID of the message
      * @param type 'delivered' or 'read'
      */
-    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read') {
+    async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<Conversation | null> {
         // Ensure conversation exists and user is a member
         await this.getConversationById(conversationId, userId);
         
-        await this.conversationRepo.updateWatermark(conversationId, userId, messageId, type);
-        
-        // Invalidate cache so that next fetch gets the updated watermarks
-        await redisClient.del(`conversation:${conversationId}`);
+        const updated = await this.conversationRepo.updateWatermark(conversationId, userId, messageId, type);
+        if (updated) {
+            await this.conversationCache.setConversation(conversationId, updated);
+        }
+        return updated;
     }
 
     /**
@@ -360,12 +500,10 @@ export class ConversationService {
 
         if (!updated) throw createError(500, "Không thể cập nhật trạng thái chặn");
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
+        await this.conversationCache.setConversation(conversationId, updated);
 
-        // Emit socket to all members
-        const memberIds = conv.member_ids.map((id: any) => id.toString());
-        socketManager.emitToUsers(memberIds, "conversation_blocked", updated);
+        // Emit socket to room (O(1))
+        socketManager.emitToGroup(conversationId, "conversation_blocked", updated);
 
         return updated;
     }
@@ -392,12 +530,10 @@ export class ConversationService {
         const updated = await this.conversationRepo.updateBlockStatus(conversationId, null);
         if (!updated) throw createError(500, "Không thể cập nhật trạng thái bỏ chặn");
 
-        // Invalidate cache
-        await redisClient.del(`conversation:${conversationId}`);
+        await this.conversationCache.setConversation(conversationId, updated);
 
-        // Emit socket to all members
-        const memberIds = conv.member_ids.map((id: any) => id.toString());
-        socketManager.emitToUsers(memberIds, "conversation_unblocked", updated);
+        // Emit socket to room (O(1))
+        socketManager.emitToGroup(conversationId, "conversation_unblocked", updated);
 
         return updated;
     }
@@ -408,7 +544,7 @@ export class ConversationService {
      * @param adminId The ID of the admin performing the action
      * @param conversationId The ID of the conversation
      */
-    async disbandGroup(adminId: string, conversationId: string): Promise<void> {
+    async disbandGroup(adminId: string, conversationId: string): Promise<Conversation | null> {
         const conv = await this.getConversationById(conversationId, adminId);
         if (conv.type !== 'group') {
             throw createError(400, "Chỉ có thể giải tán cuộc trò chuyện nhóm");
@@ -422,19 +558,25 @@ export class ConversationService {
         const memberIds = conv.member_ids?.map((id: any) => id.toString()) || [];
 
         // 1. Update database: is_active = false (keep member_ids for audit/history)
-        await this.conversationRepo.updateConversation(conversationId, { is_active: false });
+        const updatedConv = await this.conversationRepo.updateConversation(conversationId, { is_active: false });
 
-        // 2. Invalidate redis cache
-        await redisClient.del(`conversation:${conversationId}`);
+        // 2. Invalidate redis cache and remove from user conversations
+        await this.conversationCache.invalidateConversation(conversationId);
+        for (const mid of memberIds) {
+            await this.conversationCache.removeUserConv(mid, conversationId);
+        }
 
         // 3. Remove from Elasticsearch index
         triggerSync('conversations', SyncOperation.DELETE, { id: conversationId });
 
-        // 4. Emit socket event to all members in real-time
-        socketManager.emitToUsers(memberIds, "group_disbanded", {
+        // 4. Emit socket event to room BEFORE leaving
+        socketManager.emitToGroup(conversationId, "group_disbanded", {
             conversationId,
             disbanded_by: adminId,
             group_name: conv.name
         });
+        socketManager.leaveGroup(memberIds, conversationId);
+
+        return updatedConv;
     }
 }

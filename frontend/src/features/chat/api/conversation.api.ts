@@ -1,4 +1,5 @@
 import { http } from "@/lib/api";
+import { socketService } from "@/shared/services/socket.service";
 import type { Conversation } from "@/types";
 
 export const conversationApi = {
@@ -10,7 +11,7 @@ export const conversationApi = {
     },
 
     createGroup: async (name: string, member_ids: string[]): Promise<Conversation> => {
-        return http.post<Conversation>('/conversation', {
+        return socketService.emitWithAck<Conversation>('new_conversation', {
             type: 'group',
             name,
             member_ids,
@@ -18,7 +19,7 @@ export const conversationApi = {
     },
 
     createDirectConversation: async (member_ids: string[]): Promise<Conversation> => {
-        return http.post<Conversation>('/conversation', {
+        return socketService.emitWithAck<Conversation>('new_conversation', {
             type: 'utu',
             member_ids,
         });
@@ -32,36 +33,55 @@ export const conversationApi = {
         id: string,
         data: { name?: string; avatar_url?: string; primary_icon?: string }
     ): Promise<Conversation> => {
-        return http.put<Conversation>(`/conversation/${id}`, data);
+        return socketService.emitWithAck<Conversation>('conversation_updated', {
+            conversation_id: id,
+            ...data,
+        });
     },
 
     removeMembers: async (id: string, member_ids: string[]): Promise<Conversation> => {
-        return http.delete<Conversation>(`/conversation/${id}/members`, {
-            data: { member_ids },
+        return socketService.emitWithAck<Conversation>('members_kicked', {
+            conversation_id: id,
+            member_ids,
         });
     },
 
     assignAdmins: async (id: string, admin_ids: string[]): Promise<Conversation> => {
-        return http.post<Conversation>(`/conversation/${id}/admins`, { admin_ids });
+        return socketService.emitWithAck<Conversation>('admins_updated', {
+            conversation_id: id,
+            admin_ids,
+        });
     },
 
     leaveGroup: async (id: string): Promise<{ success: boolean }> => {
-        return http.post<{ success: boolean }>(`/conversation/${id}/leave`);
+        return socketService.emitWithAck<{ success: boolean }>('member_left', {
+            conversation_id: id,
+        });
     },
 
     addMembers: async (id: string, member_ids: string[]): Promise<Conversation> => {
-        return http.post<Conversation>(`/conversation/${id}/members`, { member_ids });
+        return socketService.emitWithAck<Conversation>('members_added', {
+            conversation_id: id,
+            member_ids,
+        });
     },
 
     blockConversation: async (id: string): Promise<Conversation> => {
-        return http.post<Conversation>(`/conversation/${id}/block`);
+        return socketService.emitWithAck<Conversation>('conversation_blocked', {
+            conversation_id: id,
+        });
     },
 
     unblockConversation: async (id: string): Promise<Conversation> => {
-        return http.post<Conversation>(`/conversation/${id}/unblock`);
+        return socketService.emitWithAck<Conversation>('conversation_unblocked', {
+            conversation_id: id,
+        });
     },
 
     disbandGroup: async (id: string): Promise<{ success: boolean }> => {
-        return http.delete<{ success: boolean }>(`/conversation/${id}`);
+        return socketService.emitWithAck<{ success: boolean }>('group_disbanded', {
+            conversation_id: id,
+        });
     },
 };
+

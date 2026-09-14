@@ -35,7 +35,7 @@ export const processFastJob = async (job: Job) => {
 
 export const fastWorker = new Worker(QueueName.FAST, processFastJob, {
     connection,
-    concurrency: 5
+    concurrency: 20
 });
 
 fastWorker.on('completed', (job) => {

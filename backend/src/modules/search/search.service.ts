@@ -63,7 +63,26 @@ export class SearchService {
         const { hits } = await this.client.search({
             index: 'users',
             query: {
-                multi_match: { query: keyword, fields: ['name', 'mssv', 'email', 'phone'], type: 'phrase_prefix' }
+                bool: {
+                    should: [
+                        {
+                            multi_match: {
+                                query: keyword,
+                                fields: ['name^3', 'mssv^3', 'email^2', 'phone'],
+                                type: 'phrase_prefix',
+                                boost: 2
+                            }
+                        },
+                        {
+                            multi_match: {
+                                query: keyword,
+                                fields: ['name^2', 'email'],
+                                fuzziness: 'AUTO'
+                            }
+                        }
+                    ],
+                    minimum_should_match: 1
+                }
             }
         });
 
@@ -87,7 +106,22 @@ export class SearchService {
                         { term: { 'member_ids': userId } }
                     ],
                     should: [
-                        { match_phrase_prefix: { name: keyword } },
+                        {
+                            match_phrase_prefix: {
+                                name: {
+                                    query: keyword,
+                                    boost: 2
+                                }
+                            }
+                        },
+                        {
+                            match: {
+                                name: {
+                                    query: keyword,
+                                    fuzziness: 'AUTO'
+                                }
+                            }
+                        },
                         ...(matchedUserIds.length > 0 ? [{ terms: { 'member_ids': matchedUserIds } }] : [])
                     ],
                     minimum_should_match: 1
@@ -126,10 +160,26 @@ export class SearchService {
             index: 'messages',
             query: {
                 bool: {
-                    must: [
-                        { match_phrase_prefix: { content: keyword } }
+                    filter: filters,
+                    should: [
+                        {
+                            match_phrase_prefix: {
+                                content: {
+                                    query: keyword,
+                                    boost: 2
+                                }
+                            }
+                        },
+                        {
+                            match: {
+                                content: {
+                                    query: keyword,
+                                    fuzziness: 'AUTO'
+                                }
+                            }
+                        }
                     ],
-                    filter: filters
+                    minimum_should_match: 1
                 }
             }
         });
