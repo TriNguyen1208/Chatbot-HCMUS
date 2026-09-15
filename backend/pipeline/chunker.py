@@ -23,12 +23,19 @@ class Chunker:
             chunk_overlap=75,  
         )
 
-        with open(settings.DATA_CACHE_DIR / "manifest.json", 'r', encoding='utf-8') as f:
-            self.manifest_data = json.load(f)
+        # with open(settings.DATA_CACHE_DIR / "manifest.json", 'r', encoding='utf-8') as f:
+        #     self.manifest_data = json.load(f)
+
+        self._update_manifest_data()
 
     def _update_manifest_data(self):
         with open(settings.DATA_CACHE_DIR / "manifest.json", 'r', encoding='utf-8') as f:
-            self.manifest_data = json.load(f)
+            manifest_data_list = json.load(f)
+
+        self.manifest_data = {}
+        for mnf in manifest_data_list:
+            self.manifest_data[mnf["file_hash"]] = mnf 
+        
     
     def _split_md_file(self, md_path: str) -> list[str]:
         with open(md_path, "r", encoding='utf-8') as f:
@@ -60,7 +67,8 @@ class Chunker:
         if (update_manifest_data): self._update_manifest_data()
 
         if (file_hash not in self.manifest_data):
-            raise Exception(f"Error: File hash '{file_hash}' not found in manifest.json!")
+            # raise Exception(f"Error: File hash '{file_hash}' not found in manifest.json!")
+            return
         
         manifest_item = self.manifest_data[file_hash]
 

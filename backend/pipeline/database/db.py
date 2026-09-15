@@ -3,10 +3,11 @@ import uuid
 import requests
 from dotenv import load_dotenv
 import os
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 from pathlib import Path
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, SparseVector, Prefetch, Fusion, FusionQuery
+from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, SparseVector, \
+    Prefetch, Fusion, FusionQuery, Filter, FieldCondition, MatchValue, Range
 from fastembed import SparseTextEmbedding, SparseEmbedding
 
 from config.settings import settings
@@ -18,7 +19,6 @@ TEI_URL = os.getenv("TEI_URL")
 RERANKER_URL = os.getenv("RERANKER_URL")
 
 class QdrantVectorDB:
-
     def __init__(self, qdrant_url: str = QDRANT_URL, api_key: str = QDRANT_API, tei_url: str = TEI_URL, sparse_embed_model: str = "Qdrant/bm25"):
         """
         Args:
@@ -298,10 +298,114 @@ class QdrantVectorDB:
 
         return filtered_points[:top_k]
 
+    @staticmethod
+    def _build_block_specs(hits: List[Dict[str, Any]], extra_chunks: int = 2) -> List[Dict[str, Any]]:
+        """
+        Build blocks' specification for chunks.
+
+        Args:
+            hits: list of chunks.
+            extra_chunks: number of extended chunks at 2 heads of each input chunk.
+        
+        Return:
+            list of blocks' specification
+        """
+        if not hits:
+            return []
+
+        grouped: Dict[str, List[Dict]] = {}
+        for item in hits:
+            grouped.setdefault(item["document_id"], []).append(item)
+
+        block_specs = []
+
+        for doc_id, items in grouped.items():
+            items.sort(key=lambda x: x["chunk_index"])
+
+            # Expand [index - extra, index + extra]
+            ranges = []
+            for item in items:
+                idx = item["chunk_index"]
+                ranges.append({
+                    "start": max(0, idx - extra_chunks),
+                    "end": idx + extra_chunks,
+                    "sample": item
+                })
+
+            # Merge overlapping blocks
+            merged_ranges = []
+            for r in ranges:
+                if not merged_ranges:
+                    merged_ranges.append(r)
+                else:
+                    prev = merged_ranges[-1]
+                    if r["start"] <= prev["end"] + 1:
+                        prev["end"] = max(prev["end"], r["end"])
+                    else:
+                        merged_ranges.append(r)
+
+            # 
+            for m in merged_ranges:
+                block_specs.append({
+                    "document_id": doc_id,
+                    "start_idx": m["start"],
+                    "end_idx": m["end"],
+                    "sample": m["sample"]
+                })
+
+        return block_specs
+
+    def _fetch_block_content(self, collection_name: str, spec: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a complete context block based on its specification.
+        """
+        scroll_filter = Filter(
+            must=[
+                FieldCondition(key="document_id", match=MatchValue(value=spec["document_id"])),
+                FieldCondition(key="chunk_index", range=Range(gte=spec["start_idx"], lte=spec["end_idx"]))
+            ]
+        )
+
+        records, _ = self.client.scroll(
+            collection_name=collection_name,
+            scroll_filter=scroll_filter,
+            limit=100,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        chunks = [r.payload for r in records if r.payload]
+        chunks.sort(key=lambda x: x["chunk_index"])
+
+        combined_text = "\n\n".join([c["content"] for c in chunks])
+
+        block = spec["sample"].copy()
+        block["content"] = combined_text
+        block["start_chunk_index"] = chunks[0]["chunk_index"] if chunks else spec["start_idx"]
+        block["end_chunk_index"] = chunks[-1]["chunk_index"] if chunks else spec["end_idx"]
+        return block
+
+    def build_context_blocks(
+        self, 
+        collection_name: str, 
+        raw_hits: List[Dict[Any, Any]],
+        extra_chunks: int = 2, 
+    ) -> List[Dict[str, Any]]:
+        """
+        Build blocks of context from input chunks (raw_hits) by extending chunks and merging consecutive chunks after extending.
+        """
+        if not raw_hits:
+            return []
+
+        block_specs = self._build_block_specs(raw_hits, extra_chunks=extra_chunks)
+        blocks = [self._fetch_block_content(collection_name, spec) for spec in block_specs]
+
+        return blocks
+
 # Testing ==========================
 if __name__ == "__main__":
     db = QdrantVectorDB()
-    COLLECTION_NAME = "TempCollection"
+    COLLECTION_NAME = "HCMUS-DATA"
 
     # 1. Init Collection
     db.init_collection(collection_name=COLLECTION_NAME)
@@ -316,8 +420,9 @@ if __name__ == "__main__":
     #     score_threshold=0.5,
     #     limit=3
     # )
-    results = db.search_with_rerank(COLLECTION_NAME, "Đăng ký đồ án tốt nghiệp 2022")
 
-    for res in results:
-        print(f"Score: {res.score:.4f} | Content: {res.payload.get('content')}")
-    print("Done!")
+    # results = db.search_with_rerank(COLLECTION_NAME, "Đăng ký đồ án tốt nghiệp 2022")
+
+    # for res in results:
+    #     print(f"Score: {res.score:.4f} | Content: {res.payload.get('content')}")
+    # print("Done!")
