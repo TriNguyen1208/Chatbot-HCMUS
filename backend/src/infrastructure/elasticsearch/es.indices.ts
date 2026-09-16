@@ -1,4 +1,4 @@
-import { esClient } from './es.client.js'; 
+import { esClient } from './es.client.js';
 import mongoose from 'mongoose';
 import { UserModel } from '#@/modules/user/user.entity.js';
 import { ConversationModel } from '#@/modules/conversation/conversation.entity.js';
@@ -28,9 +28,9 @@ const autocompleteSettings = {
     },
 };
 
-const syncDataToES = async (indexName: string, model: mongoose.Model<any>) => {
+const syncDataToES = async (indexName: string, model: mongoose.Model<any>, query: Record<string, any> = {}) => {
     try {
-        const docs = await model.find({}).lean();
+        const docs = await model.find(query).lean();
         if (docs.length > 0) {
             const operations = docs.flatMap(doc => {
                 const id = doc._id.toString();
@@ -51,24 +51,25 @@ const syncDataToES = async (indexName: string, model: mongoose.Model<any>) => {
 export const initializeIndices = async () => {
     try {
         // --- 1. Tạo index cho Users ---
-        const usersExists = await esClient.indices.exists({ index: USERS_INDEX }); 
-        if (!usersExists) { 
+        const usersExists = await esClient.indices.exists({ index: USERS_INDEX });
+        if (!usersExists) {
             await esClient.indices.create({
                 index: USERS_INDEX,
                 settings: autocompleteSettings,
-                mappings: { 
+                mappings: {
                     properties: {
-                        id: { type: 'keyword' }, 
-                        mssv: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' }, 
+                        id: { type: 'keyword' },
+                        student_id: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
                         name: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
                         email: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
                         phone: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
+                        avatar_url: { type: 'keyword' },
                     },
                 },
             });
-            console.log(`Created index: ${USERS_INDEX}`); 
+            console.log(`Created index: ${USERS_INDEX}`);
             await syncDataToES(USERS_INDEX, UserModel);
-        }
+        } 
 
         // --- 2. Tạo index cho Conversations ---
         const conversationsExists = await esClient.indices.exists({ index: CONVERSATIONS_INDEX });
@@ -78,14 +79,17 @@ export const initializeIndices = async () => {
                 settings: autocompleteSettings,
                 mappings: {
                     properties: {
-                        id: { type: 'keyword' }, 
+                        id: { type: 'keyword' },
                         name: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
                         member_ids: { type: 'keyword' },
+                        avatar_url: { type: 'keyword' },
+                        type: { type: 'keyword' },
+                        is_active: { type: 'boolean' },
                     },
                 },
             });
             console.log(`Created index: ${CONVERSATIONS_INDEX}`);
-            await syncDataToES(CONVERSATIONS_INDEX, ConversationModel);
+            await syncDataToES(CONVERSATIONS_INDEX, ConversationModel, { is_active: { $ne: false } });
         }
 
         // --- 3. Tạo index cho Messages ---
@@ -96,10 +100,10 @@ export const initializeIndices = async () => {
                 settings: autocompleteSettings,
                 mappings: {
                     properties: {
-                        id: { type: 'keyword' }, 
-                        conversation_id: { type: 'keyword' }, 
-                        sender_id: { type: 'keyword' }, 
-                        content: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' }, 
+                        id: { type: 'keyword' },
+                        conversation_id: { type: 'keyword' },
+                        sender_id: { type: 'keyword' },
+                        content: { type: 'text', analyzer: 'autocomplete_analyzer', search_analyzer: 'standard' },
                     },
                 },
             });
@@ -107,6 +111,6 @@ export const initializeIndices = async () => {
             await syncDataToES(MESSAGES_INDEX, MessageModel);
         }
     } catch (error) {
-        console.error('Error initializing Elasticsearch indices:', error); 
+        console.error('Error initializing Elasticsearch indices:', error);
     }
 };

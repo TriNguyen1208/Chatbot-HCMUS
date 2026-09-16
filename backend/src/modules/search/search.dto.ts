@@ -5,6 +5,7 @@ export interface SearchResult {
     id: string;
     name?: string;
     avatar_url?: string;
+    type?: string;
     text?: string;
     sender?: {
         id?: string;

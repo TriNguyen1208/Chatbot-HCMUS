@@ -3,7 +3,7 @@ import type { Client } from '@elastic/elasticsearch';
 import type { SearchResult } from './search.dto.js';
 
 export class SearchService {
-    constructor(private readonly client: Client = esClient) {}
+    constructor(private readonly client: Client = esClient) { }
 
     /**
      * Global Search across users, conversations, and messages.
@@ -33,6 +33,7 @@ export class SearchService {
                 id: conv.id,
                 name: conv.name,
                 avatar_url: conv.avatar_url,
+                type: conv.type,
             });
         }
 
@@ -68,7 +69,7 @@ export class SearchService {
                         {
                             multi_match: {
                                 query: keyword,
-                                fields: ['name^3', 'mssv^3', 'email^2', 'phone'],
+                                fields: ['name^3', 'student_id^3', 'email^2', 'phone'],
                                 type: 'phrase_prefix',
                                 boost: 2
                             }
@@ -129,7 +130,39 @@ export class SearchService {
             }
         });
 
-        return hits.hits.map((hit: any) => hit._source);
+        const conversations = hits.hits.map((hit: any) => hit._source);
+
+        const missingUserIds = new Set<string>();
+        for (const conv of conversations) {
+            if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+                const otherId = conv.member_ids.find((id: string) => id !== userId);
+                if (otherId) missingUserIds.add(otherId);
+            }
+        }
+
+        if (missingUserIds.size > 0) {
+            const userDocs = await this.client.mget({
+                index: 'users',
+                docs: Array.from(missingUserIds).map(id => ({ _id: id, _source: ['id', 'name', 'avatar_url'] }))
+            });
+            const userMap = new Map<string, any>();
+            (userDocs.docs || []).forEach((doc: any) => {
+                if (doc.found) userMap.set(doc._id, doc._source);
+            });
+
+            for (const conv of conversations) {
+                if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+                    const otherId = conv.member_ids.find((id: string) => id !== userId);
+                    if (otherId && userMap.has(otherId)) {
+                        const other = userMap.get(otherId);
+                        if (!conv.name) conv.name = other.name;
+                        if (!conv.avatar_url) conv.avatar_url = other.avatar_url;
+                    }
+                }
+            }
+        }
+
+        return conversations;
     }
 
     /**
@@ -209,6 +242,37 @@ export class SearchService {
         (convsResult.docs || []).forEach((doc: any) => {
             if (doc.found) convMap.set(doc._id, doc._source);
         });
+
+        const missingConvUserIds = new Set<string>();
+        for (const conv of convMap.values()) {
+            if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+                const otherId = conv.member_ids.find((id: string) => id !== userId);
+                if (otherId && !senderMap.has(otherId)) {
+                    missingConvUserIds.add(otherId);
+                }
+            }
+        }
+
+        if (missingConvUserIds.size > 0) {
+            const extraUserDocs = await this.client.mget({
+                index: 'users',
+                docs: Array.from(missingConvUserIds).map(id => ({ _id: id, _source: ['id', 'name', 'avatar_url'] }))
+            });
+            (extraUserDocs.docs || []).forEach((doc: any) => {
+                if (doc.found) senderMap.set(doc._id, doc._source);
+            });
+        }
+
+        for (const conv of convMap.values()) {
+            if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+                const otherId = conv.member_ids.find((id: string) => id !== userId);
+                if (otherId && senderMap.has(otherId)) {
+                    const other = senderMap.get(otherId);
+                    if (!conv.name) conv.name = other.name;
+                    if (!conv.avatar_url) conv.avatar_url = other.avatar_url;
+                }
+            }
+        }
 
         return messages.map((m: any) => {
             const sender = senderMap.get(m.sender_id);

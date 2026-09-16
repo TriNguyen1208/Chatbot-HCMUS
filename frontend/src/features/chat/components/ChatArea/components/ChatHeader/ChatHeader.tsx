@@ -7,12 +7,12 @@ import {
 import Image from "next/image";
 
 import { getRelativeTime } from "@/utils/formatTime";
-import { useChatStore } from "@/features/chat/stores/chatStore";
-import { useModalStore } from "@/features/chat/stores/modalStore";
 import { useChatHeader } from "./useChatHeader";
 
 const ChatHeader = () => {
   const {
+    toggleInfoPanel,
+    handleAvatarClick,
     activeConversation,
     displayName,
     displayAvatar,
@@ -20,19 +20,8 @@ const ChatHeader = () => {
     isOnline,
   } = useChatHeader();
 
-  const toggleInfoPanel = useChatStore(state => state.toggleInfoPanel);
-  const openUserProfileModal = useModalStore(state => state.openUserProfileModal);
-
-  if (!activeConversation) return null;
-
-  const handleAvatarClick = () => {
-    if (activeConversation.type === "utu" && otherMember) {
-      openUserProfileModal(otherMember.id);
-    } else {
-      toggleInfoPanel();
-    }
-  };
-
+  if(!activeConversation) return null;
+  
   return (
     <>
       <div className="flex flex-row items-center justify-between w-full h-[64px] border-b border-glass-border px-5 bg-surface/80 backdrop-blur-xl z-10 shadow-sm transition-colors duration-300">

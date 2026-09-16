@@ -8,8 +8,10 @@ const ChatArea = () => {
   const { activeConversation } = useChatArea();
   if (!activeConversation) return null;
 
+  const convKey = activeConversation.id || activeConversation.receiver_id || 'empty';
+
   return (
-    <div className="flex flex-col h-full w-full relative">
+    <div key={convKey} className="flex flex-col h-full w-full relative">
       <ChatHeader />
       <MessageList />
       <ChatInput />

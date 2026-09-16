@@ -56,7 +56,7 @@ export class ConversationFacade {
     ): Promise<Conversation> {
         const created = await this.conversationService.createConversation(userId, {
             ...data,
-            primary_icon: data.primary_icon || 'default'
+            primary_icon: data.primary_icon || '👍'
         });
         return created;
     }

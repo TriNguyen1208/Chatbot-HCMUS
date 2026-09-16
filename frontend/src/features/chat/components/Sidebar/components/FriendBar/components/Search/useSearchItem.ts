@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SearchResult } from "@/features/chat/api/search.api";
 import { conversationApi } from "@/features/chat/api/conversation.api";
@@ -18,6 +18,10 @@ export const useSearchItem = (item: SearchResult) => {
   const { users, requestUser } = useUserStore();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/group-chat') || pathname.startsWith('/chat')
+    ? pathname
+    : '/chat';
 
   // If item is a conversation, resolve its full data and avatar_url
   const isConversation = item.search_type === 'conversation';
@@ -88,7 +92,7 @@ export const useSearchItem = (item: SearchResult) => {
           avatar_url: conversation.avatar_url,
           type: conversation.type || 'utu'
         } as any);
-        router.push(`?conversation_id=${conversation.id}`);
+        router.push(`${basePath}?conversation_id=${conversation.id}`);
         setSearchMode(false);
       } catch (error) {
         console.error("Failed to create or fetch direct conversation:", error);
@@ -102,7 +106,7 @@ export const useSearchItem = (item: SearchResult) => {
       if (fullConv) {
         setActiveConversation(fullConv);
       }
-      router.push(`?conversation_id=${convId}`);
+      router.push(`${basePath}?conversation_id=${convId}`);
     } else if (item.search_type === 'message' && item.conversation) {
       const convId = item.conversation.id;
       setTargetMessageId(item.id);
@@ -111,7 +115,7 @@ export const useSearchItem = (item: SearchResult) => {
       if (fullConv) {
         setActiveConversation(fullConv);
       }
-      router.push(`?conversation_id=${convId}`);
+      router.push(`${basePath}?conversation_id=${convId}`);
     }
   };
 

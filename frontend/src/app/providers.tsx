@@ -21,7 +21,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // 1. Kiểm tra xác thực (gọi API /user/me) duy nhất 1 lần khi App khởi tạo
   useEffect(() => {
     let isMounted = true;
     const initAuth = async () => {
@@ -75,7 +74,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <QueryProvider>
           <SocketProvider>
             <div className="text-foreground antialiased w-full h-full">
-              {/* Nếu muốn màn hình loading lúc check auth thì có thể check isCheckingAuth ở đây */}
               {children}
             </div>
           </SocketProvider>

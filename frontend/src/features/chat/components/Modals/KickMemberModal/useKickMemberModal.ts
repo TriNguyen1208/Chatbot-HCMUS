@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
@@ -11,7 +10,6 @@ export const useKickMemberModal = (isOpen: boolean, onClose: () => void) => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const { user } = useAuthStore();
   const { users, requestUser } = useUserStore();
-  const queryClient = useQueryClient();
 
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,8 +74,6 @@ export const useKickMemberModal = (isOpen: boolean, onClose: () => void) => {
 
       const convId = activeConversation.id as string;
       await conversationApi.removeMembers(convId, selectedUserIds);
-
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
       const updatedMembers = (activeConversation.member_ids || []).filter(
         (m) => !selectedUserIds.includes(m)

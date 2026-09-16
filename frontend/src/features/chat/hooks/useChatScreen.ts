@@ -35,9 +35,11 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
   }, [activeConversation?.id, activeConversation?.last_message?.id, socket]);
 
   useEffect(() => {
+    const currentActive = useChatStore.getState().activeConversation;
+
     if (cId) {
-        const currentActiveId = activeConversation?.id;
-        const isMissingDetails = !activeConversation?.member_ids || activeConversation.member_ids.length === 0;
+        const currentActiveId = currentActive?.id;
+        const isMissingDetails = !currentActive?.member_ids || currentActive.member_ids.length === 0;
         if (currentActiveId !== cId || isMissingDetails) {
             const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
             let conversations: Conversation[] = [];
@@ -46,7 +48,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                     conversations = conversations.concat(data.pages.flat());
                 }
             });
-            const found = conversations.find(c => (c.id === cId || c.id === cId));
+            const found = conversations.find(c => c.id === cId);
             
             if (found) {
                 setActiveConversation(found);
@@ -62,7 +64,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         }
     } 
     else if (receiverId) {
-        const currentActiveReceiverId = activeConversation?.receiver_id;
+        const currentActiveReceiverId = currentActive?.receiver_id;
         
         // Find in all possible conversation caches ('utu', 'group', or undefined)
         const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
@@ -76,7 +78,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         const found = conversations.find(c => c.type === 'utu' && c.member_ids?.some(m => m === receiverId));
         
         if (found) {
-            const currentActiveId = activeConversation?.id;
+            const currentActiveId = currentActive?.id;
             if (currentActiveId !== found.id) {
                 setActiveConversation(found);
             }
@@ -102,11 +104,11 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         }
     }
     else {
-        if (activeConversation) {
+        if (useChatStore.getState().activeConversation) {
             setActiveConversation(null);
         }
     }
-  }, [cId, receiverId, router, activeConversation, queryClient, setActiveConversation, fallbackRoute]);
+  }, [cId, receiverId, router, queryClient, setActiveConversation, fallbackRoute]);
 
   return { activeConversation };
 };

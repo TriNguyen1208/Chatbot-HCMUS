@@ -17,9 +17,7 @@ export const useFriendMessageList = () => {
   } else if (pathname.includes('/direct-chat')) {
     typeFilter = 'utu';
   }
-  
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useConversationsQuery(typeFilter);
-  
   const router = useRouter();
   const { user } = useAuthStore();
   const { socket } = useSocketContext();
@@ -57,7 +55,10 @@ export const useFriendMessageList = () => {
 
   const handleConversationClick = (conv: Conversation) => {
     setActiveConversation(conv);
-    router.push(`?conversation_id=${conv.id}`);
+    const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/group-chat') || pathname.startsWith('/chat')
+      ? pathname
+      : '/chat';
+    router.push(`${basePath}?conversation_id=${conv.id}`);
   };
 
   return {

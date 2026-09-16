@@ -84,7 +84,7 @@ export const QuickActions: React.FC<{
         </div>
         <span className="text-[11px] text-text-secondary group-hover:text-brand-primary">Thông báo</span>
       </button>
-      {activeConversation.type === "group" && (
+      {activeConversation.type === "group" && isAdmin && (
         <button 
           className="flex flex-col items-center gap-1 group cursor-pointer"
           onClick={() => setCreateGroupOpen(true)}

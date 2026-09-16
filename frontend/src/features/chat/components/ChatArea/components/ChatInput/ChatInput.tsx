@@ -35,7 +35,6 @@ const ChatInput = () => {
   } = useChatInput();
 
   if (isBlocked) {
-
     return (
       <div className="w-full flex flex-col px-4 pb-6 pt-2 bg-transparent">
         <div className="w-full max-w-3xl mx-auto flex items-center justify-between gap-4 p-4 bg-surface/90 backdrop-blur-xl border border-glass-border shadow-lg rounded-2xl animate-in fade-in duration-200">

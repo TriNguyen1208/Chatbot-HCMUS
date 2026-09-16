@@ -1,7 +1,5 @@
 "use client";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useSearchStore } from "@/features/chat/stores/searchStore";
 import { useChatHeader } from "@/features/chat/components/ChatArea/components/ChatHeader/useChatHeader";
@@ -17,8 +15,6 @@ const MAX_WIDTH = 500;
 const DEFAULT_WIDTH = 320;
 
 export const useConversationInfo = () => {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const showInfoPanel = useChatStore((state) => state.showInfoPanel);
   const toggleInfoPanel = useChatStore((state) => state.toggleInfoPanel);
   const setTargetMessageId = useSearchStore((state) => state.setTargetMessageId);
@@ -68,12 +64,7 @@ export const useConversationInfo = () => {
       const convId = activeConversation.id as string;
       await conversationApi.disbandGroup(convId);
 
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["conversations", "group"] });
-
       setShowDisbandModal(false);
-      useChatStore.getState().setActiveConversation(null);
-      router.push("/group-chat");
     } catch (error: unknown) {
       console.error("Lỗi khi giải tán nhóm:", error);
       alert((error as Error)?.message || "Không thể giải tán nhóm");
@@ -90,7 +81,6 @@ export const useConversationInfo = () => {
       const res = await conversationApi.blockConversation(activeConversation.id as string);
       const updatedConv = (res as any)?.data || res;
       useChatStore.getState().setActiveConversation(updatedConv);
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setShowBlockModal(false);
     } catch (error: unknown) {
       console.error("Lỗi khi chặn người dùng:", error);
@@ -107,7 +97,6 @@ export const useConversationInfo = () => {
       const res = await conversationApi.unblockConversation(activeConversation.id as string);
       const updatedConv = (res as any)?.data || res;
       useChatStore.getState().setActiveConversation(updatedConv);
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (error: unknown) {
       console.error("Lỗi khi bỏ chặn người dùng:", error);
       alert((error as Error)?.message || "Không thể bỏ chặn người dùng");
@@ -260,6 +249,5 @@ export const useConversationInfo = () => {
     handleDisbandGroup,
     handleBlockUser,
     handleUnblockUser,
-    queryClient,
   };
 };

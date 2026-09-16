@@ -2,12 +2,12 @@ import { Router } from "express";
 import asyncHandler from "#@/shared/middlewares/async-handler.js";
 import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
-import { 
-    CreateConversationSchema, 
-    GetConversationParamSchema, 
+import {
+    CreateConversationSchema,
+    GetConversationParamSchema,
     AddMembersSchema,
     RemoveMemberSchema,
-    AssignAdminSchema, 
+    AssignAdminSchema,
     GetListQuerySchema,
     UpdateConversationSchema
 } from "./conversation.dto.js";

@@ -5,8 +5,6 @@ import type { Conversation } from "@/types";
 import { chatCache } from "../../utils/chat-cache.util";
 import { useChatStore } from "../../stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
-import { conversationApi } from "@/features/chat/api/conversation.api";
-
 export const registerConversationHandlers = (
   socket: Socket,
   queryClient: QueryClient,
@@ -14,8 +12,6 @@ export const registerConversationHandlers = (
 ) => {
   const onNewConversation = (conversation: Conversation) => {
     chatCache.addNewConversation(queryClient, conversation);
-
-    // Fix lỗi người dùng tạo đoạn chat mới lần đầu tiên không nhảy URL và ActiveConversation
     const { activeConversation, setActiveConversation } = useChatStore.getState();
     if (activeConversation && !activeConversation.id) {
       if (
@@ -23,76 +19,52 @@ export const registerConversationHandlers = (
         conversation.member_ids?.some((m) => m === activeConversation.receiver_id)
       ) {
         setActiveConversation(conversation);
-        router.replace(`?conversation_id=${conversation.id}`);
+        const basePath = (typeof window !== 'undefined' && window.location.pathname) || '/chat';
+        router.replace(`${basePath}?conversation_id=${conversation.id}`);
       }
     }
   };
 
   const onMembersAdded = (data: { conversationId: string; newMemberIds: string[] }) => {
+    // Cập nhật danh sách thành viên trực tiếp vào cache từ payload socket
     chatCache.addMembersToConversation(queryClient, data.conversationId, data.newMemberIds);
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
-    conversationApi
-      .getConversationById(data.conversationId)
-      .then((fullConv) => {
-        if (fullConv) chatCache.updateConversationInfo(queryClient, fullConv);
-      })
-      .catch(console.error);
   };
 
   const onMembersKicked = (data: { conversationId: string; memberIds: string[] }) => {
-    chatCache.removeMembersFromConversation(queryClient, data.conversationId, data.memberIds);
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
     const { user } = useAuthStore.getState();
     const { activeConversation, setActiveConversation } = useChatStore.getState();
 
     if (user?.id && data.memberIds.includes(user.id)) {
+      // Chính user bị kick -> Xoá conversation khỏi cache
+      chatCache.removeConversation(queryClient, data.conversationId);
       if (activeConversation?.id === data.conversationId) {
         setActiveConversation(null);
-        router.push("/group-chat");
       }
     } else {
-      conversationApi
-        .getConversationById(data.conversationId)
-        .then((fullConv) => {
-          if (fullConv) chatCache.updateConversationInfo(queryClient, fullConv);
-        })
-        .catch(console.error);
+      // Thành viên khác bị kick -> Cập nhật loại bỏ khỏi cache
+      chatCache.removeMembersFromConversation(queryClient, data.conversationId, data.memberIds);
     }
   };
 
   const onAdminsUpdated = (data: { conversationId: string; adminIds: string[] }) => {
+    // Cập nhật danh sách admin trực tiếp vào cache từ payload socket
     chatCache.updateAdminsInConversation(queryClient, data.conversationId, data.adminIds);
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
-    conversationApi
-      .getConversationById(data.conversationId)
-      .then((fullConv) => {
-        if (fullConv) chatCache.updateConversationInfo(queryClient, fullConv);
-      })
-      .catch(console.error);
   };
 
   const onMemberLeft = (data: { conversationId: string; userId: string }) => {
-    chatCache.removeMembersFromConversation(queryClient, data.conversationId, [data.userId]);
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
     const { user } = useAuthStore.getState();
     const { activeConversation, setActiveConversation } = useChatStore.getState();
 
     if (user?.id && data.userId === user.id) {
+      // Chính user rời nhóm -> Xoá conversation khỏi cache
+      chatCache.removeConversation(queryClient, data.conversationId);
       if (activeConversation?.id === data.conversationId) {
         setActiveConversation(null);
-        router.push("/group-chat");
+        router.push(`/chat`);
       }
     } else {
-      conversationApi
-        .getConversationById(data.conversationId)
-        .then((fullConv) => {
-          if (fullConv) chatCache.updateConversationInfo(queryClient, fullConv);
-        })
-        .catch(console.error);
+      // Thành viên khác rời nhóm -> Cập nhật loại bỏ khỏi cache
+      chatCache.removeMembersFromConversation(queryClient, data.conversationId, [data.userId]);
     }
   };
 
@@ -114,11 +86,11 @@ export const registerConversationHandlers = (
     const { activeConversation, setActiveConversation } = useChatStore.getState();
     if (activeConversation && activeConversation.id === data.conversationId) {
       setActiveConversation(null);
-      router.push("/group-chat");
       const { user } = useAuthStore.getState();
       if (user?.id !== data.disbanded_by) {
         alert(`Nhóm "${data.group_name || "này"}" đã bị Quản trị viên giải tán.`);
       }
+      router.push('/chat')
     }
   };
 

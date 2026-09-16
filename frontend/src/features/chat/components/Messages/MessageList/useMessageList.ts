@@ -4,35 +4,43 @@ import { useInView } from "react-intersection-observer";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useSearchStore } from "@/features/chat/stores/searchStore";
-import { useQueryClient } from "@tanstack/react-query";
 import { messageApi } from "@/features/chat/api/message.api";
 import { useMessagesQuery } from "@/features/chat/hooks/useChatQueries";
+import type { Message } from "@/types";
+import { useState } from "react";
 
 export const useMessageList = () => {
   const { activeConversation, typingUsers } = useChatStore();
   const { user } = useAuthStore();
   const { targetMessageId, setTargetMessageId } = useSearchStore();
-  const queryClient = useQueryClient();
+
+  const [contextMessages, setContextMessages] = useState<Message[] | null>(null);
 
   const activeConversationId = activeConversation?.id;
   const convId = activeConversationId;
+
+  // Reset context view when switching conversations
+  useEffect(() => {
+    setContextMessages(null);
+  }, [convId]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useMessagesQuery(activeConversationId);
 
   const { ref, inView } = useInView();
 
-  const messages = data?.pages.flatMap((page) => page) || [];
+  const rawMessages = data?.pages.flatMap((page) => page) || [];
+  const messages = contextMessages || rawMessages;
 
   const currentTypingUsers = (convId ? (typingUsers[convId] || []) : []).filter(
     (u) => u.userId !== user?.id
   );
 
   useEffect(() => {
-    if (inView && hasNextPage && !isFetchingNextPage && messages.length > 0) {
+    if (!contextMessages && inView && hasNextPage && !isFetchingNextPage && messages.length > 0) {
       fetchNextPage();
     }
-  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage, messages.length]);
+  }, [contextMessages, inView, hasNextPage, isFetchingNextPage, fetchNextPage, messages.length]);
 
   const watermarksByMessageId = useMemo(() => {
     const result: Record<string, { type: 'delivered' | 'read'; userId: string }[]> = {};
@@ -105,16 +113,30 @@ export const useMessageList = () => {
   useEffect(() => {
     const fetchContextAndScroll = async () => {
       if (targetMessageId && convId) {
+        // 1. Kiểm tra xem tin nhắn đã có sẵn trong danh sách tin nhắn hiện tại chưa
+        const isAlreadyLoaded = rawMessages.some(
+          (m) => String(m.id || (m as any)._id) === String(targetMessageId)
+        );
+
+        if (isAlreadyLoaded) {
+          setTimeout(() => {
+            const el = document.getElementById(`msg-${targetMessageId}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.classList.add("bg-brand-primary/20", "transition-colors", "duration-500");
+              setTimeout(() => {
+                el.classList.remove("bg-brand-primary/20");
+              }, 3000);
+            }
+          }, 150);
+          setTargetMessageId(null);
+          return;
+        }
+
+        // 2. Nếu là tin nhắn cũ ở xa, tải ngữ cảnh và lưu vào local state (KHÔNG ghi đè React Query cache)
         try {
           const res = await messageApi.getContextMessages(convId, targetMessageId);
-          const contextMessages = res;
-
-          queryClient.setQueryData(["messages", convId], () => {
-            return {
-              pages: [contextMessages],
-              pageParams: [undefined],
-            };
-          });
+          setContextMessages(res);
 
           setTimeout(() => {
             const el = document.getElementById(`msg-${targetMessageId}`);
@@ -134,14 +156,16 @@ export const useMessageList = () => {
       }
     };
     fetchContextAndScroll();
-  }, [targetMessageId, convId, queryClient, setTargetMessageId]);
+  }, [targetMessageId, convId, rawMessages, setTargetMessageId]);
 
   return {
     messages,
     isLoadingMessages: isLoading,
-    hasMoreMessages: hasNextPage,
+    hasMoreMessages: contextMessages ? false : hasNextPage,
     ref,
     currentTypingUsers,
     watermarksByMessageId,
+    isViewingContext: Boolean(contextMessages),
+    clearContextMessages: () => setContextMessages(null),
   };
 };

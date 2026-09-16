@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
@@ -11,7 +10,6 @@ export const useAssignAdminModal = (isOpen: boolean, onClose: () => void) => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const { user } = useAuthStore();
   const { users, requestUser } = useUserStore();
-  const queryClient = useQueryClient();
 
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,8 +69,6 @@ export const useAssignAdminModal = (isOpen: boolean, onClose: () => void) => {
 
       const convId = activeConversation.id as string;
       await conversationApi.assignAdmins(convId, selectedAdminIds);
-
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
 
       const newlyPromoted = (activeConversation.member_ids || []).filter((m: string) =>
         selectedAdminIds.includes(m)

@@ -2,7 +2,7 @@ import { type IConversationRepository } from "./conversation.repository.js";
 import type { CreateConversationDto, UpdateConversationDto } from "./conversation.dto.js";
 import type { Conversation, ConversationDB } from "./conversation.entity.js";
 import createError from "http-errors";
-import { socketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import { SocketManager, socketManager } from "#@/infrastructure/websocket/socket.manager.js";
 import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
@@ -74,7 +74,7 @@ export class ConversationService {
                 data.avatar_url = creator.avatar_url;
             }
         }
-        
+
         const newConversation: Partial<ConversationDB> = {
             ...data,
             member_ids: Array.from(members),
@@ -103,6 +103,7 @@ export class ConversationService {
         const new_members = created.member_ids?.map((member_id) => member_id.toString()) || [];
         if (created.id) {
             socketManager.joinGroup(new_members, created.id);
+            socketManager.emitToUsers(new_members, "new_conversation", created);
             socketManager.emitToGroup(created.id, "new_conversation", created);
         }
 
@@ -133,11 +134,11 @@ export class ConversationService {
             }
             return existing;
         }
-        
+
         return this.createConversation(userId, {
             type: 'self',
             member_ids: [],
-            primary_icon: 'default'
+            primary_icon: '👍'
         });
     }
 
@@ -160,7 +161,7 @@ export class ConversationService {
         if (!conversation || conversation.is_active === false) {
             throw createError(404, "Cuộc trò chuyện này đã bị giải tán hoặc không tồn tại");
         }
-        
+
         const memberIds = conversation.member_ids?.map((id: any) => id.toString()) || [];
         if (!memberIds.includes(userId)) {
             throw createError(403, "You do not have permission to view this conversation");
@@ -242,7 +243,7 @@ export class ConversationService {
      */
     async updateConversation(userId: string, conversationId: string, data: UpdateConversationDto): Promise<any> {
         const conv = await this.getConversationById(conversationId, userId);
-        
+
         let updatePayload: Partial<ConversationDB> = {};
 
         if (conv.type === 'utu') {
@@ -272,7 +273,7 @@ export class ConversationService {
 
         // Emit real-time socket event to room (O(1))
         socketManager.emitToGroup(conversationId, "conversation_updated", updatedConv);
-        
+
         return updatedConv;
     }
 
@@ -296,7 +297,7 @@ export class ConversationService {
         if (membersToAdd.length === 0) throw createError(400, "All users are already members");
 
         const updatedConv = await this.conversationRepo.addMembers(conversationId, membersToAdd);
-        
+
         // Update cache
         if (updatedConv) {
             await this.conversationCache.setConversation(conversationId, updatedConv);
@@ -307,12 +308,7 @@ export class ConversationService {
 
         // Join new members into room
         socketManager.joinGroup(membersToAdd, conversationId);
-
-        // Notify each new member with full conversation data
-        for (const mid of membersToAdd) {
-            socketManager.emitToUser(mid, "new_conversation", updatedConv);
-        }
-
+        socketManager.emitToUsers(membersToAdd, "new_conversation", updatedConv)
         // Broadcast to group room (O(1))
         socketManager.emitToGroup(conversationId, "members_added", { conversationId, newMemberIds: membersToAdd });
 
@@ -415,7 +411,7 @@ export class ConversationService {
 
         const adminIds = conv.admin_ids?.map((id) => id.toString()) || [];
         const memberIds = conv.member_ids?.map((id) => id.toString()) || [];
-        
+
         const isAdmin = adminIds.includes(userId);
         const adminCount = adminIds.length;
         const memberCount = memberIds.length;
@@ -466,7 +462,7 @@ export class ConversationService {
     async updateWatermark(conversationId: string, userId: string, messageId: string, type: 'delivered' | 'read'): Promise<Conversation | null> {
         // Ensure conversation exists and user is a member
         await this.getConversationById(conversationId, userId);
-        
+
         const updated = await this.conversationRepo.updateWatermark(conversationId, userId, messageId, type);
         if (updated) {
             await this.conversationCache.setConversation(conversationId, updated);

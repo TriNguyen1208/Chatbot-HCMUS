@@ -8,11 +8,11 @@ import { userApi } from "../api/user.api";
 export const useConversationsQuery = (type?: 'utu' | 'group') => {
   return useInfiniteQuery({
     queryKey: type ? ['conversations', type] : ['conversations'],
-    
+
     queryFn: async ({ pageParam }) => {
       const res = await conversationApi.getConversations(20, pageParam as string | undefined, type);
       const conversations = res;
-      
+
       const userStoreState = useUserStore.getState();
       const existingUsers = userStoreState.users;
 
@@ -29,9 +29,9 @@ export const useConversationsQuery = (type?: 'utu' | 'group') => {
 
       return conversations;
     },
-    
+
     initialPageParam: undefined as string | undefined,
-    
+
     getNextPageParam: (lastPage: Conversation[]) => {
       if (lastPage && lastPage.length === 20) {
         const lastItem = lastPage[lastPage.length - 1];
@@ -45,16 +45,16 @@ export const useConversationsQuery = (type?: 'utu' | 'group') => {
 export const useMessagesQuery = (conversationId?: string) => {
   return useInfiniteQuery({
     queryKey: ['messages', conversationId],
-    
+
     queryFn: async ({ pageParam }) => {
       if (!conversationId) return [];
-      
+
       const res = await messageApi.getMessages(conversationId, 20, pageParam as string | undefined);
       return res;
     },
-    
+
     initialPageParam: undefined as string | undefined,
-    
+
     getNextPageParam: (lastPage: Message[]) => {
       if (lastPage && lastPage.length === 20) {
         const lastItem = lastPage[lastPage.length - 1];
@@ -62,7 +62,7 @@ export const useMessagesQuery = (conversationId?: string) => {
       }
       return undefined;
     },
-    
+
     enabled: !!conversationId,
   });
 };

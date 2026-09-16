@@ -7,8 +7,8 @@ export enum SyncOperation {
 }
 
 const ES_MAPPINGS: Record<string, string[]> = {
-    users: ['id', 'mssv', 'name', 'email', 'phone'],
-    conversations: ['id', 'name', 'member_ids'],
+    users: ['id', 'student_id', 'name', 'email', 'phone', 'avatar_url'],
+    conversations: ['id', 'name', 'member_ids', 'avatar_url', 'type', 'is_active'],
     messages: ['id', 'conversation_id', 'sender_id', 'content']
 };
 

@@ -23,6 +23,10 @@ export const useMessageItem = (message: Message, options?: UseMessageItemOptions
   const users = useUserStore(state => state.users);
   const senderUser = users[message.sender_id || ''];
 
+  const senderId = message.sender_id;
+  const isMe = senderId === user?.id;
+  const isSystem = message.type === 'system' || senderId === 'system';
+
   useEffect(() => {
     if (message.sender_id && !senderUser) {
       requestUser(message.sender_id);
@@ -30,18 +34,14 @@ export const useMessageItem = (message: Message, options?: UseMessageItemOptions
   }, [message.sender_id, senderUser, requestUser]);
 
   useEffect(() => {
-    if (watermarks) {
+    if (isMe && watermarks) {
       watermarks.forEach(w => {
         if (w.userId && !users[w.userId]) {
           requestUser(w.userId);
         }
       });
     }
-  }, [watermarks, users, requestUser]);
-
-  const senderId = message.sender_id;
-  const isMe = senderId === user?.id;
-  const isSystem = message.type === 'system' || senderId === 'system';
+  }, [isMe, watermarks, users, requestUser]);
 
   const timeDisplay = message.created_at ? format(new Date(message.created_at), "h:mm a") : "";
 

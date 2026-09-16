@@ -245,8 +245,8 @@ export const MessageItem = ({ message, watermarks, isLastMessage = false }: Mess
           </div>
         )}
         
-        {/* Read receipts: Always visible if someone's latest read message is this one */}
-        {watermarks && watermarks.some(w => w.type === 'read') && (
+        {/* Read receipts: Only visible for sender (isMe) if someone's latest read message is this one */}
+        {isMe && watermarks && watermarks.some(w => w.type === 'read') && (
           <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
             {watermarks.filter(w => w.type === 'read').map((w, idx) => {
               const wUser = users[w.userId];
@@ -270,7 +270,7 @@ export const MessageItem = ({ message, watermarks, isLastMessage = false }: Mess
         )}
 
         {/* Sent / Delivered status for my messages: shown when isLastMessage or when message details clicked */}
-        {shouldShowDetails && isMe && (!watermarks || !watermarks.some(w => w.type === 'read')) && (
+        {isMe && shouldShowDetails && (!watermarks || !watermarks.some(w => w.type === 'read')) && (
           <div className="flex flex-row justify-end items-center gap-1 mt-1 mr-1">
             {watermarks && watermarks.some(w => w.type === 'delivered') ? (
               <span title="Đã nhận" className="flex items-center gap-1 text-[11px] text-brand-primary font-medium">

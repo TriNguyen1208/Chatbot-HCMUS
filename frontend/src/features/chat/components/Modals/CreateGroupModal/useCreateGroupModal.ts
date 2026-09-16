@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/features/chat/api/user.api";
 import { User } from "@/features/chat/types";
 import { conversationApi } from "@/features/chat/api/conversation.api";
@@ -13,8 +11,6 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
   const { activeConversation, setActiveConversation } = useChatStore();
   const { user } = useAuthStore();
   const { users, requestUser } = useUserStore();
-  const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -97,6 +93,8 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
     );
   };
 
+  const isAdmin = Boolean(activeConversation?.admin_ids?.some((adminId) => String(adminId) === String(user?.id)));
+
   const handleCreateGroup = async () => {
     if (selectedUserIds.length === 0 || isSubmitting) return;
 
@@ -104,11 +102,12 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       setIsSubmitting(true);
       // 1. NẾU ĐANG LÀ NHÓM SẴN: THỰC HIỆN THÊM THÀNH VIÊN
       if (activeConversation?.type === "group" && activeConversation.id) {
+        if (!isAdmin) {
+          alert("Chỉ Quản trị viên mới có quyền thêm thành viên vào nhóm");
+          onClose();
+          return;
+        }
         await conversationApi.addMembers(activeConversation.id, selectedUserIds);
-        
-        // Cập nhật lại cache để load danh sách mới nhất
-        queryClient.invalidateQueries({ queryKey: ["conversations"] });
-        
         onClose();
         return;
       }
@@ -125,8 +124,6 @@ export const useCreateGroupModal = (isOpen: boolean, onClose: () => void) => {
       const newGroup = res;
 
       setActiveConversation(newGroup);
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-
       onClose();
     } catch (error) {
       console.error("Lỗi tạo nhóm:", error);

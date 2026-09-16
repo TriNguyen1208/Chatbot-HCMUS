@@ -9,7 +9,6 @@ import { checkSystemLoad } from "#@/shared/utils/system-monitor.util.js";
 import type { SendMessageDto } from "./message.dto.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
 import { MessageCache } from "./message.cache.js";
-import { Types } from "mongoose";
 
 // This class contains all message processing logic (Business Logic)
 export class MessageService {
@@ -70,16 +69,16 @@ export class MessageService {
             tag_ids: payload.tag_ids,
             created_at: new Date()
         };
-        // Step 3: Check system load
-        const isOverloaded = await checkSystemLoad();
-        if (isOverloaded) {
-            console.warn(`[MessageService] The system is busy. Pushing messages to the queue for conversation ${conversation_id}`);
-            await queueService.addJob('create_message', messageData);
-            return {
-                status: 'queued',
-                message: "The message is being processed in the background due to the system being busy."
-            };
-        }
+        // // Step 3: Check system load
+        // const isOverloaded = await checkSystemLoad();
+        // if (isOverloaded) {
+        //     console.warn(`[MessageService] The system is busy. Pushing messages to the queue for conversation ${conversation_id}`);
+        //     await queueService.addJob('create_message', messageData);
+        //     return {
+        //         status: 'queued',
+        //         message: "The message is being processed in the background due to the system being busy."
+        //     };
+        // }
 
         // Step 4: Save Database directly
         const savedMessage = await this.messageRepo.create(messageData);
@@ -112,92 +111,92 @@ export class MessageService {
      * 4. Trả về ngay đối tượng Message cho Socket Handler để gọi ACK (<1.5ms).
      * 5. Ghi ngầm vào MongoDB và Elasticsearch trong Event Loop mà không block client.
      */
-    async sendMessageFast(sender_id: string, payload: SendMessageDto): Promise<Message> {
-        let conversation_id = payload.conversation_id;
-        if (!conversation_id && payload.receiver_id) {
-            const conv = await this.conversationFacade.createConversation(sender_id, {
-                type: 'utu',
-                member_ids: [sender_id, payload.receiver_id.toString()]
-            });
-            conversation_id = conv.id!.toString();
-        }
+    // async sendMessageFast(sender_id: string, payload: SendMessageDto): Promise<Message> {
+    //     let conversation_id = payload.conversation_id;
+    //     if (!conversation_id && payload.receiver_id) {
+    //         const conv = await this.conversationFacade.createConversation(sender_id, {
+    //             type: 'utu',
+    //             member_ids: [sender_id, payload.receiver_id.toString()]
+    //         });
+    //         conversation_id = conv.id!.toString();
+    //     }
 
-        if (!conversation_id) {
-            throw createHttpError.BadRequest("conversation_id or receiver_id is required");
-        }
+    //     if (!conversation_id) {
+    //         throw createHttpError.BadRequest("conversation_id or receiver_id is required");
+    //     }
 
-        const convIdStr = conversation_id.toString();
+    //     const convIdStr = conversation_id.toString();
 
-        // Kiểm tra quyền thành viên (O(1) từ Redis/Facade)
-        const conv = await this.conversationFacade.getConversationById(convIdStr, sender_id);
-        if (!conv) {
-            throw createHttpError.Forbidden("You are not a member of this conversation");
-        }
-        if (conv.is_active === false) {
-            throw createHttpError.Forbidden("Nhóm này đã bị giải tán, không thể gửi tin nhắn");
-        }
-        if (conv.block) {
-            throw createHttpError.Forbidden("Cuộc trò chuyện đang bị chặn, không thể gửi tin nhắn");
-        }
+    //     // Kiểm tra quyền thành viên (O(1) từ Redis/Facade)
+    //     const conv = await this.conversationFacade.getConversationById(convIdStr, sender_id);
+    //     if (!conv) {
+    //         throw createHttpError.Forbidden("You are not a member of this conversation");
+    //     }
+    //     if (conv.is_active === false) {
+    //         throw createHttpError.Forbidden("Nhóm này đã bị giải tán, không thể gửi tin nhắn");
+    //     }
+    //     if (conv.block) {
+    //         throw createHttpError.Forbidden("Cuộc trò chuyện đang bị chặn, không thể gửi tin nhắn");
+    //     }
 
-        // Sinh trước ObjectId trên RAM
-        const pregeneratedId = new Types.ObjectId();
-        const createdAt = new Date();
+    //     // Sinh trước ObjectId trên RAM
+    //     const pregeneratedId = new Types.ObjectId();
+    //     const createdAt = new Date();
 
-        const messageData: MessageDB = {
-            _id: pregeneratedId,
-            sender_id,
-            conversation_id: convIdStr,
-            content: payload.content,
-            type: payload.type ?? 'text',
-            status: payload.status ?? 'sent',
-            image: payload.image,
-            video: payload.video,
-            tag_ids: payload.tag_ids,
-            created_at: createdAt
-        };
+    //     const messageData: MessageDB = {
+    //         _id: pregeneratedId,
+    //         sender_id,
+    //         conversation_id: convIdStr,
+    //         content: payload.content,
+    //         type: payload.type ?? 'text',
+    //         status: payload.status ?? 'sent',
+    //         image: payload.image,
+    //         video: payload.video,
+    //         tag_ids: payload.tag_ids,
+    //         created_at: createdAt
+    //     };
 
-        const domainMessage: Message = {
-            id: pregeneratedId.toString(),
-            sender_id,
-            conversation_id: convIdStr,
-            content: payload.content,
-            type: payload.type ?? 'text',
-            status: payload.status ?? 'sent',
-            image: payload.image,
-            video: payload.video,
-            tag_ids: payload.tag_ids,
-            created_at: createdAt
-        };
+    //     const domainMessage: Message = {
+    //         id: pregeneratedId.toString(),
+    //         sender_id,
+    //         conversation_id: convIdStr,
+    //         content: payload.content,
+    //         type: payload.type ?? 'text',
+    //         status: payload.status ?? 'sent',
+    //         image: payload.image,
+    //         video: payload.video,
+    //         tag_ids: payload.tag_ids,
+    //         created_at: createdAt
+    //     };
 
-        // 1. Cập nhật cache động (50 tin nhắn mới nhất)
-        const formattedSaved = {
-            ...domainMessage,
-            sender: domainMessage.type === 'system' ? { id: 'system', name: 'System' } : domainMessage.sender_id?.toString()
-        };
-        await this.messageCache.pushRecent(convIdStr, formattedSaved);
+    //     // 1. Cập nhật cache động (50 tin nhắn mới nhất)
+    //     const formattedSaved = {
+    //         ...domainMessage,
+    //         sender: domainMessage.type === 'system' ? { id: 'system', name: 'System' } : domainMessage.sender_id?.toString()
+    //     };
+    //     await this.messageCache.pushRecent(convIdStr, formattedSaved);
 
-        // 2. Phát Socket O(1) vào Room cho các thành viên
-        socketManager.emitToGroup(convIdStr, "new_message", domainMessage);
+    //     // 2. Phát Socket O(1) vào Room cho các thành viên
+    //     socketManager.emitToGroup(convIdStr, "new_message", domainMessage);
 
-        // 3. Ghi DB ngầm phía sau trong Event Loop (Non-blocking)
-        this.messageRepo.create(messageData)
-            .then(async (saved) => {
-                await this.conversationFacade.updateLastMessage(convIdStr, saved.id!);
-                triggerSync('messages', SyncOperation.CREATE, saved);
-            })
-            .catch((err) => {
-                console.error(`[MessageService] Background DB save error for message ${domainMessage.id}:`, err);
-                socketManager.emitToGroup(convIdStr, "message_save_failed", {
-                    conversationId: convIdStr,
-                    messageId: domainMessage.id,
-                    senderId: sender_id,
-                    error: err.message
-                });
-            });
+    //     // 3. Ghi DB ngầm phía sau trong Event Loop (Non-blocking)
+    //     this.messageRepo.create(messageData)
+    //         .then(async (saved) => {
+    //             await this.conversationFacade.updateLastMessage(convIdStr, saved.id!);
+    //             triggerSync('messages', SyncOperation.CREATE, saved);
+    //         })
+    //         .catch((err) => {
+    //             console.error(`[MessageService] Background DB save error for message ${domainMessage.id}:`, err);
+    //             socketManager.emitToGroup(convIdStr, "message_save_failed", {
+    //                 conversationId: convIdStr,
+    //                 messageId: domainMessage.id,
+    //                 senderId: sender_id,
+    //                 error: err.message
+    //             });
+    //         });
 
-        return domainMessage;
-    }
+    //     return domainMessage;
+    // }
 
     /**
      * Creates a message from background queue (deferred write under high load).

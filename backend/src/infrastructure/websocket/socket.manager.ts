@@ -55,11 +55,20 @@ export class SocketManager {
         this.io.to(USER_ROOM(userId)).emit(event, data);
     }
 
+    public emitToUsers(userIds: string | string[], event: string, data: unknown): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.io.to(userRooms).emit(event, data);
+    }
+
     public joinGroup(userIds: string | string[], conversationId: string): void {
         const uids = Array.isArray(userIds) ? userIds : [userIds];
         if (uids.length === 0) return;
         const room = CONVERSATION_ROOM(conversationId);
         const userRooms = uids.map(id => USER_ROOM(id));
+        console.log(userRooms)
+        console.log(room)
         this.io.in(userRooms).socketsJoin(room);
         console.log(`[Socket.IO] Users [${uids.join(", ")}] joined conversation '${conversationId}'`);
     }

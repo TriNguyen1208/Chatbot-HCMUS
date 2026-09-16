@@ -176,23 +176,7 @@ const ConversationInfo = () => {
         onSuccess={(updatedConv) => {
           const { setActiveConversation } = useChatStore.getState();
           setActiveConversation(updatedConv);
-
-          const updateQueryCache = (queryKey: any[]) => {
-            info.queryClient.setQueryData(queryKey, (oldData: any) => {
-              if (!oldData || !oldData.pages) return oldData;
-              return {
-                ...oldData,
-                pages: oldData.pages.map((page: any[]) =>
-                  page.map((conv: any) =>
-                    conv.id === updatedConv.id ? { ...conv, ...updatedConv } : conv
-                  )
-                ),
-              };
-            });
-          };
-
-          updateQueryCache(['conversations']);
-          updateQueryCache(['conversations', 'group']);
+          info.setShowEditGroupModal(false);
         }}
       />
 
