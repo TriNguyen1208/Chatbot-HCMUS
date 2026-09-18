@@ -1,19 +1,17 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { userApi } from "@/features/chat/api/user.api";
-import { Conversation } from "@/features/chat/types";
 import { useSocketContext } from "@/providers/SocketProvider";
+import { chatCache } from "@/features/chat/utils/chat-cache.util";
 
 export const useChatScreen = (type?: "utu" | "group" | "all") => {
     const { activeConversation, setActiveConversation } = useChatStore();
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
-    const queryClient = useQueryClient();
     const { socket } = useSocketContext();
 
     const fallbackRoute = type === "group" ? "/group-chat" : type === "utu" ? "/direct-chat" : "/chat";
@@ -22,20 +20,6 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
     const receiverId = searchParams.get("receiver_id");
     const activeConvRef = useRef(activeConversation);
     activeConvRef.current = activeConversation;
-
-    // Helper: Find conversation in TanStack Query cache without redundant re-allocations
-    const findInCache = (predicate: (c: Conversation) => boolean): Conversation | undefined => {
-        const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
-        for (const [_, data] of allCaches) {
-            if (data?.pages) {
-                for (const page of data.pages) {
-                    const match = page.find(predicate);
-                    if (match) return match;
-                }
-            }
-        }
-        return undefined;
-    };
 
     // Emit mark_read when active conversation receives or views messages
     useEffect(() => {
@@ -61,34 +45,28 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
             const isMissingDetails = !current?.member_ids || current.member_ids.length === 0;
 
             if (currentId !== cId || isMissingDetails) {
-                // Check direct individual query cache first
-                const cached = queryClient.getQueryData<Conversation>(["conversation", cId]);
+                // O(1) direct query lookup from chatCache
+                const cached = chatCache.getConversation(cId);
                 if (cached) {
                     setActiveConversation(cached);
                     return;
                 }
 
-                // Check list queries cache
-                const found = findInCache((c) => c.id === cId);
-                if (found) {
-                    setActiveConversation(found);
-                    queryClient.setQueryData(["conversation", cId], found);
-                } else {
-                    conversationApi
-                        .getConversationById(cId)
-                        .then((conv) => {
-                            if (!isCancelled) {
-                                setActiveConversation(conv);
-                                queryClient.setQueryData(["conversation", cId], conv);
-                            }
-                        })
-                        .catch((err) => {
-                            if (!isCancelled) {
-                                console.error("Không thể load hội thoại từ URL", err);
-                                router.replace(fallbackRoute);
-                            }
-                        });
-                }
+                // Fetch from API if not in cache
+                conversationApi
+                    .getConversationById(cId)
+                    .then((conv) => {
+                        if (!isCancelled) {
+                            setActiveConversation(conv);
+                            chatCache.setConversation(conv);
+                        }
+                    })
+                    .catch((err) => {
+                        if (!isCancelled) {
+                            console.error("Không thể load hội thoại từ URL", err);
+                            router.replace(fallbackRoute);
+                        }
+                    });
             }
         }
         // CASE 2: Draft conversation with receiver_id (new friend, not yet messaged, or self cloud)
@@ -104,24 +82,23 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                 : "/chat";
 
             if (isSelf) {
-                // 1. Kiểm tra cache xem đã có conversation type: 'self' chưa
-                const existingSelf = findInCache((c) => c.type === "self" && Boolean(c.member_ids?.includes(currentUserId)));
-
-                if (existingSelf?.id) {
-                    router.replace(`${basePath}?conversation_id=${existingSelf.id}`);
-                    setActiveConversation(existingSelf);
-                    queryClient.setQueryData(["conversation", existingSelf.id], existingSelf);
+                // 1. O(1) check if self conversation exists in cache
+                const selfConvId = chatCache.getSelfConversationId(currentUserId);
+                if (selfConvId) {
+                    const selfConv = chatCache.getConversation(selfConvId);
+                    router.replace(`${basePath}?conversation_id=${selfConvId}`);
+                    if (selfConv) setActiveConversation(selfConv);
                     return;
                 }
 
-                // 2. Lấy self conversation từ server
+                // 2. Fetch self conversation from server
                 conversationApi
                     .getSelfConversation()
                     .then((selfConv) => {
                         if (!isCancelled && selfConv?.id) {
+                            chatCache.setConversation(selfConv);
                             router.replace(`${basePath}?conversation_id=${selfConv.id}`);
                             setActiveConversation(selfConv);
-                            queryClient.setQueryData(["conversation", selfConv.id], selfConv);
                         }
                     })
                     .catch((err) => {
@@ -142,19 +119,13 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                         }
                     });
             } else {
-                // Check if a 1-1 conversation already exists in cache for this user
-                const existing = findInCache(
-                    (c) => c.type === "utu" && 
-                           Boolean(c.member_ids?.includes(receiverId)) && 
-                           Boolean(c.member_ids?.includes(currentUserId)) &&
-                           receiverId !== currentUserId
-                );
+                // 1. O(1) check if 1-1 conversation already exists in cache for this user
+                const directConvId = chatCache.getDirectConversationId(receiverId, currentUserId);
 
-                if (existing?.id) {
-                    // If it already exists, automatically upgrade URL to conversation_id
-                    router.replace(`${basePath}?conversation_id=${existing.id}`);
-                    setActiveConversation(existing);
-                    queryClient.setQueryData(["conversation", existing.id], existing);
+                if (directConvId) {
+                    const existing = chatCache.getConversation(directConvId);
+                    router.replace(`${basePath}?conversation_id=${directConvId}`);
+                    if (existing) setActiveConversation(existing);
                 } else if (currentReceiverId !== receiverId || !current) {
                     // Fetch target user metadata to build draft conversation
                     userApi
@@ -196,7 +167,7 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         return () => {
             isCancelled = true;
         };
-    }, [cId, receiverId, router, pathname, queryClient, setActiveConversation, fallbackRoute]);
+    }, [cId, receiverId, router, pathname, setActiveConversation, fallbackRoute]);
 
     return {
         activeConversation,

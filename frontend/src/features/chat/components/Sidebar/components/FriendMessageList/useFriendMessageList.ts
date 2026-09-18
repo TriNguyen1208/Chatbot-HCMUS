@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useInView } from "react-intersection-observer";
 import { usePathname, useRouter } from "next/navigation";
 import { useChatStore } from "@/features/chat/stores/chatStore";
@@ -7,6 +7,7 @@ import { useAuthStore } from "@/features/auth/stores/authStore";
 import { Conversation } from "@/types";
 import { useConversationsQuery } from "@/features/chat/hooks/useChatQueries";
 import { useSocketContext } from "@/providers/SocketProvider";
+import { chatCache } from "@/features/chat/utils/chat-cache.util";
 
 export const useFriendMessageList = () => {
   const { activeConversation, setActiveConversation } = useChatStore();
@@ -24,7 +25,21 @@ export const useFriendMessageList = () => {
 
   const { ref, inView } = useInView({ threshold: 0 });
 
-  const conversations = data?.pages.flatMap(page => page) || [];
+  // Deduplicate conversations across pages
+  const conversations = useMemo(() => {
+    const rawList = data?.pages.flatMap(page => page) || [];
+    const seen = new Set<string>();
+    const unique = rawList.filter((conv) => {
+      const id = conv?.id || (conv as any)?._id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    // Index for O(1) lookups
+    chatCache.indexConversations(unique, user?.id);
+    return unique;
+  }, [data?.pages, user?.id]);
 
   // Catch-up mark_delivered logic
   useEffect(() => {

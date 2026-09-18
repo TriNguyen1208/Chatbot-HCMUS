@@ -30,7 +30,16 @@ export const useMessageList = () => {
   const { ref, inView } = useInView();
 
   const rawMessages = data?.pages.flatMap((page) => page) || [];
-  const messages = contextMessages || rawMessages;
+  const messages = useMemo(() => {
+    const list = contextMessages || rawMessages;
+    const seen = new Set<string>();
+    return list.filter((m: Message) => {
+      const id = String(m.id || (m as any)._id || "");
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [contextMessages, rawMessages]);
 
   const currentTypingUsers = (convId ? (typingUsers[convId] || []) : []).filter(
     (u) => u.userId !== user?.id
@@ -115,7 +124,7 @@ export const useMessageList = () => {
       if (targetMessageId && convId) {
         // 1. Kiểm tra xem tin nhắn đã có sẵn trong danh sách tin nhắn hiện tại chưa
         const isAlreadyLoaded = rawMessages.some(
-          (m) => String(m.id || (m as any)._id) === String(targetMessageId)
+          (m: Message) => String(m.id || (m as any)._id) === String(targetMessageId)
         );
 
         if (isAlreadyLoaded) {

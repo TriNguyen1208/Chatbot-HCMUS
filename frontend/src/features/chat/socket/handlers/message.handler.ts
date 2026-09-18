@@ -1,15 +1,12 @@
 import { Socket } from "socket.io-client";
-import { QueryClient } from "@tanstack/react-query";
 import type { Message } from "@/types";
 import { chatCache } from "../../utils/chat-cache.util";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useChatStore } from "../../stores/chatStore";
 
-export const registerMessageHandlers = (
-  socket: Socket,
-  queryClient: QueryClient
-) => {
+export const registerMessageHandlers = (socket: Socket) => {
   const onNewMessage = (message: Message) => {
+    console.log("📨 [Socket] new_message:", message);
     const { activeConversation } = useChatStore.getState();
     const { user } = useAuthStore.getState();
 
@@ -29,8 +26,8 @@ export const registerMessageHandlers = (
       }
     }
 
-    chatCache.appendNewMessage(queryClient, message);
-    chatCache.bumpConversationLastMessage(queryClient, message);
+    chatCache.appendNewMessage(message);
+    chatCache.bumpConversationLastMessage(message);
   };
 
   const onMessageEdited = (data: {
@@ -40,7 +37,7 @@ export const registerMessageHandlers = (
     updated_at: string;
     edit_history?: { content: string; updated_at: string | Date }[];
   }) => {
-    chatCache.updateMessageContent(queryClient, data);
+    chatCache.updateMessageContent(data);
   };
 
   const onMessageReactionUpdated = (data: {
@@ -48,14 +45,14 @@ export const registerMessageHandlers = (
     message_id: string;
     reactions: any[];
   }) => {
-    chatCache.updateMessageReaction(queryClient, data);
+    chatCache.updateMessageReaction(data);
   };
 
   const onMessageRecalled = (data: {
     conversation_id: string;
     messageId: string;
   }) => {
-    chatCache.markMessageRecalled(queryClient, data);
+    chatCache.markMessageRecalled(data);
   };
 
   const onMessageSaveFailed = (data: {

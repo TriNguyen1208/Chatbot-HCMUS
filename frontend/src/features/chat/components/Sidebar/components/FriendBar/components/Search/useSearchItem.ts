@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { SearchResult } from "@/features/chat/api/search.api";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { useChatStore } from "@/features/chat/stores/chatStore";
@@ -11,13 +11,13 @@ import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import { Conversation } from "@/types";
 import { DEFAULT_AVATAR } from "@/config/constants";
+import { chatCache } from "@/features/chat/utils/chat-cache.util";
 
 export const useSearchItem = (item: SearchResult) => {
   const { setActiveConversation } = useChatStore();
   const { setTargetMessageId, setSearchMode } = useSearchStore();
   const { user } = useAuthStore();
   const { users, requestUser } = useUserStore();
-  const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/group-chat') || pathname.startsWith('/chat')
@@ -30,19 +30,13 @@ export const useSearchItem = (item: SearchResult) => {
     queryKey: ['conversation', item.id],
     queryFn: async () => {
       const res = await conversationApi.getConversationById(item.id);
+      if (res) chatCache.setConversation(res);
       return (res as any).data || res;
     },
     enabled: isConversation && !!item.id,
     initialData: () => {
       if (!isConversation || !item.id) return undefined;
-      const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
-      for (const [_, data] of allCaches) {
-        if (data?.pages) {
-          const found = data.pages.flat().find(c => c.id === item.id);
-          if (found) return found;
-        }
-      }
-      return undefined;
+      return chatCache.getConversation(item.id);
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -64,18 +58,16 @@ export const useSearchItem = (item: SearchResult) => {
   const displayName = convData?.type === 'self' ? "Cloud của tôi" : (item.name || convData?.name || otherMember?.name || "Cuộc trò chuyện");
 
   const fetchFullConversation = async (convId: string): Promise<Conversation | null> => {
-    // 1. Check in existing query caches
-    const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
-    for (const [_, data] of allCaches) {
-      if (data?.pages) {
-        const found = data.pages.flat().find(c => c.id === convId);
-        if (found && found.member_ids && found.member_ids.length > 0) return found;
-      }
-    }
+    // 1. Check in O(1) cache
+    const cached = chatCache.getConversation(convId);
+    if (cached && cached.member_ids && cached.member_ids.length > 0) return cached;
+
     // 2. Fetch from API
     try {
       const res = await conversationApi.getConversationById(convId);
-      return (res as any).data || res;
+      const conv = (res as any).data || res;
+      if (conv) chatCache.setConversation(conv);
+      return conv;
     } catch (error) {
       console.error("Failed to fetch conversation details:", error);
       return null;
@@ -86,17 +78,11 @@ export const useSearchItem = (item: SearchResult) => {
     if (item.search_type === 'user') {
       try {
         if (user?.id && item.id === user.id) {
-          const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
-          let selfConv: Conversation | undefined;
-          for (const [_, data] of allCaches) {
-            if (data?.pages) {
-              selfConv = data.pages.flat().find(c => c.type === 'self');
-              if (selfConv?.id) break;
-            }
-          }
-          if (selfConv?.id) {
-            setActiveConversation(selfConv);
-            router.push(`${basePath}?conversation_id=${selfConv.id}`);
+          const selfConvId = chatCache.getSelfConversationId(user.id);
+          if (selfConvId) {
+            const selfConv = chatCache.getConversation(selfConvId);
+            if (selfConv) setActiveConversation(selfConv);
+            router.push(`${basePath}?conversation_id=${selfConvId}`);
           } else {
             router.push(`${basePath}?receiver_id=${item.id}`);
           }
@@ -106,6 +92,7 @@ export const useSearchItem = (item: SearchResult) => {
 
         const res = await conversationApi.createDirectConversation([item.id]);
         const conversation = res;
+        chatCache.setConversation(conversation);
         setActiveConversation({
           id: conversation.id,
           name: conversation.name,

@@ -1,7 +1,5 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useUserStore } from "@/features/chat/stores/userStore";

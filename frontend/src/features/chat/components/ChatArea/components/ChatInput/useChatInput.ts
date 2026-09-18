@@ -7,11 +7,11 @@ import { useChatStore } from "@/features/chat/stores/chatStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSocketContext } from "@/providers/SocketProvider";
 import { format } from "date-fns";
+import { chatCache } from "@/features/chat/utils/chat-cache.util";
 
 export const useChatInput = () => {
   const [content, setContent] = useState("");
@@ -150,7 +150,15 @@ export const useChatInput = () => {
             ? pathname
             : '/chat';
           router.replace(`${basePath}?conversation_id=${createdConvId}`);
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          
+          const existing = chatCache.getConversation(createdConvId);
+          if (!existing) {
+            conversationApi.getConversationById(createdConvId).then((newConv) => {
+              if (newConv) {
+                chatCache.addNewConversation(newConv);
+              }
+            }).catch(() => {});
+          }
         }
       }
 
@@ -270,7 +278,15 @@ export const useChatInput = () => {
             ? pathname
             : '/chat';
           router.replace(`${basePath}?conversation_id=${createdConvId}`);
-          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          
+          const existing = chatCache.getConversation(createdConvId);
+          if (!existing) {
+            conversationApi.getConversationById(createdConvId).then((newConv) => {
+              if (newConv) {
+                chatCache.addNewConversation(newConv);
+              }
+            }).catch(() => {});
+          }
         }
       }
     } catch (error) {
@@ -281,7 +297,6 @@ export const useChatInput = () => {
   };
 
   const users = useUserStore((state) => state.users);
-  const queryClient = useQueryClient();
   const [isUnblocking, setIsUnblocking] = useState(false);
 
   useEffect(() => {
@@ -314,7 +329,7 @@ export const useChatInput = () => {
       const res = await conversationApi.unblockConversation(activeConversation.id as string);
       const updatedConv = (res as any).data || res;
       useChatStore.getState().setActiveConversation(updatedConv);
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      chatCache.updateConversationBlock({ ...updatedConv, block: null });
     } catch (error: any) {
       console.error("Lỗi bỏ chặn:", error);
       alert(error?.response?.data?.message || error?.message || "Không thể bỏ chặn người dùng");

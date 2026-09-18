@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useSocketContext } from "@/providers/SocketProvider";
 import {
@@ -12,7 +11,6 @@ import {
 
 export const useChatSocket = () => {
   const { socket, isConnected } = useSocketContext();
-  const queryClient = useQueryClient();
   const router = useRouter();
 
   useEffect(() => {
@@ -30,9 +28,9 @@ export const useChatSocket = () => {
 
     // Register all socket handlers and collect their cleanup functions
     const cleanups = [
-      registerMessageHandlers(socket, queryClient),
-      registerConversationHandlers(socket, queryClient, router),
-      registerWatermarkHandlers(socket, queryClient),
+      registerMessageHandlers(socket),
+      registerConversationHandlers(socket, router),
+      registerWatermarkHandlers(socket),
       registerPresenceHandlers(socket),
       registerTypingHandlers(socket),
     ];
@@ -41,7 +39,7 @@ export const useChatSocket = () => {
       clearInterval(pingInterval);
       cleanups.forEach((cleanup) => cleanup());
     };
-  }, [socket, isConnected, queryClient, router]);
+  }, [socket, isConnected, router]);
 
   return socket;
 };
