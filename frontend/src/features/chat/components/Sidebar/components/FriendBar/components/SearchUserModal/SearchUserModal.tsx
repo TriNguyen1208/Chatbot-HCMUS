@@ -26,17 +26,17 @@ export const SearchUserModal = ({ isOpen, onClose }: SearchUserModalProps) => {
         <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-1">
           {users.length === 0 && <p className="text-center text-sm text-txt-extra my-4">Đang tải...</p>}
           {users.map(u => (
-            <div 
-              key={u.id} 
+            <div
+              key={u.id}
               className="flex items-center gap-3 p-3 hover:bg-hover rounded-xl cursor-pointer transition-colors border border-transparent hover:border-glass-border shadow-sm hover:shadow"
               onClick={() => handleUserClick(u.id)}
             >
-              <Image 
-                src={u.avatar_url || DEFAULT_AVATAR} 
-                alt="avatar" 
-                width={36} 
-                height={36} 
-                className="rounded-full object-cover size-9" 
+              <Image
+                src={u.avatar_url || DEFAULT_AVATAR}
+                alt="avatar"
+                width={36}
+                height={36}
+                className="rounded-full object-cover size-9"
               />
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-txt-primary">{u.name}</span>

@@ -84,6 +84,25 @@ export const useSearchItem = (item: SearchResult) => {
   const handleClick = async () => {
     if (item.search_type === 'user') {
       try {
+        if (user?.id && item.id === user.id) {
+          const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
+          let selfConv: Conversation | undefined;
+          for (const [_, data] of allCaches) {
+            if (data?.pages) {
+              selfConv = data.pages.flat().find(c => c.type === 'self');
+              if (selfConv?.id) break;
+            }
+          }
+          if (selfConv?.id) {
+            setActiveConversation(selfConv);
+            router.push(`${basePath}?conversation_id=${selfConv.id}`);
+          } else {
+            router.push(`${basePath}?receiver_id=${item.id}`);
+          }
+          setSearchMode(false);
+          return;
+        }
+
         const res = await conversationApi.createDirectConversation([item.id]);
         const conversation = res;
         setActiveConversation({

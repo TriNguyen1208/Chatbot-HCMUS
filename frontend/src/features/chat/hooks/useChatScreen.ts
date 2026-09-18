@@ -10,37 +10,63 @@ import { Conversation } from "../types";
 import { useSocketContext } from "@/providers/SocketProvider";
 
 export const useChatScreen = (type?: "utu" | "group" | "all") => {
-  const { activeConversation, setActiveConversation } = useChatStore();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { socket } = useSocketContext();
+    const { activeConversation, setActiveConversation } = useChatStore();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const queryClient = useQueryClient();
+    const { socket } = useSocketContext();
 
-  const fallbackRoute = type === "group" ? "/group-chat" : type === "utu" ? "/direct-chat" : "/chat";
+    const fallbackRoute = type === "group" ? "/group-chat" : type === "utu" ? "/direct-chat" : "/chat";
 
-  const cId = searchParams.get("conversation_id");
-  const receiverId = searchParams.get("receiver_id");
+    const cId = searchParams.get("conversation_id");
+    const receiverId = searchParams.get("receiver_id");
 
-  useEffect(() => {
-    if (activeConversation?.id && activeConversation.last_message?.id && socket) {
-        // We only emit mark_read if the last message was not sent by the current user
-        const { user } = useAuthStore.getState();
-        if (user?.id && activeConversation.last_message.sender_id !== user.id) {
-            socket.emit('mark_read', { 
-                conversationId: activeConversation.id, 
-                messageId: activeConversation.last_message.id 
-            });
+    useEffect(() => {
+        if (activeConversation?.id && activeConversation.last_message?.id && socket) {
+            // We only emit mark_read if the last message was not sent by the current user
+            const { user } = useAuthStore.getState();
+            if (user?.id && activeConversation.last_message.sender_id !== user.id) {
+                socket.emit('mark_read', {
+                    conversationId: activeConversation.id,
+                    messageId: activeConversation.last_message.id
+                });
+            }
         }
-    }
-  }, [activeConversation?.id, activeConversation?.last_message?.id, socket]);
+    }, [activeConversation?.id, activeConversation?.last_message?.id, socket]);
 
-  useEffect(() => {
-    const currentActive = useChatStore.getState().activeConversation;
+    useEffect(() => {
+        const currentActive = useChatStore.getState().activeConversation;
 
-    if (cId) {
-        const currentActiveId = currentActive?.id;
-        const isMissingDetails = !currentActive?.member_ids || currentActive.member_ids.length === 0;
-        if (currentActiveId !== cId || isMissingDetails) {
+        if (cId) {
+            const currentActiveId = currentActive?.id;
+            const isMissingDetails = !currentActive?.member_ids || currentActive.member_ids.length === 0;
+            if (currentActiveId !== cId || isMissingDetails) {
+                const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
+                let conversations: Conversation[] = [];
+                allCaches.forEach(([_, data]) => {
+                    if (data?.pages) {
+                        conversations = conversations.concat(data.pages.flat());
+                    }
+                });
+                const found = conversations.find(c => c.id === cId);
+
+                if (found) {
+                    setActiveConversation(found);
+                } else {
+                    conversationApi.getConversationById(cId).then(res => {
+                        const conv = res;
+                        setActiveConversation(conv);
+                    }).catch((err) => {
+                        console.error("Không thể load hội thoại từ URL", err);
+                        router.replace(fallbackRoute);
+                    });
+                }
+            }
+        }
+        else if (receiverId) {
+            const currentActiveReceiverId = currentActive?.receiver_id;
+
+            // Find in all possible conversation caches ('utu', 'group', or undefined)
             const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
             let conversations: Conversation[] = [];
             allCaches.forEach(([_, data]) => {
@@ -48,67 +74,41 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                     conversations = conversations.concat(data.pages.flat());
                 }
             });
-            const found = conversations.find(c => c.id === cId);
-            
+
+            const found = conversations.find(c => c.type === 'utu' && c.member_ids?.some(m => m === receiverId));
+
             if (found) {
-                setActiveConversation(found);
-            } else {
-                conversationApi.getConversationById(cId).then(res => {
-                    const conv = res;
-                    setActiveConversation(conv);
+                const currentActiveId = currentActive?.id;
+                if (currentActiveId !== found.id) {
+                    setActiveConversation(found);
+                }
+            } else if (currentActiveReceiverId !== receiverId) {
+                userApi.getUserById(receiverId).then(res => {
+                    const targetUser = res;
+                    setActiveConversation({
+                        _id: '',
+                        type: 'utu',
+                        name: targetUser.name || 'Người dùng mới',
+                        avatar_url: targetUser.avatar_url,
+                        members: [
+                            { id: useAuthStore.getState().user?.id || '' } as any,
+                            { id: receiverId } as any
+                        ],
+                        receiver_id: receiverId,
+                        is_active: true
+                    } as any);
                 }).catch((err) => {
-                    console.error("Không thể load hội thoại từ URL", err);
+                    console.error("Không thể load user từ URL", err);
                     router.replace(fallbackRoute);
                 });
             }
         }
-    } 
-    else if (receiverId) {
-        const currentActiveReceiverId = currentActive?.receiver_id;
-        
-        // Find in all possible conversation caches ('utu', 'group', or undefined)
-        const allCaches = queryClient.getQueriesData<{ pages: Conversation[][] }>({ queryKey: ['conversations'] });
-        let conversations: Conversation[] = [];
-        allCaches.forEach(([_, data]) => {
-            if (data?.pages) {
-                conversations = conversations.concat(data.pages.flat());
+        else {
+            if (useChatStore.getState().activeConversation) {
+                setActiveConversation(null);
             }
-        });
-        
-        const found = conversations.find(c => c.type === 'utu' && c.member_ids?.some(m => m === receiverId));
-        
-        if (found) {
-            const currentActiveId = currentActive?.id;
-            if (currentActiveId !== found.id) {
-                setActiveConversation(found);
-            }
-        } else if (currentActiveReceiverId !== receiverId) {
-            userApi.getUserById(receiverId).then(res => {
-                const targetUser = res;
-                setActiveConversation({
-                    _id: '',
-                    type: 'utu',
-                    name: targetUser.name || 'Người dùng mới',
-                    avatar_url: targetUser.avatar_url,
-                    members: [
-                        { id: useAuthStore.getState().user?.id || '' } as any,
-                        { id: receiverId } as any
-                    ],
-                    receiver_id: receiverId,
-                    is_active: true
-                } as any);
-            }).catch((err) => {
-                console.error("Không thể load user từ URL", err);
-                router.replace(fallbackRoute);
-            });
         }
-    }
-    else {
-        if (useChatStore.getState().activeConversation) {
-            setActiveConversation(null);
-        }
-    }
-  }, [cId, receiverId, router, queryClient, setActiveConversation, fallbackRoute]);
+    }, [cId, receiverId, router, queryClient, setActiveConversation, fallbackRoute]);
 
-  return { activeConversation };
+    return { activeConversation };
 };

@@ -41,6 +41,8 @@ export const chatCache = {
   bumpConversationLastMessage: (queryClient: QueryClient, message: Message) => {
     if (!message.conversation_id) return;
 
+    let foundInAnyCache = false;
+
     queryClient.setQueriesData(
       { queryKey: ["conversations"] },
       (oldData: { pages: Conversation[][]; pageParams: any[] } | undefined) => {
@@ -62,12 +64,17 @@ export const chatCache = {
         });
 
         if (updatedConv && newPages.length > 0) {
+          foundInAnyCache = true;
           newPages[0] = [updatedConv, ...newPages[0]];
         }
 
         return { ...oldData, pages: newPages };
       }
     );
+
+    if (!foundInAnyCache) {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    }
   },
 
   updateMessageContent: (

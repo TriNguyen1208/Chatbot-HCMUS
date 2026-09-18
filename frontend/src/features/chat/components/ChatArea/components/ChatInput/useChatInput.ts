@@ -9,6 +9,7 @@ import { useUserStore } from "@/features/chat/stores/userStore";
 import { conversationApi } from "@/features/chat/api/conversation.api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useSocketContext } from "@/providers/SocketProvider";
 import { format } from "date-fns";
 
@@ -26,6 +27,8 @@ export const useChatInput = () => {
   const activeConversation = useChatStore(state => state.activeConversation);
   const { user } = useAuthStore();
   const { socket } = useSocketContext();
+  const router = useRouter();
+  const pathname = usePathname();
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const editingMessage = useChatStore(state => state.editingMessage);
@@ -120,17 +123,36 @@ export const useChatInput = () => {
         }
       }
 
-      const convId = activeConversation.id || activeConversation.id;
+      const convId = activeConversation.id;
       
-      if (!convId && activeConversation.type === 'utu') {
-        const members = activeConversation.member_ids || [];
-        const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
-        payload.receiver_id = receiverId; // Báo cho server biết người nhận là ai để server tự gom box chat (hoặc tạo box mới)
+      if (!convId) {
+        if (activeConversation.type === 'self') {
+          payload.receiver_id = user?.id;
+        } else if (activeConversation.type === 'utu') {
+          const members = activeConversation.member_ids || [];
+          const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
+          payload.receiver_id = receiverId;
+        }
       } else {
-        payload.conversation_id = convId; // Nhắn vào box chat cụ thể đã có sẵn
+        payload.conversation_id = convId;
       }
 
-      await messageApi.sendMessage(payload);
+      const res = await messageApi.sendMessage(payload);
+
+      if (!convId && res) {
+        const createdConvId = (res as any)?.conversation_id || (res as any)?.data?.conversation_id;
+        if (createdConvId) {
+          useChatStore.getState().setActiveConversation({
+            ...activeConversation,
+            id: createdConvId
+          });
+          const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/chat')
+            ? pathname
+            : '/chat';
+          router.replace(`${basePath}?conversation_id=${createdConvId}`);
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      }
 
     } catch (error) {
       console.error("Failed to send message", error);
@@ -223,15 +245,34 @@ export const useChatInput = () => {
       };
 
       const convId = activeConversation.id;
-      if (!convId && activeConversation.type === 'utu') {
-        const members = activeConversation.member_ids || [];
-        const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
-        payload.receiver_id = receiverId;
+      if (!convId) {
+        if (activeConversation.type === 'self') {
+          payload.receiver_id = user?.id;
+        } else if (activeConversation.type === 'utu') {
+          const members = activeConversation.member_ids || [];
+          const receiverId = activeConversation.receiver_id || members.find((m: string) => m !== user?.id) || members[0];
+          payload.receiver_id = receiverId;
+        }
       } else {
         payload.conversation_id = convId;
       }
 
-      await messageApi.sendMessage(payload);
+      const res = await messageApi.sendMessage(payload);
+
+      if (!convId && res) {
+        const createdConvId = (res as any)?.conversation_id || (res as any)?.data?.conversation_id;
+        if (createdConvId) {
+          useChatStore.getState().setActiveConversation({
+            ...activeConversation,
+            id: createdConvId
+          });
+          const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/chat')
+            ? pathname
+            : '/chat';
+          router.replace(`${basePath}?conversation_id=${createdConvId}`);
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      }
     } catch (error) {
       console.error("Failed to send primary icon", error);
     } finally {

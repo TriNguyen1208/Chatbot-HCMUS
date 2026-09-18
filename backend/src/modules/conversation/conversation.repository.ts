@@ -123,7 +123,11 @@ export class ConversationRepository implements IConversationRepository {
         };
 
         if (type) {
-            conditions.type = type;
+            if (type === 'utu') {
+                conditions.type = { $in: ['utu', 'self'] };
+            } else {
+                conditions.type = type;
+            }
         }
 
         if (cursorId) {

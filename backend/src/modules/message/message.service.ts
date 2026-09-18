@@ -29,14 +29,19 @@ export class MessageService {
     async handleIncomingMessage(
         sender_id: string,
         payload: SendMessageDto
-    ) {
+    ): Promise<{ status: 'success'; data: Message; message?: string } | { status: 'queued'; message: string; data?: Message }> {
         let conversation_id = payload.conversation_id;
         if (!conversation_id && payload.receiver_id) {
-            const conv = await this.conversationFacade.createConversation(sender_id, {
-                type: 'utu',
-                member_ids: [sender_id, payload.receiver_id.toString()]
-            });
-            conversation_id = conv.id!.toString();
+            if (payload.receiver_id.toString() === sender_id) {
+                const conv = await this.conversationFacade.findOrCreateSelfConversation(sender_id);
+                conversation_id = conv.id!.toString();
+            } else {
+                const conv = await this.conversationFacade.createConversation(sender_id, {
+                    type: 'utu',
+                    member_ids: [sender_id, payload.receiver_id.toString()]
+                });
+                conversation_id = conv.id!.toString();
+            }
         }
 
         if (!conversation_id) {
