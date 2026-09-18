@@ -10,6 +10,7 @@ import { useSearchStore } from "@/features/chat/stores/searchStore";
 import { useAuthStore } from "@/features/auth/stores/authStore";
 import { useUserStore } from "@/features/chat/stores/userStore";
 import { Conversation } from "@/types";
+import { DEFAULT_AVATAR } from "@/config/constants";
 
 export const useSearchItem = (item: SearchResult) => {
   const { setActiveConversation } = useChatStore();
@@ -58,9 +59,9 @@ export const useSearchItem = (item: SearchResult) => {
 
   const displayAvatar = item.avatar_url 
     || convData?.avatar_url 
-    || (convData?.type === 'utu' ? otherMember?.avatar_url : undefined);
+    || (convData?.type === 'self' ? (user?.avatar_url || DEFAULT_AVATAR) : (convData?.type === 'utu' ? otherMember?.avatar_url : undefined));
 
-  const displayName = item.name || convData?.name || otherMember?.name || "Cuộc trò chuyện";
+  const displayName = convData?.type === 'self' ? "Cloud của tôi" : (item.name || convData?.name || otherMember?.name || "Cuộc trò chuyện");
 
   const fetchFullConversation = async (convId: string): Promise<Conversation | null> => {
     // 1. Check in existing query caches

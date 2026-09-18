@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import { EmptyChatScreen } from "@/components/ui";
 import { ChatArea } from "@/features/chat/components";
-import { useChatScreen } from "@/features/chat/hooks/useChatScreen";
+import { useChatScreen } from "@/features/chat/components/ChatScreen/useChatScreen";
 import { ConversationInfo } from "../ChatArea";
 import { useModalStore } from "@/features/chat/stores/modalStore";
 import CreateGroupModal from "../Modals/CreateGroupModal";

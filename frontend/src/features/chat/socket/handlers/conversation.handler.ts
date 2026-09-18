@@ -15,8 +15,9 @@ export const registerConversationHandlers = (
     const { activeConversation, setActiveConversation } = useChatStore.getState();
     if (activeConversation && !activeConversation.id) {
       if (
-        conversation.type === "utu" &&
-        conversation.member_ids?.some((m) => m === activeConversation.receiver_id)
+        (conversation.type === "utu" &&
+          conversation.member_ids?.some((m) => m === activeConversation.receiver_id)) ||
+        (conversation.type === "self" && activeConversation.type === "self")
       ) {
         setActiveConversation(conversation);
         const basePath = (typeof window !== 'undefined' && window.location.pathname) || '/chat';

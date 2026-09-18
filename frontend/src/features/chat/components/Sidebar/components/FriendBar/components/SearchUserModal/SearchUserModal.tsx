@@ -11,7 +11,6 @@ export interface SearchUserModalProps {
 
 export const SearchUserModal = ({ isOpen, onClose }: SearchUserModalProps) => {
   const { users, handleUserClick } = useSearchUserModal(isOpen, onClose);
-
   if (!isOpen) return null;
 
   return (

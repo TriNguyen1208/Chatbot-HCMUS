@@ -25,6 +25,21 @@ export class ConversationController {
     }
 
     /**
+     * Retrieves the self conversation (Cloud của tôi) for the current user.
+     * @param req The Express request object.
+     * @param res The Express response object.
+     */
+    getSelfConversation = async (req: Request, res: Response) => {
+        const userId = req.user!.userID;
+        const conversation = await this.conversationService.findOrCreateSelfConversation(userId);
+
+        return apiResponse.success(res, conversation, {
+            statusCode: 200,
+            message: "Retrieving self conversation successfully"
+        });
+    }
+
+    /**
      * Retrieves a specific conversation by its ID.
      * @param req The Express request object containing the conversation ID in params.
      * @param res The Express response object.

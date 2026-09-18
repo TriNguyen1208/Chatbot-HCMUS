@@ -25,6 +25,10 @@ export const conversationApi = {
         });
     },
 
+    getSelfConversation: async (): Promise<Conversation> => {
+        return http.get<Conversation>('/conversation/self');
+    },
+
     getConversationById: async (id: string): Promise<Conversation> => {
         return http.get<Conversation>(`/conversation/${id}`);
     },

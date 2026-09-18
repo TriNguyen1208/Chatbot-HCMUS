@@ -38,6 +38,13 @@ router.post(
     asyncHandler(conversationContainer.conversationController.createConversation)
 );
 
+// API Get self conversation (Cloud của tôi)
+router.get(
+    "/self",
+    AuthMiddleware.verifyAccessToken,
+    asyncHandler(conversationContainer.conversationController.getSelfConversation)
+);
+
 // API Get conversation information by ID
 router.get(
     "/:id",

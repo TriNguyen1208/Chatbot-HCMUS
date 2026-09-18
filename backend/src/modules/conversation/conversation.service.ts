@@ -77,6 +77,7 @@ export class ConversationService {
 
         const newConversation: Partial<ConversationDB> = {
             ...data,
+            name: data.type === 'self' ? (data.name || 'Cloud của tôi') : data.name,
             member_ids: Array.from(members),
             admin_ids: data.type === 'group' ? [userId] : [],
             created_at: new Date(),
@@ -137,7 +138,8 @@ export class ConversationService {
 
         return this.createConversation(userId, {
             type: 'self',
-            member_ids: [],
+            name: 'Cloud của tôi',
+            member_ids: [userId],
             primary_icon: '👍'
         });
     }

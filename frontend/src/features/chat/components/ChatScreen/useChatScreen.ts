@@ -8,13 +8,7 @@ import { userApi } from "@/features/chat/api/user.api";
 import { Conversation } from "@/features/chat/types";
 import { useSocketContext } from "@/providers/SocketProvider";
 
-/**
- * Custom hook establishing the Single Source of Truth for active chat conversations.
- * - URL (searchParams) determines WHICH conversation is open (`conversation_id` vs `receiver_id`).
- * - TanStack Query manages server cache and entity state.
- * - Zustand maintains UI sync for backward compatibility with existing components.
- */
-export const useActiveConversation = (type?: "utu" | "group" | "all") => {
+export const useChatScreen = (type?: "utu" | "group" | "all") => {
     const { activeConversation, setActiveConversation } = useChatStore();
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -97,52 +91,99 @@ export const useActiveConversation = (type?: "utu" | "group" | "all") => {
                 }
             }
         }
-        // CASE 2: Draft conversation with receiver_id (new friend, not yet messaged)
+        // CASE 2: Draft conversation with receiver_id (new friend, not yet messaged, or self cloud)
         else if (receiverId) {
             const currentReceiverId = current?.receiver_id;
+            const currentUserId = useAuthStore.getState().user?.id || "";
+            const isSelf = Boolean(currentUserId && receiverId === currentUserId);
 
-            // Check if a 1-1 conversation already exists in cache for this user
-            const existing = findInCache((c) => c.type === "utu" && Boolean(c.member_ids?.includes(receiverId)));
+            const basePath = pathname.startsWith("/group-chat")
+                ? "/group-chat"
+                : pathname.startsWith("/direct-chat")
+                ? "/direct-chat"
+                : "/chat";
 
-            if (existing) {
-                // If it already exists, automatically upgrade URL to conversation_id
-                const basePath = pathname.startsWith("/group-chat")
-                    ? "/group-chat"
-                    : pathname.startsWith("/direct-chat")
-                    ? "/direct-chat"
-                    : "/chat";
-                router.replace(`${basePath}?conversation_id=${existing.id}`);
-                setActiveConversation(existing);
-                queryClient.setQueryData(["conversation", existing.id], existing);
-            } else if (currentReceiverId !== receiverId || !current) {
-                // Fetch target user metadata to build draft conversation
-                userApi
-                    .getUserById(receiverId)
-                    .then((targetUser) => {
-                        if (!isCancelled) {
-                            const currentUserId = useAuthStore.getState().user?.id || "";
-                            setActiveConversation({
-                                _id: "",
-                                id: "",
-                                type: "utu",
-                                name: targetUser.name || "Người dùng mới",
-                                avatar_url: targetUser.avatar_url,
-                                member_ids: [currentUserId, receiverId],
-                                members: [
-                                    { id: currentUserId } as any,
-                                    { id: receiverId } as any,
-                                ],
-                                receiver_id: receiverId,
-                                is_active: true,
-                            } as any);
+            if (isSelf) {
+                // 1. Kiểm tra cache xem đã có conversation type: 'self' chưa
+                const existingSelf = findInCache((c) => c.type === "self" && Boolean(c.member_ids?.includes(currentUserId)));
+
+                if (existingSelf?.id) {
+                    router.replace(`${basePath}?conversation_id=${existingSelf.id}`);
+                    setActiveConversation(existingSelf);
+                    queryClient.setQueryData(["conversation", existingSelf.id], existingSelf);
+                    return;
+                }
+
+                // 2. Lấy self conversation từ server
+                conversationApi
+                    .getSelfConversation()
+                    .then((selfConv) => {
+                        if (!isCancelled && selfConv?.id) {
+                            router.replace(`${basePath}?conversation_id=${selfConv.id}`);
+                            setActiveConversation(selfConv);
+                            queryClient.setQueryData(["conversation", selfConv.id], selfConv);
                         }
                     })
                     .catch((err) => {
+                        console.error("Không thể lấy Cloud của tôi:", err);
                         if (!isCancelled) {
-                            console.error("Không thể load user từ URL", err);
-                            router.replace(fallbackRoute);
+                            const currentUser = useAuthStore.getState().user;
+                            setActiveConversation({
+                                _id: "",
+                                id: "",
+                                type: "self",
+                                name: "Cloud của tôi",
+                                avatar_url: currentUser?.avatar_url,
+                                member_ids: [currentUserId],
+                                members: [{ id: currentUserId } as any],
+                                receiver_id: currentUserId,
+                                is_active: true,
+                            } as any);
                         }
                     });
+            } else {
+                // Check if a 1-1 conversation already exists in cache for this user
+                const existing = findInCache(
+                    (c) => c.type === "utu" && 
+                           Boolean(c.member_ids?.includes(receiverId)) && 
+                           Boolean(c.member_ids?.includes(currentUserId)) &&
+                           receiverId !== currentUserId
+                );
+
+                if (existing?.id) {
+                    // If it already exists, automatically upgrade URL to conversation_id
+                    router.replace(`${basePath}?conversation_id=${existing.id}`);
+                    setActiveConversation(existing);
+                    queryClient.setQueryData(["conversation", existing.id], existing);
+                } else if (currentReceiverId !== receiverId || !current) {
+                    // Fetch target user metadata to build draft conversation
+                    userApi
+                        .getUserById(receiverId)
+                        .then((targetUser) => {
+                            if (!isCancelled) {
+                                setActiveConversation({
+                                    _id: "",
+                                    id: "",
+                                    type: "utu",
+                                    name: targetUser.name || "Người dùng mới",
+                                    avatar_url: targetUser.avatar_url,
+                                    member_ids: [currentUserId, receiverId],
+                                    members: [
+                                        { id: currentUserId } as any,
+                                        { id: receiverId } as any,
+                                    ],
+                                    receiver_id: receiverId,
+                                    is_active: true,
+                                } as any);
+                            }
+                        })
+                        .catch((err) => {
+                            if (!isCancelled) {
+                                console.error("Không thể load user từ URL", err);
+                                router.replace(fallbackRoute);
+                            }
+                        });
+                }
             }
         }
         // CASE 3: No conversation selected in URL

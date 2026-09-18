@@ -123,7 +123,8 @@ export class SearchService {
                                 }
                             }
                         },
-                        ...(matchedUserIds.length > 0 ? [{ terms: { 'member_ids': matchedUserIds } }] : [])
+                        ...(matchedUserIds.length > 0 ? [{ terms: { 'member_ids': matchedUserIds } }] : []),
+                        ...(keyword.toLowerCase().includes('cloud') ? [{ term: { type: 'self' } }] : [])
                     ],
                     minimum_should_match: 1
                 }
@@ -134,7 +135,9 @@ export class SearchService {
 
         const missingUserIds = new Set<string>();
         for (const conv of conversations) {
-            if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+            if (conv.type === 'self') {
+                if (!conv.name) conv.name = "Cloud của tôi";
+            } else if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
                 const otherId = conv.member_ids.find((id: string) => id !== userId);
                 if (otherId) missingUserIds.add(otherId);
             }
@@ -151,7 +154,9 @@ export class SearchService {
             });
 
             for (const conv of conversations) {
-                if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
+                if (conv.type === 'self') {
+                    if (!conv.name) conv.name = "Cloud của tôi";
+                } else if ((!conv.name || !conv.avatar_url) && Array.isArray(conv.member_ids)) {
                     const otherId = conv.member_ids.find((id: string) => id !== userId);
                     if (otherId && userMap.has(otherId)) {
                         const other = userMap.get(otherId);
