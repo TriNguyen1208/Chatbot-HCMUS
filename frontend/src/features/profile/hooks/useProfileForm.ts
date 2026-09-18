@@ -5,8 +5,11 @@ import { mediaApi } from "@/features/chat/api/media.api";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
-export const useProfileForm = () => {
-    const { user: currentUser, setUser } = useAuthStore();
+import type { User } from "@/types";
+
+export const useProfileForm = (initialUser?: User) => {
+    const { user: authUser, setUser } = useAuthStore();
+    const currentUser = initialUser || authUser;
     const router = useRouter();
 
     const [phone, setPhone] = useState(currentUser?.phone || "");

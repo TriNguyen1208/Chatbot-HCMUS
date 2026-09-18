@@ -73,7 +73,7 @@ const ChatInput = () => {
   return (
     <div className="w-full flex flex-col px-4 pb-6 pt-2 bg-transparent">
       <div className="w-full max-w-5xl mx-auto flex flex-col p-3 bg-surface backdrop-blur-xl border border-glass-border shadow-lg rounded-[2rem] transition-all duration-300">
-        {!editingMessage && (
+        {/* {!editingMessage && (
           <div className="flex flex-row items-center gap-2 mb-2 px-2">
             <button className="flex items-center gap-1 text-[11px] font-medium border border-glass-border rounded-full px-3 py-1 bg-surface-solid shadow-sm hover:shadow text-txt-primary transition-shadow cursor-pointer">
               ✨ Suggest Reply
@@ -82,7 +82,7 @@ const ChatInput = () => {
               📄 Summarize PDF
             </button>
           </div>
-        )}
+        )} */}
 
         {editingMessage && (
           <div className="flex items-center justify-between bg-brand-primary/10 px-4 py-2 rounded-xl mb-2 border border-brand-primary/20">

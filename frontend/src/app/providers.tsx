@@ -2,24 +2,14 @@
 
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { env } from "@/config/env";
-
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore } from "@/features/auth/stores/authStore";
-import { useRouter, usePathname } from "next/navigation";
 import { authApi } from "@/features/auth/api/authApi";
 import { QueryProvider } from "@/providers/QueryProvider";
-import { SocketProvider } from "@/providers/SocketProvider";
 import { ThemeProvider } from "next-themes";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const { isCheckingAuth, isAuthenticated, setCheckingAuth, setUser, clearUser } = useAuthStore();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const { setUser, clearUser, setCheckingAuth } = useAuthStore();
 
   useEffect(() => {
     let isMounted = true;
@@ -29,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         if (isMounted) {
           setUser(user);
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
           clearUser();
         }
@@ -39,44 +29,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
     };
-    
+
     initAuth();
-    
+
     return () => {
       isMounted = false;
     };
-    // Chỉ chạy 1 lần khi mount
   }, [setUser, clearUser, setCheckingAuth]);
-
-  // 2. Lắng nghe thay đổi trạng thái xác thực để điều hướng (Routing)
-  useEffect(() => {
-    // Đợi check xong mới thực hiện điều hướng
-    if (isCheckingAuth) return;
-
-    if (isAuthenticated) {
-      if (pathname === "/") {
-        router.push("/chat");
-      }
-    } else {
-      if (pathname !== "/") {
-        router.push("/");
-      }
-    }
-  }, [isAuthenticated, isCheckingAuth, pathname, router]);
-
-  if (!mounted) {
-    return null;
-  }
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <GoogleOAuthProvider clientId={env.googleClientId || ""}>
         <QueryProvider>
-          <SocketProvider>
-            <div className="text-foreground antialiased w-full h-full">
-              {children}
-            </div>
-          </SocketProvider>
+          <div className="text-foreground antialiased w-full h-full">
+            {children}
+          </div>
         </QueryProvider>
       </GoogleOAuthProvider>
     </ThemeProvider>

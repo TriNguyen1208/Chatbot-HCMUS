@@ -1,11 +1,14 @@
+"use client";
+
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useProfileForm } from '../hooks/useProfileForm';
 import { Camera, Loader2, Save, ArrowLeft, Maximize, X } from 'lucide-react';
 import { DEFAULT_AVATAR } from '@/utils/constants';
 import Link from 'next/link';
+import type { User } from '@/types';
 
-export const ProfileForm = () => {
+export const ProfileForm = ({ initialUser }: { initialUser?: User }) => {
   const {
     currentUser,
     phone,
@@ -18,7 +21,7 @@ export const ProfileForm = () => {
     handleFileChange,
     handleSave,
     handleCancel
-  } = useProfileForm();
+  } = useProfileForm(initialUser);
 
   const [showImageModal, setShowImageModal] = useState(false);
 
