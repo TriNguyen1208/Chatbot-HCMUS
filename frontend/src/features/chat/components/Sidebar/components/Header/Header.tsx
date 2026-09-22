@@ -2,11 +2,11 @@
 import { Logo } from "@/components/ui";
 
 export const Header = () => {
-  return (
-    <header className="w-full px-2 py-3 border-b-[1.35] border-b-border-primary/70">
-      <Logo />
-    </header>
-  );
+    return (
+        <header className="w-full px-2 py-3 border-b-[1.35] border-b-border-primary/70">
+            <Logo />
+        </header>
+    );
 };
 
 export default Header;

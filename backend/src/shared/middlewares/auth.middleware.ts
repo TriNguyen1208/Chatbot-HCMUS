@@ -2,6 +2,7 @@ import { jwtService } from "#@/shared/utils/jwt.util.js";
 import type { JWTPayload } from "#@/shared/types/index.js";
 import type { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
+import { clearCookie } from "#@/shared/utils/cookie.util.js";
 
 export class AuthMiddleware {
     //Verify accessToken
@@ -22,10 +23,14 @@ export class AuthMiddleware {
     static verifyRefreshToken = (req: Request, res: Response, next: NextFunction) => {
         const refreshToken = req.cookies.refreshToken
         if (!refreshToken) {
+            clearCookie(res, "accessToken", "/");
+            clearCookie(res, "refreshToken", "/");
             throw createHttpError.Unauthorized("Missing refreshToken")
         }
         const user = jwtService.verifyRefreshToken(refreshToken);
         if (!user || !user.userID || !user.email) {
+            clearCookie(res, "accessToken", "/");
+            clearCookie(res, "refreshToken", "/");
             throw createHttpError.Unauthorized("Invalid token")
         }
         req.user = user

@@ -1,15 +1,15 @@
-declare module '@microlink/react' {
-    import React from 'react';
+declare module "@microlink/react" {
+    import React from "react";
 
     export interface MicrolinkProps {
         url: string;
-        size?: 'small' | 'normal' | 'large';
+        size?: "small" | "normal" | "large";
         media?: string | string[];
         setData?: (data: any) => any;
         className?: string;
         style?: React.CSSProperties;
         lazy?: boolean | object;
-        direction?: 'ltr' | 'rtl';
+        direction?: "ltr" | "rtl";
         contrast?: boolean;
         [key: string]: any;
     }
@@ -18,8 +18,8 @@ declare module '@microlink/react' {
     export default Microlink;
 }
 
-declare module 'linkify-react' {
-    import React from 'react';
+declare module "linkify-react" {
+    import React from "react";
 
     export interface LinkifyProps {
         options?: any;

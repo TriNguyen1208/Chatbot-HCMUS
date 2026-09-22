@@ -9,6 +9,6 @@ export const useTabButtonList = () => {
     return {
         pathname,
         isCollapsed,
-        setCollapsed
+        setCollapsed,
     };
 };

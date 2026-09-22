@@ -10,77 +10,91 @@ import { useSocketContext } from "@/providers/SocketProvider";
 import { chatCache } from "@/features/chat/utils/chat-cache.util";
 
 export const useFriendMessageList = () => {
-  const { activeConversation, setActiveConversation } = useChatStore();
-  const pathname = usePathname();
-  let typeFilter: 'group' | 'utu' | undefined = undefined;
-  if (pathname.includes('/group-chat')) {
-    typeFilter = 'group';
-  } else if (pathname.includes('/direct-chat')) {
-    typeFilter = 'utu';
-  }
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useConversationsQuery(typeFilter);
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const { socket } = useSocketContext();
+    const { activeConversation, setActiveConversation } = useChatStore();
+    const pathname = usePathname();
+    let typeFilter: "group" | "utu" | undefined = undefined;
+    if (pathname.includes("/group-chat")) {
+        typeFilter = "group";
+    } else if (pathname.includes("/direct-chat")) {
+        typeFilter = "utu";
+    }
+    const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+        useConversationsQuery(typeFilter);
+    const router = useRouter();
+    const { user } = useAuthStore();
+    const { socket } = useSocketContext();
 
-  const { ref, inView } = useInView({ threshold: 0 });
+    const { ref, inView } = useInView({ threshold: 0 });
 
-  // Deduplicate conversations across pages
-  const conversations = useMemo(() => {
-    const rawList = data?.pages.flatMap(page => page) || [];
-    const seen = new Set<string>();
-    const unique = rawList.filter((conv) => {
-      const id = conv?.id || (conv as any)?._id;
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+    // Deduplicate conversations across pages
+    const conversations = useMemo(() => {
+        const rawList = data?.pages.flatMap((page) => page) || [];
+        const seen = new Set<string>();
+        const unique = rawList.filter((conv) => {
+            const id = conv?.id
+            if (!id || seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
 
-    // Index for O(1) lookups
-    chatCache.indexConversations(unique, user?.id);
-    return unique;
-  }, [data?.pages, user?.id]);
+        // Index for O(1) lookups
+        chatCache.indexConversations(unique, user?.id);
+        return unique;
+    }, [data?.pages, user?.id]);
 
-  // Catch-up mark_delivered logic
-  useEffect(() => {
-    if (conversations.length > 0 && socket && user?.id) {
-      conversations.forEach(conv => {
-        const lastMsg = conv.last_message;
-        const convId = conv.id;
-        if (lastMsg && lastMsg.sender_id !== user.id) {
-          const msgId = lastMsg.id;
-          if (!msgId) return;
+    // Catch-up mark_delivered logic
+    useEffect(() => {
+        if (conversations.length > 0 && socket && user?.id) {
+            conversations.forEach((conv) => {
+                const lastMsg = conv.last_message;
+                const convId = conv.id;
+                if (lastMsg && lastMsg.sender_id !== user.id) {
+                    const msgId = lastMsg.id;
+                    if (!msgId) return;
 
-          const myWatermark = conv.watermarks?.find(w => w.user_id === user.id);
-          const isDeliveredOrRead = myWatermark?.last_delivered_msg_id === msgId || myWatermark?.last_read_msg_id === msgId;
+                    const myWatermark = conv.watermarks?.find(
+                        (w) => w.user_id === user.id,
+                    );
+                    const isDeliveredOrRead =
+                        myWatermark?.last_delivered_msg_id === msgId ||
+                        myWatermark?.last_read_msg_id === msgId;
 
-          if (!isDeliveredOrRead && activeConversation?.id !== convId) {
-            socket.emit('mark_delivered', { conversationId: convId, messageId: msgId });
-          }
+                    if (
+                        !isDeliveredOrRead &&
+                        activeConversation?.id !== convId
+                    ) {
+                        socket.emit("mark_delivered", {
+                            conversationId: convId,
+                            messageId: msgId,
+                        });
+                    }
+                }
+            });
         }
-      });
-    }
-  }, [conversations, socket, user?.id, activeConversation?.id]);
+    }, [conversations, socket, user?.id, activeConversation?.id]);
 
-  useEffect(() => {
-    if (inView && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    useEffect(() => {
+        if (inView && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handleConversationClick = (conv: Conversation) => {
-    setActiveConversation(conv);
-    const basePath = pathname.startsWith('/direct-chat') || pathname.startsWith('/group-chat') || pathname.startsWith('/chat')
-      ? pathname
-      : '/chat';
-    router.push(`${basePath}?conversation_id=${conv.id}`);
-  };
+    const handleConversationClick = (conv: Conversation) => {
+        setActiveConversation(conv);
+        const basePath =
+            pathname.startsWith("/direct-chat") ||
+            pathname.startsWith("/group-chat") ||
+            pathname.startsWith("/chat")
+                ? pathname
+                : "/chat";
+        router.push(`${basePath}?conversation_id=${conv.id}`);
+    };
 
-  return {
-    conversations,
-    isLoadingConversations: isLoading,
-    activeConversation,
-    ref,
-    handleConversationClick
-  };
+    return {
+        conversations,
+        isLoadingConversations: isLoading,
+        activeConversation,
+        ref,
+        handleConversationClick,
+    };
 };

@@ -15,25 +15,51 @@ export interface PresignedUrlsResult {
 }
 
 export const mediaApi = {
+    //Upload 1 image
     uploadImage: async (file: File): Promise<UploadImageResult> => {
         const formData = new FormData();
         formData.append("file", file);
-        return http.post<UploadImageResult>('/media/image', formData, {
+        return http.post<UploadImageResult>("/media/image", formData, {
             headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+                "Content-Type": "multipart/form-data",
+            },
         });
     },
 
-    initMultipartUpload: async (fileName: string, mimeType: string): Promise<InitMultipartResult> => {
-        return http.post<InitMultipartResult>('/media/video/multipart/init', { fileName, mimeType });
+    //Get uploadId and fileKey (init in S3)
+    initMultipartUpload: async (
+        fileName: string,
+        mimeType: string,
+    ): Promise<InitMultipartResult> => {
+        return http.post<InitMultipartResult>("/media/video/multipart/init", {
+            fileName,
+            mimeType,
+        });
     },
 
-    getPresignedUrlsForMultipart: async (fileKey: string, uploadId: string, partNumbers: number[]): Promise<PresignedUrlsResult> => {
-        return http.post<PresignedUrlsResult>('/media/video/multipart/urls', { fileKey, uploadId, partNumbers });
+    //Get presigned url (from S3)
+    getPresignedUrlsForMultipart: async (
+        fileKey: string,
+        uploadId: string,
+        partNumbers: number[],
+    ): Promise<PresignedUrlsResult> => {
+        return http.post<PresignedUrlsResult>("/media/video/multipart/urls", {
+            fileKey,
+            uploadId,
+            partNumbers,
+        });
     },
 
-    completeMultipartUpload: async (fileKey: string, uploadId: string, parts: { ETag: string; PartNumber: number }[]): Promise<any> => {
-        return http.post<any>('/media/video/multipart/complete', { fileKey, uploadId, parts });
-    }
+    //Complete upload
+    completeMultipartUpload: async (
+        fileKey: string,
+        uploadId: string,
+        parts: { ETag: string; PartNumber: number }[],
+    ): Promise<any> => {
+        return http.post<any>("/media/video/multipart/complete", {
+            fileKey,
+            uploadId,
+            parts,
+        });
+    },
 };

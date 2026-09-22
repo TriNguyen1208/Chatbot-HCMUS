@@ -171,7 +171,6 @@ export class ConversationController {
         const body = req.body as UpdateConversationDto;
 
         const updated = await this.conversationService.updateConversation(userId, params.id, body);
-        console.log(updated)
         return apiResponse.success(res, updated, {
             statusCode: 200,
             message: "Group updated successfully"

@@ -47,6 +47,18 @@ export class UserFacade {
     async setPresenceOffline(userId: string, lastActive: Date): Promise<void> {
         return this.userService.setPresenceOffline(userId, lastActive);
     }
+
+    async onUserSocketConnected(userId: string, socketId: string): Promise<void> {
+        return this.userService.onUserSocketConnected(userId, socketId);
+    }
+
+    async onUserSocketDisconnected(userId: string, socketId: string): Promise<number> {
+        return this.userService.onUserSocketDisconnected(userId, socketId);
+    }
+
+    async isUserOnline(userId: string): Promise<boolean> {
+        return this.userService.isUserOnlineDistributed(userId);
+    }
 }
 
 export const userFacade = new UserFacade();

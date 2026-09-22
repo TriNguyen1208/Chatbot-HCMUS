@@ -6,6 +6,6 @@ export type UserProfileResponse = User;
 
 export const profileApi = {
     updateProfile: async (data: UpdateProfileDto): Promise<User> => {
-        return http.patch<User>('/user', data);
-    }
+        return http.patch<User>("/user", data);
+    },
 };

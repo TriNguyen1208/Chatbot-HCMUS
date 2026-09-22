@@ -14,7 +14,12 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
     const pathname = usePathname();
     const { socket } = useSocketContext();
 
-    const fallbackRoute = type === "group" ? "/group-chat" : type === "utu" ? "/direct-chat" : "/chat";
+    const fallbackRoute =
+        type === "group"
+            ? "/group-chat"
+            : type === "utu"
+              ? "/direct-chat"
+              : "/chat";
 
     const cId = searchParams.get("conversation_id");
     const receiverId = searchParams.get("receiver_id");
@@ -23,9 +28,16 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
 
     // Emit mark_read when active conversation receives or views messages
     useEffect(() => {
-        if (activeConversation?.id && activeConversation.last_message?.id && socket) {
+        if (
+            activeConversation?.id &&
+            activeConversation.last_message?.id &&
+            socket
+        ) {
             const currentUser = useAuthStore.getState().user;
-            if (currentUser?.id && activeConversation.last_message.sender_id !== currentUser.id) {
+            if (
+                currentUser?.id &&
+                activeConversation.last_message.sender_id !== currentUser.id
+            ) {
                 socket.emit("mark_read", {
                     conversationId: activeConversation.id,
                     messageId: activeConversation.last_message.id,
@@ -42,7 +54,8 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         // CASE 1: Real conversation with conversation_id
         if (cId) {
             const currentId = current?.id;
-            const isMissingDetails = !current?.member_ids || current.member_ids.length === 0;
+            const isMissingDetails =
+                !current?.member_ids || current.member_ids.length === 0;
 
             if (currentId !== cId || isMissingDetails) {
                 // O(1) direct query lookup from chatCache
@@ -63,7 +76,10 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                     })
                     .catch((err) => {
                         if (!isCancelled) {
-                            console.error("Không thể load hội thoại từ URL", err);
+                            console.error(
+                                "Không thể load hội thoại từ URL",
+                                err,
+                            );
                             router.replace(fallbackRoute);
                         }
                     });
@@ -73,17 +89,20 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         else if (receiverId) {
             const currentReceiverId = current?.receiver_id;
             const currentUserId = useAuthStore.getState().user?.id || "";
-            const isSelf = Boolean(currentUserId && receiverId === currentUserId);
+            const isSelf = Boolean(
+                currentUserId && receiverId === currentUserId,
+            );
 
             const basePath = pathname.startsWith("/group-chat")
                 ? "/group-chat"
                 : pathname.startsWith("/direct-chat")
-                ? "/direct-chat"
-                : "/chat";
+                  ? "/direct-chat"
+                  : "/chat";
 
             if (isSelf) {
                 // 1. O(1) check if self conversation exists in cache
-                const selfConvId = chatCache.getSelfConversationId(currentUserId);
+                const selfConvId =
+                    chatCache.getSelfConversationId(currentUserId);
                 if (selfConvId) {
                     const selfConv = chatCache.getConversation(selfConvId);
                     router.replace(`${basePath}?conversation_id=${selfConvId}`);
@@ -97,7 +116,9 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                     .then((selfConv) => {
                         if (!isCancelled && selfConv?.id) {
                             chatCache.setConversation(selfConv);
-                            router.replace(`${basePath}?conversation_id=${selfConv.id}`);
+                            router.replace(
+                                `${basePath}?conversation_id=${selfConv.id}`,
+                            );
                             setActiveConversation(selfConv);
                         }
                     })
@@ -106,7 +127,6 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                         if (!isCancelled) {
                             const currentUser = useAuthStore.getState().user;
                             setActiveConversation({
-                                _id: "",
                                 id: "",
                                 type: "self",
                                 name: "Cloud của tôi",
@@ -120,11 +140,16 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                     });
             } else {
                 // 1. O(1) check if 1-1 conversation already exists in cache for this user
-                const directConvId = chatCache.getDirectConversationId(receiverId, currentUserId);
+                const directConvId = chatCache.getDirectConversationId(
+                    receiverId,
+                    currentUserId,
+                );
 
                 if (directConvId) {
                     const existing = chatCache.getConversation(directConvId);
-                    router.replace(`${basePath}?conversation_id=${directConvId}`);
+                    router.replace(
+                        `${basePath}?conversation_id=${directConvId}`,
+                    );
                     if (existing) setActiveConversation(existing);
                 } else if (currentReceiverId !== receiverId || !current) {
                     // Fetch target user metadata to build draft conversation
@@ -133,7 +158,6 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                         .then((targetUser) => {
                             if (!isCancelled) {
                                 setActiveConversation({
-                                    _id: "",
                                     id: "",
                                     type: "utu",
                                     name: targetUser.name || "Người dùng mới",
@@ -150,7 +174,10 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
                         })
                         .catch((err) => {
                             if (!isCancelled) {
-                                console.error("Không thể load user từ URL", err);
+                                console.error(
+                                    "Không thể load user từ URL",
+                                    err,
+                                );
                                 router.replace(fallbackRoute);
                             }
                         });
@@ -167,7 +194,14 @@ export const useChatScreen = (type?: "utu" | "group" | "all") => {
         return () => {
             isCancelled = true;
         };
-    }, [cId, receiverId, router, pathname, setActiveConversation, fallbackRoute]);
+    }, [
+        cId,
+        receiverId,
+        router,
+        pathname,
+        setActiveConversation,
+        fallbackRoute,
+    ]);
 
     return {
         activeConversation,

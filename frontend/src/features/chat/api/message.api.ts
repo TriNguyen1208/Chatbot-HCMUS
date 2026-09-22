@@ -12,12 +12,13 @@ export interface SendMessagePayload {
 }
 
 export const messageApi = {
+    //Get list message in conversation
     getMessages: async (
         conversationId: string,
         limit: number = 20,
         cursorId?: string,
         search?: string,
-        type?: string
+        type?: string,
     ): Promise<Message[]> => {
         const params: Record<string, any> = { limit };
         if (cursorId) params.cursor_id = cursorId;
@@ -26,29 +27,44 @@ export const messageApi = {
         return http.get<Message[]>(`/message/${conversationId}`, { params });
     },
 
+    //Get before and after message in conversation
     getContextMessages: async (
         conversationId: string,
         messageId: string,
-        limit: number = 10
+        limit: number = 10,
     ): Promise<Message[]> => {
         const params: Record<string, any> = { limit };
-        return http.get<Message[]>(`/message/${conversationId}/context/${messageId}`, { params });
+        return http.get<Message[]>(
+            `/message/${conversationId}/context/${messageId}`,
+            { params },
+        );
     },
 
+    //Send message
     sendMessage: async (payload: SendMessagePayload): Promise<Message> => {
-        return socketService.emitWithAck<Message>('new_message', payload);
+        return socketService.emitWithAck<Message>("new_message", payload);
     },
 
+    //Edit message
     editMessage: async (id: string, content: string): Promise<Message> => {
-        return socketService.emitWithAck<Message>('message_edited', { message_id: id, content });
+        return socketService.emitWithAck<Message>("message_edited", {
+            message_id: id,
+            content,
+        });
     },
 
+    //Recall message
     recallMessage: async (id: string): Promise<Message> => {
-        return socketService.emitWithAck<Message>('message_recalled', { message_id: id });
+        return socketService.emitWithAck<Message>("message_recalled", {
+            message_id: id,
+        });
     },
 
+    //Toggle reaction
     toggleReaction: async (id: string, emoji: string): Promise<Message> => {
-        return socketService.emitWithAck<Message>('message_reaction_updated', { message_id: id, emoji });
-    }
+        return socketService.emitWithAck<Message>("message_reaction_updated", {
+            message_id: id,
+            emoji,
+        });
+    },
 };
-

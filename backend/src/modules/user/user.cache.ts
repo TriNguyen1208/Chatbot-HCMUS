@@ -47,6 +47,24 @@ export class UserCache {
         await redisClient.set(this.presenceKey(userId), "online", ttl);
     }
 
+    private userSocketsKey(userId: string): string {
+        return `user_sockets:${userId}`;
+    }
+
+    async addSocket(userId: string, socketId: string): Promise<void> {
+        await redisClient.sadd(this.userSocketsKey(userId), socketId);
+        await redisClient.expire(this.userSocketsKey(userId), 24 * 3600);
+    }
+
+    async removeSocket(userId: string, socketId: string): Promise<number> {
+        await redisClient.srem(this.userSocketsKey(userId), socketId);
+        return await redisClient.scard(this.userSocketsKey(userId));
+    }
+
+    async getSocketCount(userId: string): Promise<number> {
+        return await redisClient.scard(this.userSocketsKey(userId));
+    }
+
     async setPresenceOffline(userId: string, lastActive: Date, ttl: number = 24 * 3600): Promise<void> {
         await redisClient.setJSON(this.presenceKey(userId), {
             status: 'offline',

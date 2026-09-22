@@ -10,144 +10,160 @@ import { useState, useRef, useEffect } from "react";
 import { find } from "linkifyjs";
 
 export interface UseMessageItemOptions {
-  isLastMessage?: boolean;
-  watermarks?: { type: 'delivered' | 'read'; userId: string }[];
+    isLastMessage?: boolean;
+    watermarks?: { type: "delivered" | "read"; userId: string }[];
 }
 
-export const useMessageItem = (message: Message, options?: UseMessageItemOptions) => {
-  const isLastMessage = options?.isLastMessage ?? false;
-  const watermarks = options?.watermarks;
-  
-  const { user } = useAuthStore();
-  const requestUser = useUserStore(state => state.requestUser);
-  const users = useUserStore(state => state.users);
-  const senderUser = users[message.sender_id || ''];
+export const useMessageItem = (
+    message: Message,
+    options?: UseMessageItemOptions,
+) => {
+    const isLastMessage = options?.isLastMessage ?? false;
+    const watermarks = options?.watermarks;
 
-  const senderId = message.sender_id;
-  const isMe = senderId === user?.id;
-  const isSystem = message.type === 'system' || senderId === 'system';
+    const { user } = useAuthStore();
+    const requestUser = useUserStore((state) => state.requestUser);
+    const users = useUserStore((state) => state.users);
+    const senderUser = users[message.sender_id || ""];
 
-  useEffect(() => {
-    if (message.sender_id && !senderUser) {
-      requestUser(message.sender_id);
-    }
-  }, [message.sender_id, senderUser, requestUser]);
+    const senderId = message.sender_id;
+    const isMe = senderId === user?.id;
+    const isSystem = message.type === "system" || senderId === "system";
 
-  useEffect(() => {
-    if (isMe && watermarks) {
-      watermarks.forEach(w => {
-        if (w.userId && !users[w.userId]) {
-          requestUser(w.userId);
+    useEffect(() => {
+        if (message.sender_id && !senderUser) {
+            requestUser(message.sender_id);
         }
-      });
-    }
-  }, [isMe, watermarks, users, requestUser]);
+    }, [message.sender_id, senderUser, requestUser]);
 
-  const timeDisplay = message.created_at ? format(new Date(message.created_at), "h:mm a") : "";
+    useEffect(() => {
+        if (isMe && watermarks) {
+            watermarks.forEach((w) => {
+                if (w.userId && !users[w.userId]) {
+                    requestUser(w.userId);
+                }
+            });
+        }
+    }, [isMe, watermarks, users, requestUser]);
 
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+    const timeDisplay = message.created_at
+        ? format(new Date(message.created_at), "h:mm a")
+        : "";
 
-  const [showReactMenu, setShowReactMenu] = useState(false);
-  const reactMenuRef = useRef<HTMLDivElement>(null);
+    const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-  const [showReactionList, setShowReactionList] = useState(false);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showEditHistory, setShowEditHistory] = useState(false);
+    const [showReactMenu, setShowReactMenu] = useState(false);
+    const reactMenuRef = useRef<HTMLDivElement>(null);
 
-  const shouldShowDetails = isLastMessage || showDetails;
+    const [showReactionList, setShowReactionList] = useState(false);
+    const [showImageModal, setShowImageModal] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
+    const [showEditHistory, setShowEditHistory] = useState(false);
 
-  const setEditingMessage = useChatStore(state => state.setEditingMessage);
+    const shouldShowDetails = isLastMessage || showDetails;
 
-  const canEdit = Boolean(
-    isMe && 
-    message.status !== 'recalled' && 
-    message.type === 'text' && 
-    (Date.now() - new Date(message.created_at || Date.now()).getTime() <= 60 * 60 * 1000)
-  );
+    const setEditingMessage = useChatStore((state) => state.setEditingMessage);
 
-  const handleEdit = () => {
-    setShowMenu(false);
-    setEditingMessage(message);
-  };
+    const canEdit = Boolean(
+        isMe &&
+        message.status !== "recalled" &&
+        message.type === "text" &&
+        Date.now() - new Date(message.created_at || Date.now()).getTime() <=
+            60 * 60 * 1000,
+    );
 
-  const detectedLinks = message.content && message.status !== 'recalled' ? find(message.content, 'url') : [];
-  const previewUrl = detectedLinks.length > 0 ? detectedLinks[0].href : null;
-
-  const handleOpenUserProfile = () => {
-    if (message.sender_id) {
-      useModalStore.getState().openUserProfileModal(message.sender_id);
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+    const handleEdit = () => {
         setShowMenu(false);
-      }
-      if (reactMenuRef.current && !reactMenuRef.current.contains(event.target as Node)) {
-        setShowReactMenu(false);
-      }
+        setEditingMessage(message);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  const handleRecall = async () => {
-    try {
-      if (message.id) {
-        await messageApi.recallMessage(message.id);
-      }
-      setShowMenu(false);
-    } catch (error) {
-      console.error("Failed to recall message", error);
-    }
-  };
+    const detectedLinks =
+        message.content && message.status !== "recalled"
+            ? find(message.content, "url")
+            : [];
+    const previewUrl = detectedLinks.length > 0 ? detectedLinks[0].href : null;
 
-  const handleForward = () => {
-    useModalStore.getState().openForwardModal(message);
-    setShowMenu(false);
-  };
+    const handleOpenUserProfile = () => {
+        if (message.sender_id) {
+            useModalStore.getState().openUserProfileModal(message.sender_id);
+        }
+    };
 
-  const handleReact = async (emoji: string) => {
-    setShowReactMenu(false);
-    try {
-      if (message.id) {
-        await messageApi.toggleReaction(message.id, emoji);
-      }
-    } catch (error) {
-      console.error("Failed to toggle reaction", error);
-    }
-  };
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                menuRef.current &&
+                !menuRef.current.contains(event.target as Node)
+            ) {
+                setShowMenu(false);
+            }
+            if (
+                reactMenuRef.current &&
+                !reactMenuRef.current.contains(event.target as Node)
+            ) {
+                setShowReactMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
-  return {
-    isMe,
-    isSystem,
-    senderUser,
-    timeDisplay,
-    showMenu,
-    setShowMenu,
-    menuRef,
-    showReactMenu,
-    setShowReactMenu,
-    reactMenuRef,
-    showReactionList,
-    setShowReactionList,
-    showImageModal,
-    setShowImageModal,
-    showDetails,
-    setShowDetails,
-    shouldShowDetails,
-    showEditHistory,
-    setShowEditHistory,
-    canEdit,
-    handleEdit,
-    previewUrl,
-    handleRecall,
-    handleForward,
-    handleReact,
-    handleOpenUserProfile,
-    users
-  };
+    const handleRecall = async () => {
+        try {
+            if (message.id) {
+                await messageApi.recallMessage(message.id);
+            }
+            setShowMenu(false);
+        } catch (error) {
+            console.error("Failed to recall message", error);
+        }
+    };
+
+    const handleForward = () => {
+        useModalStore.getState().openForwardModal(message);
+        setShowMenu(false);
+    };
+
+    const handleReact = async (emoji: string) => {
+        setShowReactMenu(false);
+        try {
+            if (message.id) {
+                await messageApi.toggleReaction(message.id, emoji);
+            }
+        } catch (error) {
+            console.error("Failed to toggle reaction", error);
+        }
+    };
+
+    return {
+        isMe,
+        isSystem,
+        senderUser,
+        timeDisplay,
+        showMenu,
+        setShowMenu,
+        menuRef,
+        showReactMenu,
+        setShowReactMenu,
+        reactMenuRef,
+        showReactionList,
+        setShowReactionList,
+        showImageModal,
+        setShowImageModal,
+        showDetails,
+        setShowDetails,
+        shouldShowDetails,
+        showEditHistory,
+        setShowEditHistory,
+        canEdit,
+        handleEdit,
+        previewUrl,
+        handleRecall,
+        handleForward,
+        handleReact,
+        handleOpenUserProfile,
+        users,
+    };
 };

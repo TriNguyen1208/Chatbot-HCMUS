@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import type { SocketManager } from "../socket.manager.js";
+import type { ISocketManager } from "../socket.manager.js";
 import { registerUserSocket } from "#@/modules/user/user.socket.js";
 import { registerMessageSocket } from "#@/modules/message/message.socket.js";
 import { registerConversationSocket } from "#@/modules/conversation/conversation.socket.js";
@@ -13,10 +13,11 @@ import { registerConversationSocket } from "#@/modules/conversation/conversation
 export const registerSocketHandlers = (
     io: Server,
     socket: Socket,
-    socketManager: SocketManager,
+    socketManager: ISocketManager,
     allUsersRoom: string
 ): void => {
     registerUserSocket(io, socket, socketManager, allUsersRoom);
     registerMessageSocket(socket, socketManager);
     registerConversationSocket(socket, socketManager);
 };
+

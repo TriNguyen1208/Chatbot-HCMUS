@@ -38,7 +38,7 @@ export const useProfileForm = (initialUser?: User) => {
         if (!file) return;
 
         // Reset input value to allow selecting the same file again
-        e.target.value = '';
+        e.target.value = "";
 
         if (!file.type.startsWith("image/")) {
             // toast.error("Please select an image file.");
@@ -69,13 +69,26 @@ export const useProfileForm = (initialUser?: User) => {
         try {
             setIsSaving(true);
             const dataToUpdate = {
-                phone: phone.trim() !== currentUser.phone ? phone.trim() : undefined,
-                avatar_url: avatarUrl !== currentUser.avatar_url ? avatarUrl : undefined,
+                phone:
+                    phone.trim() !== currentUser.phone
+                        ? phone.trim()
+                        : undefined,
+                avatar_url:
+                    avatarUrl !== currentUser.avatar_url
+                        ? avatarUrl
+                        : undefined,
             };
 
             // Only update if there are changes
-            if (Object.keys(dataToUpdate).some(key => dataToUpdate[key as keyof typeof dataToUpdate] !== undefined)) {
-                const updatedUser = await profileApi.updateProfile(dataToUpdate);
+            if (
+                Object.keys(dataToUpdate).some(
+                    (key) =>
+                        dataToUpdate[key as keyof typeof dataToUpdate] !==
+                        undefined,
+                )
+            ) {
+                const updatedUser =
+                    await profileApi.updateProfile(dataToUpdate);
                 // toast.success("Profile updated successfully!");
                 setUser({ ...currentUser, ...dataToUpdate });
                 router.push("/chat");
@@ -106,6 +119,6 @@ export const useProfileForm = (initialUser?: User) => {
         handleAvatarClick,
         handleFileChange,
         handleSave,
-        handleCancel
+        handleCancel,
     };
 };

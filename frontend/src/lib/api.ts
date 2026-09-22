@@ -39,7 +39,11 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        if (error.response && error.response?.status === 401 && !originalRequest._retry) {
+        if (
+            error.response &&
+            error.response?.status === 401 &&
+            !originalRequest._retry
+        ) {
             // Đang có 1 tiến trình xin refresh token chạy rồi
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
@@ -64,7 +68,7 @@ api.interceptors.response.use(
                     {},
                     {
                         withCredentials: true,
-                    }
+                    },
                 );
                 // Báo cho các request đang chờ biết là refresh xong rồi
                 processQueue(null);
@@ -81,7 +85,7 @@ api.interceptors.response.use(
             }
         }
         return Promise.reject(error);
-    }
+    },
 );
 
 /**
@@ -92,15 +96,27 @@ export const http = {
         const res = await api.get<ApiResponse<T>>(url, config);
         return res.data.data;
     },
-    post: async <T>(url: string, body?: any, config?: AxiosRequestConfig): Promise<T> => {
+    post: async <T>(
+        url: string,
+        body?: any,
+        config?: AxiosRequestConfig,
+    ): Promise<T> => {
         const res = await api.post<ApiResponse<T>>(url, body, config);
         return res.data.data;
     },
-    put: async <T>(url: string, body?: any, config?: AxiosRequestConfig): Promise<T> => {
+    put: async <T>(
+        url: string,
+        body?: any,
+        config?: AxiosRequestConfig,
+    ): Promise<T> => {
         const res = await api.put<ApiResponse<T>>(url, body, config);
         return res.data.data;
     },
-    patch: async <T>(url: string, body?: any, config?: AxiosRequestConfig): Promise<T> => {
+    patch: async <T>(
+        url: string,
+        body?: any,
+        config?: AxiosRequestConfig,
+    ): Promise<T> => {
         const res = await api.patch<ApiResponse<T>>(url, body, config);
         return res.data.data;
     },

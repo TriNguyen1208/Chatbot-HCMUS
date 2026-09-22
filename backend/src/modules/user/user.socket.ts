@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import type { SocketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import type { ISocketManager } from "#@/infrastructure/websocket/socket.manager.js";
 import { SocketEvents } from "#@/infrastructure/websocket/socket.events.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
 
@@ -9,15 +9,15 @@ import { userFacade } from "#@/modules/user/user.facade.js";
 export const registerUserSocket = (
     io: Server,
     socket: Socket,
-    socketManager: SocketManager,
+    socketManager: ISocketManager,
     allUsersRoom: string
 ): void => {
     const userId = socket.data.userId as string;
     if (!userId) return;
 
-    // Update presence (24h TTL) via Facade
-    userFacade.setPresenceOnline(userId).catch(err => {
-        console.error("[Socket.IO] Failed to set redis presence", err);
+    // Track socket ID in Redis Set & update presence online
+    userFacade.onUserSocketConnected(userId, socket.id).catch(err => {
+        console.error("[Socket.IO] Failed to track connected socket", err);
     });
 
     // Broadcast to other users
@@ -30,15 +30,15 @@ export const registerUserSocket = (
         // Debounce for 3 seconds to handle page refresh / multiple tabs
         setTimeout(async () => {
             try {
-                const isOnline = await socketManager.isUserOnline(userId);
-                if (!isOnline) {
+                const remainingSockets = await userFacade.onUserSocketDisconnected(userId, socket.id);
+                if (remainingSockets === 0) {
                     const lastActive = new Date();
 
                     // Update presence in Redis to offline & update DB via Facade
                     await userFacade.setPresenceOffline(userId, lastActive);
 
                     // Broadcast offline event to all other users
-                    io.to(allUsersRoom).emit(SocketEvents.USER_OFFLINE, {
+                    socketManager.emitToAll(SocketEvents.USER_OFFLINE, {
                         userId,
                         last_active: lastActive
                     });

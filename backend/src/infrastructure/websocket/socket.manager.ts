@@ -1,6 +1,7 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
+import { Emitter } from "@socket.io/redis-emitter";
 import { socketAuthMiddleware } from "./socket-auth.middleware.js";
 import { config } from "#@/config/config.js";
 import { redisClient } from "#@/infrastructure/redis/redis.client.js";
@@ -10,7 +11,19 @@ export const USER_ROOM = (userId: string) => `user:${userId}`;
 export const ALL_USERS_ROOM = 'global:all_users';
 export const CONVERSATION_ROOM = (conversationId: string) => `conversation:${conversationId}`;
 
-export class SocketManager {
+export interface ISocketManager {
+    emitToUser(userId: string, event: string, data: unknown): void;
+    emitToUsers(userIds: string | string[], event: string, data: unknown): void;
+    emitToGroup(conversationId: string, event: string, data: unknown): void;
+    emitToAll(event: string, data: unknown): void;
+    joinGroup(userIds: string | string[], conversationId: string): void;
+    leaveGroup(userIds: string | string[], conversationId: string): void;
+    disconnectUser(userId: string): void;
+    isUserOnline(userId: string): Promise<boolean>;
+    getIO(): Server | undefined;
+}
+
+export class SocketManager implements ISocketManager {
     private readonly io: Server;
 
     constructor(server: HttpServer) {
@@ -67,8 +80,6 @@ export class SocketManager {
         if (uids.length === 0) return;
         const room = CONVERSATION_ROOM(conversationId);
         const userRooms = uids.map(id => USER_ROOM(id));
-        console.log(userRooms)
-        console.log(room)
         this.io.in(userRooms).socketsJoin(room);
         console.log(`[Socket.IO] Users [${uids.join(", ")}] joined conversation '${conversationId}'`);
     }
@@ -87,6 +98,10 @@ export class SocketManager {
         this.io.to(room).emit(event, data);
     }
 
+    public emitToAll(event: string, data: unknown): void {
+        this.io.to(ALL_USERS_ROOM).emit(event, data);
+    }
+
     public disconnectUser(userId: string): void {
         this.io.in(USER_ROOM(userId)).disconnectSockets(true);
         console.log(`[Socket.IO] Force disconnected user '${userId}'`);
@@ -102,9 +117,76 @@ export class SocketManager {
     }
 }
 
-export let socketManager: SocketManager;
+/**
+ * WorkerSocketManager: Dùng cho tiến trình Worker độc lập không có HTTP Server.
+ * Sử dụng @socket.io/redis-emitter để broadcast event qua Redis adapter tới các Web Process.
+ */
+export class WorkerSocketManager implements ISocketManager {
+    private readonly emitter: Emitter;
 
-export const initSocket = (server: HttpServer): SocketManager => {
+    constructor() {
+        const redis = redisClient.getClient();
+        this.emitter = new Emitter(redis);
+    }
+
+    public emitToUser(userId: string, event: string, data: unknown): void {
+        this.emitter.to(USER_ROOM(userId)).emit(event, data);
+    }
+
+    public emitToUsers(userIds: string | string[], event: string, data: unknown): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.emitter.to(userRooms).emit(event, data);
+    }
+
+    public emitToGroup(conversationId: string, event: string, data: unknown): void {
+        const room = CONVERSATION_ROOM(conversationId);
+        this.emitter.to(room).emit(event, data);
+    }
+
+    public emitToAll(event: string, data: unknown): void {
+        this.emitter.to(ALL_USERS_ROOM).emit(event, data);
+    }
+
+    public joinGroup(userIds: string | string[], conversationId: string): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
+        const room = CONVERSATION_ROOM(conversationId);
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.emitter.in(userRooms).socketsJoin(room);
+    }
+
+    public leaveGroup(userIds: string | string[], conversationId: string): void {
+        const uids = Array.isArray(userIds) ? userIds : [userIds];
+        if (uids.length === 0) return;
+        const room = CONVERSATION_ROOM(conversationId);
+        const userRooms = uids.map(id => USER_ROOM(id));
+        this.emitter.in(userRooms).socketsLeave(room);
+    }
+
+    public disconnectUser(userId: string): void {
+        this.emitter.in(USER_ROOM(userId)).disconnectSockets(true);
+    }
+
+    public async isUserOnline(_userId: string): Promise<boolean> {
+        return false;
+    }
+
+    public getIO(): Server | undefined {
+        return undefined;
+    }
+}
+
+export let socketManager: ISocketManager;
+
+export const initSocket = (server: HttpServer): ISocketManager => {
     socketManager = new SocketManager(server);
     return socketManager;
 };
+
+export const initWorkerSocket = (): ISocketManager => {
+    socketManager = new WorkerSocketManager();
+    return socketManager;
+};
+

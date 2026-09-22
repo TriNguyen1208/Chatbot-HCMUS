@@ -1,5 +1,5 @@
 import type { Socket } from "socket.io";
-import type { SocketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import type { ISocketManager } from "#@/infrastructure/websocket/socket.manager.js";
 import { CONVERSATION_ROOM } from "#@/infrastructure/websocket/socket.manager.js";
 import { SocketEvents } from "#@/infrastructure/websocket/socket.events.js";
 import type {
@@ -24,7 +24,7 @@ import { messageContainer } from "./message.container.js";
  * - Đã nhận / Đã đọc (Watermark: delivered, read) trực tiếp qua Service, cập nhật DB & ACK
  * - Nhắn tin thời gian thực Full-Duplex (Gửi, sửa, thu hồi, reaction) với Zod validation & ACK callback
  */
-export const registerMessageSocket = (socket: Socket, socketManager: SocketManager): void => {
+export const registerMessageSocket = (socket: Socket, socketManager: ISocketManager): void => {
     const userId = socket.data.userId as string;
     if (!userId) return;
 

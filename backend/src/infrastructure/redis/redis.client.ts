@@ -145,6 +145,16 @@ export class RedisClient {
         }
     }
 
+    // Đếm số lượng phần tử trong set
+    async scard(key: string): Promise<number> {
+        try {
+            return await this.client.scard(key);
+        } catch (error) {
+            console.error(`[Redis] SCARD error on ${key}:`, error);
+            return 0;
+        }
+    }
+
     // Chèn 1 hoặc nhiều value vào bên trái danh sách (đầu danh sách là left)
     async lpush(key: string, ...values: string[]): Promise<number> {
         if (values.length === 0) return 0;

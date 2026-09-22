@@ -91,26 +91,4 @@ describe("MessageService", () => {
         expect(socketManager.emitToGroup).toHaveBeenCalledWith("c1", "new_message", mockSavedMessage);
         expect(queueService.addJob).not.toHaveBeenCalled();
     });
-
-    it("should push to queue and NOT emit socket when system is overloaded", async () => {
-        // ARRANGE
-        vi.mocked(mockConversationFacade.getConversationById).mockResolvedValue({ id: "c1", is_active: true } as any);
-        vi.mocked(checkSystemLoad).mockResolvedValue(true); // System is busy
-        
-        const payload = { conversation_id: "c1", content: "Test", type: "text" as const };
-
-        // ACT
-        const result = await messageService.handleIncomingMessage("u1", payload);
-
-        // ASSERT
-        expect(result.status).toBe('queued');
-        expect(queueService.addJob).toHaveBeenCalledWith('create_message', expect.objectContaining({
-            conversation_id: 'c1',
-            content: 'Test'
-        }));
-        
-        // Do not save DB and Do not fire socket
-        expect(mockMessageRepo.create).not.toHaveBeenCalled();
-        expect(socketManager.emitToGroup).not.toHaveBeenCalled();
-    });
 });

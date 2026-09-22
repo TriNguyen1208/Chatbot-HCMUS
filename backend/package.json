@@ -9,9 +9,13 @@
   },
   "scripts": {
     "test": "vitest",
-    "dev": "nodemon --ext ts,js,json --exec tsx src/index.ts",
+    "dev": "concurrently -n \"SERVER,WORKER\" -c \"blue,magenta\" \"npm run dev:server\" \"npm run dev:worker\"",
+    "dev:server": "nodemon --ext ts,js,json --watch src --ignore src/worker.ts --exec tsx src/index.ts",
+    "dev:worker": "nodemon --ext ts,js,json --watch src/worker.ts --watch src/background --exec tsx src/worker.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "start:server": "node dist/index.js",
+    "start:worker": "node dist/worker.js"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +25,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1104.0",
     "@elastic/elasticsearch": "^8.15.0",
     "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "@types/multer": "^2.2.0",
     "bullmq": "^5.81.2",
     "cookie": "^2.0.1",
@@ -55,6 +60,7 @@
     "@types/mongoose": "^5.11.96",
     "@types/morgan": "^1.9.10",
     "@types/node": "^26.1.0",
+    "concurrently": "^10.0.5",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.0",

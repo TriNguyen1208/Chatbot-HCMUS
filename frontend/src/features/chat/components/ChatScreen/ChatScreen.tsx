@@ -12,59 +12,68 @@ import AssignAdminModal from "../Modals/AssignAdminModal";
 import ForwardModal from "../Modals/ForwardModal";
 
 export interface ChatScreenProps {
-  type?: "utu" | "group" | "all";
+    type?: "utu" | "group" | "all";
 }
 
 const ChatPageContent = ({ type }: ChatScreenProps) => {
-  const { activeConversation } = useChatScreen(type);
-  const {
-    isCreateGroupOpen, setCreateGroupOpen,
-    isKickModalOpen, setKickModalOpen,
-    isAssignAdminModalOpen, setAssignAdminModalOpen
-  } = useModalStore();
+    const { activeConversation } = useChatScreen(type);
+    const {
+        isCreateGroupOpen,
+        setCreateGroupOpen,
+        isKickModalOpen,
+        setKickModalOpen,
+        isAssignAdminModalOpen,
+        setAssignAdminModalOpen,
+    } = useModalStore();
 
-  return (
-    <>
-      <div className="flex flex-row w-full h-full overflow-hidden relative">
-        {!activeConversation ? (
-          <EmptyChatScreen />
-        ) : (
-          <>
-            <div className="flex-1 min-w-0">
-              <ChatArea />
+    return (
+        <>
+            <div className="flex flex-row w-full h-full overflow-hidden relative">
+                {!activeConversation ? (
+                    <EmptyChatScreen />
+                ) : (
+                    <>
+                        <div className="flex-1 min-w-0">
+                            <ChatArea />
+                        </div>
+                        <ConversationInfo />
+                    </>
+                )}
             </div>
-            <ConversationInfo />
-          </>
-        )}
-      </div>
 
-      <CreateGroupModal
-        isOpen={isCreateGroupOpen}
-        onClose={() => setCreateGroupOpen(false)}
-      />
+            <CreateGroupModal
+                isOpen={isCreateGroupOpen}
+                onClose={() => setCreateGroupOpen(false)}
+            />
 
-      <KickMemberModal
-        isOpen={isKickModalOpen}
-        onClose={() => setKickModalOpen(false)}
-      />
+            <KickMemberModal
+                isOpen={isKickModalOpen}
+                onClose={() => setKickModalOpen(false)}
+            />
 
-      <AssignAdminModal
-        isOpen={isAssignAdminModalOpen}
-        onClose={() => setAssignAdminModalOpen(false)}
-      />
+            <AssignAdminModal
+                isOpen={isAssignAdminModalOpen}
+                onClose={() => setAssignAdminModalOpen(false)}
+            />
 
-      <UserProfileModal />
-      <ForwardModal />
-    </>
-  );
+            <UserProfileModal />
+            <ForwardModal />
+        </>
+    );
 };
 
 const ChatScreen = ({ type }: ChatScreenProps) => {
-  return (
-    <Suspense fallback={<div className="w-full h-full flex items-center justify-center">Loading...</div>}>
-      <ChatPageContent type={type} />
-    </Suspense>
-  );
+    return (
+        <Suspense
+            fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                    Loading...
+                </div>
+            }
+        >
+            <ChatPageContent type={type} />
+        </Suspense>
+    );
 };
 
 export default ChatScreen;

@@ -1,12 +1,11 @@
 export type * from "./types";
 
-export * from "./stores/authStore"
+export * from "./stores/authStore";
 
-export * from "./api/authApi"
+export * from "./api/authApi";
 
-export * from "./hooks/useGoogleAuth"
-export * from "./hooks/useLogout"
-
+export * from "./hooks/useGoogleAuth";
+export * from "./hooks/useLogout";
 
 // export * from "./components/AuthLeftPanel"
 // export * from "./components/AuthRightPanel"

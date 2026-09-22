@@ -6,6 +6,6 @@ export const useFriendBar = () => {
 
     return {
         isSearchOpen,
-        setIsSearchOpen
+        setIsSearchOpen,
     };
 };

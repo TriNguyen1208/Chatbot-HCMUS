@@ -160,4 +160,18 @@ export class UserService {
         await this.userCache.setPresenceOffline(userID, lastActive);
         await this.updatePresence(userID, lastActive);
     }
+
+    async onUserSocketConnected(userId: string, socketId: string): Promise<void> {
+        await this.userCache.addSocket(userId, socketId);
+        await this.setPresenceOnline(userId);
+    }
+
+    async onUserSocketDisconnected(userId: string, socketId: string): Promise<number> {
+        return await this.userCache.removeSocket(userId, socketId);
+    }
+
+    async isUserOnlineDistributed(userId: string): Promise<boolean> {
+        const count = await this.userCache.getSocketCount(userId);
+        return count > 0;
+    }
 }

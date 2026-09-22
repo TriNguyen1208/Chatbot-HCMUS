@@ -7,99 +7,109 @@ import { conversationApi } from "@/features/chat/api/conversation.api";
 import { useUserStore } from "@/features/chat/stores/userStore";
 
 export const useAssignAdminModal = (isOpen: boolean, onClose: () => void) => {
-  const { activeConversation, setActiveConversation } = useChatStore();
-  const { user } = useAuthStore();
-  const { users, requestUser } = useUserStore();
+    const { activeConversation, setActiveConversation } = useChatStore();
+    const { user } = useAuthStore();
+    const { users, requestUser } = useUserStore();
 
-  const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+    const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedAdminIds([]);
-      setSearchQuery("");
-      setIsSubmitting(false);
-      setErrorMsg("");
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && activeConversation?.member_ids) {
-      activeConversation.member_ids.forEach((mId: string) => {
-        if (!users[mId]) {
-          requestUser(mId);
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedAdminIds([]);
+            setSearchQuery("");
+            setIsSubmitting(false);
+            setErrorMsg("");
         }
-      });
-    }
-  }, [isOpen, activeConversation, users, requestUser]);
+    }, [isOpen]);
 
-  const currentAdminIds = new Set(activeConversation?.admin_ids || []);
+    useEffect(() => {
+        if (isOpen && activeConversation?.member_ids) {
+            activeConversation.member_ids.forEach((mId: string) => {
+                if (!users[mId]) {
+                    requestUser(mId);
+                }
+            });
+        }
+    }, [isOpen, activeConversation, users, requestUser]);
 
-  const nonAdminMembers = (activeConversation?.member_ids || []).filter((m: string) => {
-    return m && !currentAdminIds.has(m);
-  });
+    const currentAdminIds = new Set(activeConversation?.admin_ids || []);
 
-  const filteredMembers = nonAdminMembers.filter((mId) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const u = users[mId as string];
-    return (
-      u?.name?.toLowerCase().includes(q) ||
-      u?.email?.toLowerCase().includes(q)
+    const nonAdminMembers = (activeConversation?.member_ids || []).filter(
+        (m: string) => {
+            return m && !currentAdminIds.has(m);
+        },
     );
-  });
 
-  const toggleSelectUser = (userId: string) => {
-    setErrorMsg("");
-    setSelectedAdminIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
+    const filteredMembers = nonAdminMembers.filter((mId) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const u = users[mId as string];
+        return (
+            u?.name?.toLowerCase().includes(q) ||
+            u?.email?.toLowerCase().includes(q)
+        );
+    });
 
-  const handleAssignAdmins = async () => {
-    if (selectedAdminIds.length === 0 || isSubmitting || !activeConversation) return;
+    const toggleSelectUser = (userId: string) => {
+        setErrorMsg("");
+        setSelectedAdminIds((prev) =>
+            prev.includes(userId)
+                ? prev.filter((id) => id !== userId)
+                : [...prev, userId],
+        );
+    };
 
-    try {
-      setIsSubmitting(true);
-      setErrorMsg("");
+    const handleAssignAdmins = async () => {
+        if (
+            selectedAdminIds.length === 0 ||
+            isSubmitting ||
+            !activeConversation
+        )
+            return;
 
-      const convId = activeConversation.id as string;
-      await conversationApi.assignAdmins(convId, selectedAdminIds);
+        try {
+            setIsSubmitting(true);
+            setErrorMsg("");
 
-      const newlyPromoted = (activeConversation.member_ids || []).filter((m: string) =>
-        selectedAdminIds.includes(m)
-      );
+            const convId = activeConversation.id as string;
+            await conversationApi.assignAdmins(convId, selectedAdminIds);
 
-      setActiveConversation({
-        ...activeConversation,
-        admin_ids: [...(activeConversation.admin_ids || []), ...newlyPromoted],
-      });
+            const newlyPromoted = (activeConversation.member_ids || []).filter(
+                (m: string) => selectedAdminIds.includes(m),
+            );
 
-      onClose();
-    } catch (error: unknown) {
-      console.error("Lỗi cấp quyền Admin:", error);
-      setErrorMsg(
-        (error as Error)?.message || "Không thể cấp quyền Admin"
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+            setActiveConversation({
+                ...activeConversation,
+                admin_ids: [
+                    ...(activeConversation.admin_ids || []),
+                    ...newlyPromoted,
+                ],
+            });
 
-  return {
-    activeConversation,
-    users,
-    selectedAdminIds,
-    searchQuery,
-    setSearchQuery,
-    isSubmitting,
-    errorMsg,
-    filteredMembers,
-    toggleSelectUser,
-    handleAssignAdmins,
-  };
+            onClose();
+        } catch (error: unknown) {
+            console.error("Lỗi cấp quyền Admin:", error);
+            setErrorMsg(
+                (error as Error)?.message || "Không thể cấp quyền Admin",
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return {
+        activeConversation,
+        users,
+        selectedAdminIds,
+        searchQuery,
+        setSearchQuery,
+        isSubmitting,
+        errorMsg,
+        filteredMembers,
+        toggleSelectUser,
+        handleAssignAdmins,
+    };
 };

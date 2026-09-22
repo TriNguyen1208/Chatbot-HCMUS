@@ -5,45 +5,46 @@ import { useSearchStore } from "@/features/chat/stores/searchStore";
 import { searchApi, SearchResult } from "@/features/chat/api/search.api";
 
 export const useSearchSidebarContent = () => {
-  const { searchQuery, activeTab, setActiveTab } = useSearchStore();
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+    const { searchQuery, activeTab, setActiveTab } = useSearchStore();
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      return;
-    }
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setResults([]);
+            return;
+        }
 
-    setIsLoading(true);
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+        setIsLoading(true);
+        if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
-    debounceTimeout.current = setTimeout(async () => {
-      try {
-        const data = await searchApi.globalSearch(searchQuery);
-        setResults(data);
-      } catch (error) {
-        console.error("Search failed:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 500);
+        debounceTimeout.current = setTimeout(async () => {
+            try {
+                const data = await searchApi.globalSearch(searchQuery);
+                setResults(data);
+            } catch (error) {
+                console.error("Search failed:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }, 500);
 
-    return () => {
-      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+        return () => {
+            if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+        };
+    }, [searchQuery]);
+
+    const filteredResults =
+        activeTab === "all"
+            ? results
+            : results.filter((r) => r.search_type === activeTab);
+
+    return {
+        searchQuery,
+        activeTab,
+        setActiveTab,
+        filteredResults,
+        isLoading,
     };
-  }, [searchQuery]);
-
-  const filteredResults = activeTab === "all"
-    ? results
-    : results.filter((r) => r.search_type === activeTab);
-
-  return {
-    searchQuery,
-    activeTab,
-    setActiveTab,
-    filteredResults,
-    isLoading,
-  };
 };

@@ -25,10 +25,10 @@ export class AuthController {
     login = async (req: Request, res: Response, next: NextFunction) => {
         const { idToken } = req.body as GoogleLoginInput["body"]
         const result = await this.authService.login(this.authStrategy, idToken);
-        
+
         // Ensure the self conversation exists for the user
         await conversationFacade.findOrCreateSelfConversation(result.user.id);
-        
+
         setCookie(
             res,
             "accessToken",
@@ -41,7 +41,7 @@ export class AuthController {
             "refreshToken",
             result.tokens.refreshToken,
             parseDurationMs(config.jwt.refreshExpires as string),
-            "/api/auth"
+            "/"
         )
 
         await this.keystoreService.saveRefreshToken({
@@ -65,33 +65,41 @@ export class AuthController {
      * @param next The Express next middleware function.
      */
     refreshToken = async (req: Request, res: Response, next: NextFunction) => {
-        const refreshToken = req.cookies.refreshToken
-        const result = await this.keystoreService.refreshToken({
-            rawRefreshToken: refreshToken,
-            deviceInfo: {
-                user_agent: req.headers["user-agent"] as string,
-                ip: req.ip
-            },
-            user: req.user!
-        })
-        if (!result.tokens) {
-            throw createHttpError.Unauthorized("Please log in again");
+        try {
+            const refreshToken = req.cookies.refreshToken
+            const result = await this.keystoreService.refreshToken({
+                rawRefreshToken: refreshToken,
+                deviceInfo: {
+                    user_agent: req.headers["user-agent"] as string,
+                    ip: req.ip
+                },
+                user: req.user!
+            })
+            if (!result.tokens) {
+                clearCookie(res, "accessToken", "/")
+                clearCookie(res, "refreshToken", "/")
+                throw createHttpError.Unauthorized("Please log in again");
+            }
+            setCookie(
+                res,
+                "accessToken",
+                result.tokens.accessToken,
+                parseDurationMs(config.jwt.accessExpires as string),
+                "/"
+            )
+            setCookie(
+                res,
+                "refreshToken",
+                result.tokens.refreshToken,
+                parseDurationMs(config.jwt.refreshExpires as string),
+                "/"
+            )
+            return apiResponse.success(res)
+        } catch (error) {
+            clearCookie(res, "accessToken", "/")
+            clearCookie(res, "refreshToken", "/")
+            throw error;
         }
-        setCookie(
-            res,
-            "accessToken",
-            result.tokens.accessToken,
-            parseDurationMs(config.jwt.accessExpires as string),
-            "/"
-        )
-        setCookie(
-            res,
-            "refreshToken",
-            result.tokens.refreshToken,
-            parseDurationMs(config.jwt.refreshExpires as string),
-            "/api/auth"
-        )
-        return apiResponse.success(res)
     }
     /**
      * Logs out the current user session by removing the refresh token from the database (mark isUsed = true)
@@ -101,12 +109,11 @@ export class AuthController {
      */
     logout = async (req: Request, res: Response, next: NextFunction) => {
         const refreshToken = req.cookies.refreshToken
-        if (!refreshToken) {
-            throw createHttpError.BadRequest("refreshToken is required");
+        clearCookie(res, "accessToken", "/")
+        clearCookie(res, "refreshToken", "/")
+        if (refreshToken) {
+            await this.authService.logout(refreshToken).catch(() => {});
         }
-        clearCookie(res, "accessToken")
-        clearCookie(res, "refreshToken", "/api/auth")
-        await this.authService.logout(refreshToken)
         return apiResponse.success(res, null, { message: "Successfully logged out" });
     }
 
@@ -118,8 +125,8 @@ export class AuthController {
      */
     logoutAll = async (req: Request, res: Response, next: NextFunction) => {
         const user_id = req.user!.userID
-        clearCookie(res, "accessToken")
-        clearCookie(res, "refreshToken", "/api/auth")
+        clearCookie(res, "accessToken", "/")
+        clearCookie(res, "refreshToken", "/")
         await this.authService.logoutAll(user_id)
         return apiResponse.success(res, null, { message: "Successfully logged out all devices" });
     }

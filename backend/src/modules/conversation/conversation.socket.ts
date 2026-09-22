@@ -1,5 +1,5 @@
 import type { Socket } from "socket.io";
-import type { SocketManager } from "#@/infrastructure/websocket/socket.manager.js";
+import type { ISocketManager } from "#@/infrastructure/websocket/socket.manager.js";
 import { CONVERSATION_ROOM } from "#@/infrastructure/websocket/socket.manager.js";
 import { SocketEvents } from "#@/infrastructure/websocket/socket.events.js";
 import type { SocketAckResponse } from "#@/infrastructure/websocket/socket.types.js";
@@ -24,7 +24,7 @@ import { conversationFacade } from "./conversation.facade.js";
  * - Thêm / xóa thành viên, cập nhật admin
  * - Rời nhóm, chặn / bỏ chặn, giải tán nhóm
  */
-export const registerConversationSocket = (socket: Socket, socketManager: SocketManager): void => {
+export const registerConversationSocket = (socket: Socket, socketManager: ISocketManager): void => {
     const userId = socket.data.userId as string;
     if (!userId) return;
 

@@ -17,7 +17,7 @@ export const triggerSync = (collection: string, operation: SyncOperation, data: 
         if (!doc) return;
 
         // Native driver returns _id, map it to id if necessary
-        const mappedId = doc.id || (doc._id ? doc._id.toString() : undefined);
+        const mappedId = doc.id ?? undefined;
         const docWithId = { ...doc, id: mappedId };
 
         const payloadData: any = {};
