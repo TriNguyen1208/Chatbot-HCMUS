@@ -5,7 +5,10 @@
   "main": "./src/index.js",
   "type": "module",
   "imports": {
-    "#@/*": "./src/*"
+    "#@/*": {
+      "production": "./dist/*",
+      "default": "./src/*"
+    }
   },
   "scripts": {
     "test": "vitest",
@@ -15,7 +18,15 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:server": "node dist/index.js",
-    "start:worker": "node dist/worker.js"
+    "start:worker": "node dist/worker.js",
+    "pm2:start": "npm run build && pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart ecosystem.config.cjs",
+    "pm2:reload": "npm run build && pm2 reload ecosystem.config.cjs",
+    "pm2:status": "pm2 status",
+    "pm2:monit": "pm2 monit",
+    "pm2:logs": "pm2 logs",
+    "pm2:clean": "pm2 delete all"
   },
   "keywords": [],
   "author": "",
@@ -62,6 +73,7 @@
     "@types/node": "^26.1.0",
     "concurrently": "^10.0.5",
     "nodemon": "^3.1.14",
+    "pm2": "^7.0.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",

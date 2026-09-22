@@ -20,6 +20,9 @@ export class RedisClient {
     }
 
     async connect(): Promise<void> {
+        if (this.client.status === "ready" || this.client.status === "connecting" || this.client.status === "connect") {
+            return;
+        }
         await this.client.connect();
     }
 
