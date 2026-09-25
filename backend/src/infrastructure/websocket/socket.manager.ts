@@ -6,6 +6,7 @@ import { socketAuthMiddleware } from "./socket-auth.middleware.js";
 import { config } from "#@/config/config.js";
 import { redisClient } from "#@/infrastructure/redis/redis.client.js";
 import { registerSocketHandlers } from "./handlers/index.js";
+import { socketActiveConnections } from "#@/infrastructure/monitoring/metrics.js";
 
 export const USER_ROOM = (userId: string) => `user:${userId}`;
 export const ALL_USERS_ROOM = 'global:all_users';
@@ -53,6 +54,13 @@ export class SocketManager implements ISocketManager {
                 socket.disconnect(true);
                 return;
             }
+
+            // Đo lường kết nối Socket active
+            socketActiveConnections.inc();
+
+            socket.on("disconnect", () => {
+                socketActiveConnections.dec();
+            });
 
             socket.join(USER_ROOM(userId));
             socket.join(ALL_USERS_ROOM);

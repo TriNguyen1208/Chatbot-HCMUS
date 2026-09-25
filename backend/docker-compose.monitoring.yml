@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # 1. PROMETHEUS (Thu thập Metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chatbot-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # 2. LOKI (Lưu trữ Logs)
+  loki:
+    image: grafana/loki:latest
+    container_name: chatbot-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # 3. PROMTAIL (Log Shipper)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: chatbot-promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./logs:/backend-logs:ro
+    command: -config.file=/etc/promtail/config.yml
+
+  # 4. JAEGER (Distributed Tracing All-In-One với OTLP receiver)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: chatbot-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686" # Web UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+
+  # 5. GRAFANA (Dashboard tổng hợp)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chatbot-grafana
+    restart: unless-stopped
+    ports:
+      - "3002:3000" # Map sang port 3002 để tránh trùng với Frontend (3000) và Backend (3001)
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:

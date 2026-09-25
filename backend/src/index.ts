@@ -1,5 +1,7 @@
-import app, { server } from "#@/app.js"
-import { config } from "#@/config/config.js"
+import "#@/infrastructure/monitoring/tracer.js";
+import "#@/infrastructure/monitoring/logging.js";
+import app, { server } from "#@/app.js";
+import { config } from "#@/config/config.js";
 import { redisClient } from "#@/infrastructure/redis/redis.client.js"
 import { mongoDB } from "#@/infrastructure/database/mongodb.connection.js"
 import { initializeDatabaseModels } from "#@/infrastructure/database/init-models.js"

@@ -1,0 +1,14 @@
+# Khối cấu hình chung cho Prometheus
+global:
+  # Khoảng thời gian định kỳ cào dữ liệu metrics (5s một lần)
+  scrape_interval: 5s
+  # Khoảng thời gian đánh giá quy tắc cảnh báo
+  evaluation_interval: 5s
+
+# Danh sách cấu hình thu thập dữ liệu
+scrape_configs:
+  - job_name: "chatbot-backend"
+    metrics_path: "/metrics"
+    static_configs:
+      # host.docker.internal trỏ về máy host nơi Backend đang lắng nghe ở PORT 3001
+      - targets: ["host.docker.internal:3001"]

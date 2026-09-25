@@ -10,6 +10,7 @@ import cookieParser from "cookie-parser"
 import "dotenv/config"
 import http from "http";
 import { initSocket } from "./infrastructure/websocket/socket.manager.js";
+import { metricsMiddleware, register } from "#@/infrastructure/monitoring/metrics.js";
 
 const app = express()
 app.set("trust proxy", 1);
@@ -20,6 +21,7 @@ app.use(cors({
     origin: config.corsOrigins,
     credentials: true
 }));
+app.use(metricsMiddleware)
 app.use(express.json())
 
 app.use(cookieParser())
@@ -30,6 +32,10 @@ app.use(morgan("dev"))
 app.use("/api", routes);
 app.get("/health", (_req, res) => {
     res.status(200).json({ message: "OK" })
+})
+app.get("/metrics", async (_req, res) => {
+    res.setHeader("Content-Type", register.contentType)
+    res.send(await register.metrics())
 })
 app.use(errorHandler)
 const server = http.createServer(app)
