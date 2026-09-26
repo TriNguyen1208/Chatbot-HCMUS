@@ -91,4 +91,51 @@ describe("MessageService", () => {
         expect(socketManager.emitToGroup).toHaveBeenCalledWith("c1", "new_message", mockSavedMessage);
         expect(queueService.addJob).not.toHaveBeenCalled();
     });
+
+    it("should prevent duplicate message creation when client_msg_id is reused", async () => {
+        vi.mocked(mockConversationFacade.getConversationById).mockResolvedValue({ id: "c1", is_active: true } as any);
+        vi.mocked(mockConversationFacade.getConversationMembers).mockResolvedValue(["u1", "u2"]);
+        
+        const mockSavedMessage = { id: "msg-123", content: "Hello once" };
+        vi.mocked(mockMessageRepo.create).mockResolvedValue(mockSavedMessage as any);
+
+        const mockIdempotency = {
+            execute: vi.fn()
+                // Lần 1: Thực thi thành công
+                .mockImplementationOnce(async (_key: string, _ttl: number, action: () => Promise<any>) => ({
+                    isDuplicate: false,
+                    data: await action()
+                }))
+                // Lần 2: Nhận diện duplicate và trả về data cached
+                .mockImplementationOnce(async () => ({
+                    isDuplicate: true,
+                    data: { status: 'success', data: mockSavedMessage }
+                }))
+        } as any;
+
+        const serviceWithIdempotency = new MessageService(
+            mockConversationFacade,
+            mockMessageRepo,
+            mockMessageCache,
+            mockIdempotency
+        );
+
+        const payload = { conversation_id: "c1", content: "Hello once", type: "text" as const, client_msg_id: "uuid-msg-1" };
+
+        // ACT 1: Gửi lần đầu
+        const res1 = await serviceWithIdempotency.handleIncomingMessage("u1", payload);
+        expect(res1.status).toBe('success');
+        expect(res1.data).toEqual(mockSavedMessage);
+        expect(mockMessageRepo.create).toHaveBeenCalledTimes(1);
+        expect(socketManager.emitToGroup).toHaveBeenCalledTimes(1);
+
+        // ACT 2: Retry gửi cùng client_msg_id
+        const res2 = await serviceWithIdempotency.handleIncomingMessage("u1", payload);
+        expect(res2.status).toBe('success');
+        expect(res2.data).toEqual(mockSavedMessage);
+        // MongoDB create và emitToGroup KHÔNG được gọi thêm lần nào
+        expect(mockMessageRepo.create).toHaveBeenCalledTimes(1);
+        expect(socketManager.emitToGroup).toHaveBeenCalledTimes(1);
+    });
 });
+

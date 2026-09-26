@@ -4,12 +4,23 @@ import { type IStorageService } from "./storage.interface.js";
 import { v4 as uuidv4 } from "uuid";
 import { config } from "#@/config/config.js";
 import fs from 'fs';
+import { CircuitBreaker } from "#@/infrastructure/resilience/circuit-breaker.js";
+
+export const r2CircuitBreaker = new CircuitBreaker({
+    name: "CloudflareR2",
+    failureThresholdRatio: 0.5,
+    minimumRequests: 5,
+    samplingPeriodMs: 10000,
+    cooldownPeriodMs: 30000,
+});
 
 export class CloudflareR2Storage implements IStorageService {
     private s3Client: S3Client;
     private bucketName: string;
 
-    constructor() {
+    constructor(
+        private readonly circuitBreaker: CircuitBreaker = r2CircuitBreaker
+    ) {
         this.bucketName = config.cloudflare.bucket_name || "";
         this.s3Client = new S3Client({
             region: "auto",
@@ -29,16 +40,18 @@ export class CloudflareR2Storage implements IStorageService {
      * @returns The public URL of the uploaded image.
      */
     async uploadImage(fileBuffer: Buffer, fileName: string, mimeType: string): Promise<string> {
-        const uniqueFileName = `${uuidv4()}-${fileName}`;
-        const command = new PutObjectCommand({
-            Bucket: this.bucketName,
-            Key: uniqueFileName,
-            Body: fileBuffer,
-            ContentType: mimeType,
+        return this.circuitBreaker.execute(async () => {
+            const uniqueFileName = `${uuidv4()}-${fileName}`;
+            const command = new PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: uniqueFileName,
+                Body: fileBuffer,
+                ContentType: mimeType,
+            });
+            await this.s3Client.send(command);
+            const publicUrl = config.cloudflare.public_url;
+            return `${publicUrl}/${uniqueFileName}`;
         });
-        await this.s3Client.send(command);
-        const publicUrl = config.cloudflare.public_url;
-        return `${publicUrl}/${uniqueFileName}`;
     }
 
     /**
@@ -134,19 +147,21 @@ export class CloudflareR2Storage implements IStorageService {
      * @param destPath The local destination path to save the file.
      */
     async downloadFile(fileKey: string, destPath: string): Promise<void> {
-        const command = new GetObjectCommand({
-            Bucket: this.bucketName,
-            Key: fileKey,
-        });
-        const response = await this.s3Client.send(command);
-        const stream = response.Body as NodeJS.ReadableStream;
-        
-        const writeStream = fs.createWriteStream(destPath);
-        
-        return new Promise((resolve, reject) => {
-            stream.pipe(writeStream)
-                .on("error", reject)
-                .on("finish", resolve);
+        return this.circuitBreaker.execute(async () => {
+            const command = new GetObjectCommand({
+                Bucket: this.bucketName,
+                Key: fileKey,
+            });
+            const response = await this.s3Client.send(command);
+            const stream = response.Body as NodeJS.ReadableStream;
+            
+            const writeStream = fs.createWriteStream(destPath);
+            
+            return new Promise((resolve, reject) => {
+                stream.pipe(writeStream)
+                    .on("error", reject)
+                    .on("finish", resolve);
+            });
         });
     }
     
@@ -162,15 +177,17 @@ export class CloudflareR2Storage implements IStorageService {
         filePath: string, 
         mimeType: string
     ): Promise<string> {
-        const fileStream = fs.createReadStream(filePath);
-        const command = new PutObjectCommand({
-            Bucket: this.bucketName,
-            Key: fileKey,
-            Body: fileStream,
-            ContentType: mimeType,
+        return this.circuitBreaker.execute(async () => {
+            const fileStream = fs.createReadStream(filePath);
+            const command = new PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: fileKey,
+                Body: fileStream,
+                ContentType: mimeType,
+            });
+            await this.s3Client.send(command);
+            const publicUrl = config.cloudflare.public_url;
+            return `${publicUrl}/${fileKey}`;
         });
-        await this.s3Client.send(command);
-        const publicUrl = config.cloudflare.public_url;
-        return `${publicUrl}/${fileKey}`;
     }
 }

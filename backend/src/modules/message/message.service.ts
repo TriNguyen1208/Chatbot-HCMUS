@@ -9,6 +9,7 @@ import { checkSystemLoad } from "#@/shared/utils/system-monitor.util.js";
 import type { SendMessageDto } from "./message.dto.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
 import { MessageCache } from "./message.cache.js";
+import { IdempotencyService, idempotencyService as defaultIdempotencyService } from "#@/infrastructure/redis/idempotency.service.js";
 
 // This class contains all message processing logic (Business Logic)
 export class MessageService {
@@ -16,17 +17,35 @@ export class MessageService {
         private readonly conversationFacade: ConversationFacade,
         private readonly messageRepo: MessageRepository,
         private readonly messageCache: MessageCache,
+        private readonly idempotencyService: IdempotencyService = defaultIdempotencyService,
     ) { }
 
     /**
      * Handles an incoming message payload.
      * Automatically creates a 1-1 conversation if it doesn't exist.
      * Checks permissions, system load, saves to DB, and emits socket events.
+     * Integrates idempotency protection when client_msg_id is present.
      * @param sender_id The ID of the user sending the message.
      * @param payload The message details (content, type, media attachments).
      * @returns An object indicating status ('success' or 'queued') and the message data.
      */
     async handleIncomingMessage(
+        sender_id: string,
+        payload: SendMessageDto
+    ): Promise<{ status: 'success'; data: Message; message?: string } | { status: 'queued'; message: string; data?: Message }> {
+        if (payload.client_msg_id) {
+            const result = await this.idempotencyService.execute(
+                `msg:${payload.client_msg_id}`,
+                60,
+                async () => this._processIncomingMessage(sender_id, payload)
+            );
+            return result.data;
+        }
+
+        return this._processIncomingMessage(sender_id, payload);
+    }
+
+    private async _processIncomingMessage(
         sender_id: string,
         payload: SendMessageDto
     ): Promise<{ status: 'success'; data: Message; message?: string } | { status: 'queued'; message: string; data?: Message }> {

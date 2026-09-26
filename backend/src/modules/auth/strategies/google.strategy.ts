@@ -8,32 +8,54 @@ import { UserFacade } from "#@/modules/user/user.facade.js"
 import { type IAuthStrategy } from "./auth.strategy.js";
 import type { User } from "#@/modules/user/user.entity.js";
 import { getUserRoleFromStudentID } from "#@/modules/user/user.hcmus.js";
+import { CircuitBreaker, CircuitBreakerOpenException } from "#@/infrastructure/resilience/circuit-breaker.js";
+
+export const googleAuthCircuitBreaker = new CircuitBreaker({
+    name: "GoogleOAuth",
+    failureThresholdRatio: 0.5,
+    minimumRequests: 3,
+    samplingPeriodMs: 10000,
+    cooldownPeriodMs: 30000,
+});
 
 export class GoogleAuthStrategy implements IAuthStrategy {
     private readonly googleClient: OAuth2Client;
     constructor(
-        private readonly userFacade: UserFacade
+        private readonly userFacade: UserFacade,
+        private readonly circuitBreaker: CircuitBreaker = googleAuthCircuitBreaker,
     ) {
         this.googleClient = new OAuth2Client(config.google.clientId)
     }
     /**
      * Verifies a Google ID token and extracts its payload.
+     * Protected by Circuit Breaker to prevent long timeouts when Google services or international connections degrade.
      * @param idToken The Google ID token string.
      * @returns A promise resolving to the extracted Google token payload.
      * @throws Error if the payload is invalid or email is missing.
      */
     private async verifyGoogleToken(idToken: string): Promise<OAuthTokenPayload> {
-        const ticket = await this.googleClient.verifyIdToken({
-            idToken,
-            audience: config.google.clientId
-        })
-        const payload = ticket.getPayload()
-        if (!payload?.email) throw new Error("Invalid Google token payload");
-        return {
-            email: payload.email,
-            name: payload.name || payload.email,
-            picture: payload.picture,
-            sub: payload?.sub
+        try {
+            return await this.circuitBreaker.execute(async () => {
+                const ticket = await this.googleClient.verifyIdToken({
+                    idToken,
+                    audience: config.google.clientId
+                });
+                const payload = ticket.getPayload();
+                if (!payload?.email) throw new Error("Invalid Google token payload");
+                return {
+                    email: payload.email,
+                    name: payload.name || payload.email,
+                    picture: payload.picture,
+                    sub: payload?.sub
+                };
+            });
+        } catch (error) {
+            if (error instanceof CircuitBreakerOpenException) {
+                throw createHttpError.ServiceUnavailable(
+                    "Dịch vụ xác thực Google tạm thời gián đoạn, vui lòng đăng nhập bằng Email/Mật khẩu."
+                );
+            }
+            throw error;
         }
     }
     /**

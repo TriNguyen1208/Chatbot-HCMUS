@@ -18,7 +18,8 @@ export const SendMessageSchema = z.object({
             file_key: z.string(),
             thumbnail_url: z.string().optional()
         }).optional(),
-        status: z.enum(['sent', 'received', 'recalled', 'removed']).optional()
+        status: z.enum(['sent', 'received', 'recalled', 'removed']).optional(),
+        client_msg_id: z.string().optional()
     }).refine(data => data.conversation_id || data.receiver_id, {
         message: "Must provide either conversation_id or receiver_id"
     })
@@ -90,7 +91,8 @@ export const SendMessageSocketSchema = z.object({
         file_key: z.string(),
         thumbnail_url: z.string().optional()
     }).optional(),
-    status: z.enum(['sent', 'received', 'recalled', 'removed']).optional()
+    status: z.enum(['sent', 'received', 'recalled', 'removed']).optional(),
+    client_msg_id: z.string().optional()
 }).refine(data => data.conversation_id || data.receiver_id, {
     message: "Phải cung cấp conversation_id hoặc receiver_id"
 }).refine(data => (data.content && data.content.trim().length > 0) || data.image || data.video, {

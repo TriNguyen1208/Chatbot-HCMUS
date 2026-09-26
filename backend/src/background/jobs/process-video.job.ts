@@ -61,7 +61,8 @@ export const handleProcessVideo = async (job: Job) => {
         console.log(`[QueueWorker] Hậu kỳ hoàn tất. Cập nhật lại tin nhắn chứa fileKey ${fileKey}`);
         await messageFacade.handleVideoReady(fileKey, streamUrl, thumbnailUrl);
     } catch (err) {
-        console.error(`[QueueWorker] Lỗi xử lý hậu kỳ video ${fileKey}`, err);
+        console.error(`[QueueWorker] Lỗi xử lý hậu kỳ video ${fileKey}:`, err);
+        throw err;
     } finally {
         console.log(`[QueueWorker] Đang dọn dẹp file tạm...`);
         const deletePromises = [

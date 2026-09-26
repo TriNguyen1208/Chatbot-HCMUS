@@ -1,6 +1,15 @@
 import type { Job } from "bullmq";
 import { esClient } from "#@/infrastructure/elasticsearch/es.client.js";
 import { SyncOperation } from "#@/shared/utils/sync.util.js";
+import { CircuitBreaker } from "#@/infrastructure/resilience/circuit-breaker.js";
+
+export const esCircuitBreaker = new CircuitBreaker({
+    name: "ElasticsearchSync",
+    failureThresholdRatio: 0.5,
+    minimumRequests: 5,
+    samplingPeriodMs: 10000,
+    cooldownPeriodMs: 30000,
+});
 
 export interface SyncESJobPayload {
     index: string;
@@ -18,31 +27,33 @@ export const handleSyncES = async (job: Job<SyncESJobPayload>) => {
     }
 
     try {
-        switch (operation) {
-            case SyncOperation.CREATE:
-            case SyncOperation.UPDATE: {
-                const { _id, ...docData } = data;
-                await esClient.index({
-                    index,
-                    id: documentId,
-                    body: {
+        await esCircuitBreaker.execute(async () => {
+            switch (operation) {
+                case SyncOperation.CREATE:
+                case SyncOperation.UPDATE: {
+                    const { _id, ...docData } = data;
+                    await esClient.index({
+                        index,
                         id: documentId,
-                        ...docData
-                    }
-                });
-                break;
+                        body: {
+                            id: documentId,
+                            ...docData
+                        }
+                    });
+                    break;
+                }
+
+                case SyncOperation.DELETE:
+                    await esClient.delete({
+                        index,
+                        id: documentId
+                    });
+                    break;
+
+                default:
+                    console.warn(`[QueueWorker] Unknown operation ${operation}`);
             }
-
-            case SyncOperation.DELETE:
-                await esClient.delete({
-                    index,
-                    id: documentId
-                });
-                break;
-
-            default:
-                console.warn(`[QueueWorker] Unknown operation ${operation}`);
-        }
+        });
 
         console.log(`✅ [QueueWorker] Successfully synced document ${documentId} to index ${index} (Operation: ${operation})`);
     } catch (error: any) {

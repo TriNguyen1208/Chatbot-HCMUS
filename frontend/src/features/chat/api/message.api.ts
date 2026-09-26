@@ -9,6 +9,7 @@ export interface SendMessagePayload {
     type?: string;
     image?: { url: string; file_key?: string };
     video?: { url?: string; file_key: string; thumbnail_url?: string };
+    client_msg_id?: string;
 }
 
 export const messageApi = {
@@ -20,7 +21,7 @@ export const messageApi = {
         search?: string,
         type?: string,
     ): Promise<Message[]> => {
-        const params: Record<string, any> = { limit };
+        const params: Record<string, unknown> = { limit };
         if (cursorId) params.cursor_id = cursorId;
         if (search) params.search = search;
         if (type) params.type = type;
@@ -33,7 +34,7 @@ export const messageApi = {
         messageId: string,
         limit: number = 10,
     ): Promise<Message[]> => {
-        const params: Record<string, any> = { limit };
+        const params: Record<string, unknown> = { limit };
         return http.get<Message[]>(
             `/message/${conversationId}/context/${messageId}`,
             { params },
@@ -42,7 +43,11 @@ export const messageApi = {
 
     //Send message
     sendMessage: async (payload: SendMessagePayload): Promise<Message> => {
-        return socketService.emitWithAck<Message>("new_message", payload);
+        const payloadWithId: SendMessagePayload = {
+            ...payload,
+            client_msg_id: payload.client_msg_id || crypto.randomUUID(),
+        };
+        return socketService.emitWithAck<Message>("new_message", payloadWithId);
     },
 
     //Edit message

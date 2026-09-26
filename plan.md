@@ -12,6 +12,4 @@
     - worker xử lý nền
 
 3. Redis để rate limit từng services
-4. Logging and Tracing and Monitoring hệ thống
-+ Dùng grafana, prometheus, loki và jeager
 5. Sau đó thử testing xem hệ thống có thể hỗ trợ được bao nhiêu user

@@ -8,38 +8,59 @@ import { UserFacade } from "#@/modules/user/user.facade.js";
 import { type IAuthStrategy } from "./auth.strategy.js";
 import type { User } from "#@/modules/user/user.entity.js";
 import { getUserRoleFromStudentID } from "#@/modules/user/user.hcmus.js";
+import { CircuitBreaker, CircuitBreakerOpenException } from "#@/infrastructure/resilience/circuit-breaker.js";
+
+export const azureAuthCircuitBreaker = new CircuitBreaker({
+    name: "AzureAuth",
+    failureThresholdRatio: 0.5,
+    minimumRequests: 3,
+    samplingPeriodMs: 10000,
+    cooldownPeriodMs: 30000,
+});
 
 export class MicrosoftAuthStrategy implements IAuthStrategy {
     constructor(
-        private readonly userFacade: UserFacade
+        private readonly userFacade: UserFacade,
+        private readonly circuitBreaker: CircuitBreaker = azureAuthCircuitBreaker,
     ) { }
 
     /**
      * Verifies a Microsoft token (assumed to be an Access Token for Microsoft Graph).
+     * Protected by Circuit Breaker to prevent long timeouts when Microsoft services or network degrades.
      * @param token The Microsoft access token.
      */
     private async verifyMicrosoftToken(token: string): Promise<OAuthTokenPayload> {
-        const response = await fetch("https://graph.microsoft.com/v1.0/me", {
-            headers: {
-                Authorization: `Bearer ${token}`
+        try {
+            return await this.circuitBreaker.execute(async () => {
+                const response = await fetch("https://graph.microsoft.com/v1.0/me", {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error("Microsoft Graph API error:", await response.text());
+                    throw new Error("Invalid Microsoft token");
+                }
+
+                const data = await response.json();
+                const email = data.mail || data.userPrincipalName;
+                if (!email) throw new Error("Invalid Microsoft token payload: missing email");
+
+                return {
+                    email: email,
+                    name: data.displayName || email,
+                    picture: "",
+                    sub: data.id
+                };
+            });
+        } catch (error) {
+            if (error instanceof CircuitBreakerOpenException) {
+                throw createHttpError.ServiceUnavailable(
+                    "Dịch vụ xác thực Microsoft tạm thời gián đoạn, vui lòng đăng nhập bằng Email/Mật khẩu."
+                );
             }
-        });
-
-        if (!response.ok) {
-            // Log fallback in case it's actually an ID token and decode is needed
-            console.error("Microsoft Graph API error:", await response.text());
-            throw new Error("Invalid Microsoft token");
-        }
-
-        const data = await response.json();
-        const email = data.mail || data.userPrincipalName;
-        if (!email) throw new Error("Invalid Microsoft token payload: missing email");
-
-        return {
-            email: email,
-            name: data.displayName || email,
-            picture: "",
-            sub: data.id
+            throw error;
         }
     }
 

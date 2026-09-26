@@ -20,7 +20,9 @@ vi.mock("bullmq", () => {
 import { mediaFacade } from "#@/modules/media/media.facade.js";
 vi.mock("#@/modules/media/media.facade.js", () => ({
     mediaFacade: {
-        uploadImage: vi.fn().mockResolvedValue("https://fake.url/img.webp")
+        uploadImage: vi.fn().mockResolvedValue("https://fake.url/img.webp"),
+        downloadFile: vi.fn(),
+        uploadFile: vi.fn()
     }
 }));
 
@@ -101,4 +103,21 @@ describe("Background Workers", () => {
             { id: "msg-1", content: "hello" }
         );
     });
+
+    it("should re-throw error when process_video fails so BullMQ can trigger retries", async () => {
+        const fakeJob = {
+            id: "job-3",
+            name: "process_video",
+            data: {
+                fileKey: "corrupt_or_network_error.mp4"
+            }
+        };
+
+        vi.mocked(mediaFacade.downloadFile).mockRejectedValueOnce(
+            new Error("R2 Connection Timeout")
+        );
+
+        await expect(processMediaJob(fakeJob as any)).rejects.toThrow("R2 Connection Timeout");
+    });
 });
+

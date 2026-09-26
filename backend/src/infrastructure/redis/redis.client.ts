@@ -49,12 +49,23 @@ export class RedisClient {
         }
     }
 
-    async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    async set(
+        key: string,
+        value: string,
+        ttlSeconds: number,
+        nx: boolean = false
+    ): Promise<boolean> {
         try {
-            console.log(`[Redis] SET: ${key}`);
+            console.log(`[Redis] SET: ${key}${nx ? " (NX)" : ""}`);
+            if (nx) {
+                const result = await this.client.set(key, value, "EX", ttlSeconds, "NX");
+                return result === "OK";
+            }
             await this.client.set(key, value, "EX", ttlSeconds);
-        } catch {
-            return;
+            return true;
+        } catch (error) {
+            console.error(`[Redis] SET error on ${key}:`, error);
+            return false;
         }
     }
 

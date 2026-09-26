@@ -1,6 +1,15 @@
 import { io, Socket } from "socket.io-client";
 import { env } from "@/config/env";
 
+import { retryWithBackoff } from "@/shared/utils/retry.util";
+
+export interface EmitWithAckOptions {
+    timeoutMs?: number;
+    maxRetries?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+}
+
 class SocketService {
     private socket: Socket | null = null;
 
@@ -45,11 +54,59 @@ class SocketService {
 
     /**
      * Gửi sự kiện lên Server và chờ phản hồi Acknowledgement (ACK).
-     * Tự động kiểm tra kết nối, timeout 5s và bóc tách dữ liệu { success, data, message }.
+     * Tự động kiểm tra kết nối, timeout và tự động retry với Exponential Backoff + Full Jitter
+     * khi gặp sự cố mạng hoặc timeout.
      */
     public async emitWithAck<T>(
         event: string,
-        data?: any,
+        data?: unknown,
+        optionsOrTimeout: number | EmitWithAckOptions = 5000,
+    ): Promise<T> {
+        const opts: EmitWithAckOptions =
+            typeof optionsOrTimeout === "number"
+                ? { timeoutMs: optionsOrTimeout }
+                : optionsOrTimeout;
+
+        const {
+            timeoutMs = 5000,
+            maxRetries = 3,
+            baseDelayMs = 1000,
+            maxDelayMs = 10000,
+        } = opts;
+
+        return retryWithBackoff(
+            () => this._emitWithAckOnce<T>(event, data, timeoutMs),
+            {
+                maxRetries,
+                baseDelayMs,
+                maxDelayMs,
+                shouldRetry: (error: unknown) => {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
+                    const name = error instanceof Error ? error.name : "";
+                    // Chỉ retry lỗi timeout hoặc lỗi mất kết nối mạng tạm thời
+                    return (
+                        name === "TimeoutError" ||
+                        message.includes("Timeout") ||
+                        message.includes("timed out") ||
+                        message.includes("phản hồi quá lâu") ||
+                        message.includes("Mất kết nối WebSocket") ||
+                        message.includes("Không thể khởi tạo kết nối")
+                    );
+                },
+                onRetry: (attempt, error, delay) => {
+                    console.warn(
+                        `[SocketService] ⚠️ Retry '${event}' attempt ${attempt} after ${delay}ms due to:`,
+                        error instanceof Error ? error.message : error,
+                    );
+                },
+            },
+        );
+    }
+
+    private async _emitWithAckOnce<T>(
+        event: string,
+        data?: unknown,
         timeoutMs = 5000,
     ): Promise<T> {
         const socket = this.connect();
@@ -86,16 +143,19 @@ class SocketService {
             if (!response || typeof response !== "object") {
                 return response as T;
             }
-            if ("success" in response && !response.success) {
-                throw new Error(response.message || "Thao tác thất bại");
+            if ("success" in response && !(response as { success: boolean }).success) {
+                const msg = (response as { message?: string }).message || "Thao tác thất bại";
+                throw new Error(msg);
             }
+            const resObj = response as { data?: T };
             return (
-                response.data !== undefined ? response.data : response
-            ) as T;
-        } catch (error: any) {
+                resObj.data !== undefined ? resObj.data : (response as unknown as T)
+            );
+        } catch (error: unknown) {
+            const errObj = error as { message?: string; name?: string };
             if (
-                error?.message?.includes("operation has timed out") ||
-                error?.name === "TimeoutError"
+                errObj?.message?.includes("operation has timed out") ||
+                errObj?.name === "TimeoutError"
             ) {
                 throw new Error(
                     "Máy chủ phản hồi quá lâu (Timeout). Vui lòng thử lại.",

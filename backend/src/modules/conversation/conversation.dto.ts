@@ -10,7 +10,8 @@ export const CreateConversationSchema = z.object({
         type: z.enum(['group', 'utu', 'self'], { message: "Conversation type must be group, utu, or self" }),
         name: z.string().optional(),
         avatar_url: z.string("Invalid image URL").optional(),
-        primary_icon: z.string().optional().default('👍')
+        primary_icon: z.string().optional().default('👍'),
+        idempotency_key: z.string().optional()
     }).refine((data) => {
         if (data.type === 'self' && data.member_ids.length !== 1) {
             return false;
@@ -106,7 +107,8 @@ export const CreateConversationSocketSchema = z.object({
     type: z.enum(['group', 'utu', 'self'], { message: "Loại cuộc trò chuyện phải là group, utu hoặc self" }),
     name: z.string().optional(),
     avatar_url: z.string().optional(),
-    primary_icon: z.string().optional().default('👍')
+    primary_icon: z.string().optional().default('👍'),
+    idempotency_key: z.string().optional()
 }).refine((data) => {
     if (data.type === 'self' && data.member_ids.length !== 1) return false;
     if (data.type === 'group' && !data.name) return false;

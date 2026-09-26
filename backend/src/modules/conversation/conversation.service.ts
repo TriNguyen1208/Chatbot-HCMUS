@@ -7,22 +7,38 @@ import { MessageFacade } from "#@/modules/message/message.facade.js";
 import { userFacade } from "#@/modules/user/user.facade.js";
 import { triggerSync, SyncOperation } from "#@/shared/utils/sync.util.js";
 import { ConversationCache } from "./conversation.cache.js";
+import { IdempotencyService, idempotencyService as defaultIdempotencyService } from "#@/infrastructure/redis/idempotency.service.js";
 
 export class ConversationService {
     constructor(
         private readonly conversationRepo: IConversationRepository,
         private readonly conversationCache: ConversationCache,
-        private readonly messageFacade: MessageFacade
+        private readonly messageFacade: MessageFacade,
+        private readonly idempotencyService: IdempotencyService = defaultIdempotencyService,
     ) { }
 
     /**
      * Creates a new conversation. If it's a 1-on-1 (utu) conversation that already exists,
      * returns the existing one. Otherwise, creates a new record and joins members to the socket room.
+     * Integrates idempotency protection for group creation.
      * @param userId The ID of the user creating the conversation.
      * @param data The conversation data (type, members, etc.).
      * @returns The created or existing conversation.
      */
     async createConversation(userId: string, data: CreateConversationDto): Promise<Conversation> {
+        if (data.type === 'group' && data.idempotency_key) {
+            const result = await this.idempotencyService.execute(
+                `group:${data.idempotency_key}`,
+                120,
+                async () => this._processCreateConversation(userId, data)
+            );
+            return result.data;
+        }
+
+        return this._processCreateConversation(userId, data);
+    }
+
+    private async _processCreateConversation(userId: string, data: CreateConversationDto): Promise<Conversation> {
         const members = new Set([...data.member_ids, userId]);
 
         if (data.type === 'utu' && members.size !== 2) {

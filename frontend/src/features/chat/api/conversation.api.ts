@@ -9,7 +9,7 @@ export const conversationApi = {
         cursorId?: string,
         type?: "utu" | "group",
     ): Promise<Conversation[]> => {
-        const params: Record<string, any> = { limit };
+        const params: Record<string, unknown> = { limit };
         if (cursorId) params.cursor_id = cursorId;
         if (type) params.type = type;
         return http.get<Conversation[]>("/conversation", { params });
@@ -19,11 +19,14 @@ export const conversationApi = {
     createGroup: async (
         name: string,
         member_ids: string[],
+        idempotency_key?: string,
     ): Promise<Conversation> => {
+        const finalKey = idempotency_key || crypto.randomUUID();
         return socketService.emitWithAck<Conversation>("new_conversation", {
             type: "group",
             name,
             member_ids,
+            idempotency_key: finalKey,
         });
     },
 
