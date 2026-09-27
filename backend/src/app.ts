@@ -3,9 +3,9 @@ import cors from "cors"
 import { config } from "#@/config/config.js"
 import helmet from "helmet"
 import morgan from "morgan"
-import rateLimit from "express-rate-limit"
 import routes from "#@/routes.js"
 import { errorHandler } from "#@/shared/middlewares/error.middleware.js"
+import { globalRateLimiter } from "#@/shared/middlewares/rate-limit.middleware.js"
 import cookieParser from "cookie-parser"
 import "dotenv/config"
 import http from "http";
@@ -25,11 +25,10 @@ app.use(metricsMiddleware)
 app.use(express.json())
 
 app.use(cookieParser())
-app.use(rateLimit(config.rateLimit))
 app.use(express.urlencoded({ extended: true }))
 app.use(morgan("dev"))
 
-app.use("/api", routes);
+app.use("/api", globalRateLimiter, routes);
 app.get("/health", (_req, res) => {
     res.status(200).json({ message: "OK" })
 })

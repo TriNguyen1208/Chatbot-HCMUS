@@ -17,6 +17,7 @@ import {
 } from "./message.dto.js";
 import type { Message } from "./message.entity.js";
 import { messageContainer } from "./message.container.js";
+import { checkSocketRateLimit } from "#@/infrastructure/websocket/socket-rate-limit.js";
 
 /**
  * Quản lý tất cả các sự kiện Socket liên quan đến Message:
@@ -104,6 +105,20 @@ export const registerMessageSocket = (socket: Socket, socketManager: ISocketMana
     // Gửi tin nhắn
     socket.on(SocketEvents.NEW_MESSAGE, async (rawData: unknown, ack?: (res: SocketAckResponse<Message>) => void) => {
         try {
+            const rateLimit = await checkSocketRateLimit({
+                key: `msg:send:${userId}`,
+                limit: 10,
+                windowSeconds: 3,
+            });
+
+            if (!rateLimit.allowed) {
+                return ack?.({
+                    success: false,
+                    code: 429,
+                    message: `Bạn đang gửi tin nhắn quá nhanh. Vui lòng thử lại sau ${rateLimit.retryAfterSeconds}s!`,
+                });
+            }
+
             const data = validateSocketPayload(SendMessageSocketSchema, rawData, ack);
             if (!data) return;
 
@@ -168,6 +183,20 @@ export const registerMessageSocket = (socket: Socket, socketManager: ISocketMana
     // Thả cảm xúc Reaction
     socket.on(SocketEvents.REACTION_MESSAGE, async (rawData: unknown, ack?: (res: SocketAckResponse<Message>) => void) => {
         try {
+            const rateLimit = await checkSocketRateLimit({
+                key: `msg:react:${userId}`,
+                limit: 15,
+                windowSeconds: 5,
+            });
+
+            if (!rateLimit.allowed) {
+                return ack?.({
+                    success: false,
+                    code: 429,
+                    message: `Thao tác thả reaction quá nhanh. Vui lòng thử lại sau ${rateLimit.retryAfterSeconds}s!`,
+                });
+            }
+
             const data = validateSocketPayload(ToggleReactionSocketSchema, rawData, ack);
             if (!data) return;
 

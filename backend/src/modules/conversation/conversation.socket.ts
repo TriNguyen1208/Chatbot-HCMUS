@@ -15,6 +15,7 @@ import {
 import type { Conversation } from "./conversation.entity.js";
 import { conversationContainer } from "./conversation.container.js";
 import { conversationFacade } from "./conversation.facade.js";
+import { checkSocketRateLimit } from "#@/infrastructure/websocket/socket-rate-limit.js";
 
 /**
  * Quản lý tất cả các sự kiện Socket liên quan đến Conversation:
@@ -42,6 +43,20 @@ export const registerConversationSocket = (socket: Socket, socketManager: ISocke
     // 2. Tạo cuộc trò chuyện mới (Group hoặc 1-1)
     socket.on(SocketEvents.NEW_CONVERSATION, async (rawData: unknown, ack?: (res: SocketAckResponse<Conversation>) => void) => {
         try {
+            const rateLimit = await checkSocketRateLimit({
+                key: `conv:create:${userId}`,
+                limit: 5,
+                windowSeconds: 60,
+            });
+
+            if (!rateLimit.allowed) {
+                return ack?.({
+                    success: false,
+                    code: 429,
+                    message: `Bạn đang tạo cuộc trò chuyện quá nhanh. Vui lòng thử lại sau ${rateLimit.retryAfterSeconds}s!`,
+                });
+            }
+
             const data = validateSocketPayload(CreateConversationSocketSchema, rawData, ack);
             if (!data) return;
 
@@ -66,6 +81,20 @@ export const registerConversationSocket = (socket: Socket, socketManager: ISocke
     // 3. Cập nhật thông tin nhóm (Tên, Avatar)
     socket.on(SocketEvents.UPDATE_CONVERSATION, async (rawData: unknown, ack?: (res: SocketAckResponse<Conversation>) => void) => {
         try {
+            const rateLimit = await checkSocketRateLimit({
+                key: `conv:update:${userId}`,
+                limit: 10,
+                windowSeconds: 60,
+            });
+
+            if (!rateLimit.allowed) {
+                return ack?.({
+                    success: false,
+                    code: 429,
+                    message: `Thao tác cập nhật nhóm quá thường xuyên. Vui lòng thử lại sau ${rateLimit.retryAfterSeconds}s!`,
+                });
+            }
+
             const data = validateSocketPayload(UpdateConversationSocketSchema, rawData, ack);
             if (!data) return;
 

@@ -4,6 +4,7 @@ import { AuthMiddleware } from "#@/shared/middlewares/auth.middleware.js";
 import { uploadMiddleware } from "#@/shared/middlewares/upload.middleware.js";
 import { mediaContainer } from "./media.container.js";
 import { validate } from "#@/shared/middlewares/validate.middleware.js";
+import { mediaRateLimiter } from "#@/shared/middlewares/rate-limit.middleware.js";
 import { 
     InitMultipartUploadSchema, 
     GetPresignedUrlsSchema, 
@@ -16,6 +17,7 @@ const router = Router();
 router.post(
     "/image",
     AuthMiddleware.verifyAccessToken,
+    mediaRateLimiter,
     uploadMiddleware,
     asyncHandler(mediaContainer.mediaController.uploadImage)
 );
@@ -24,6 +26,7 @@ router.post(
 router.post(
     "/video/multipart/init",
     AuthMiddleware.verifyAccessToken,
+    mediaRateLimiter,
     validate(InitMultipartUploadSchema),
     asyncHandler(mediaContainer.mediaController.initMultipartUpload)
 );
