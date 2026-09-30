@@ -1,0 +1,135 @@
+services:
+  # 1. NGINX REVERSE PROXY & LOAD BALANCER (Cổng ngõ chính của toàn hệ thống)
+  nginx:
+    image: nginx:alpine
+    container_name: chatbot-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend-1
+      - backend-2
+      - frontend
+    networks:
+      - chatbot-prod-net
+
+  # 2. BACKEND INSTANCE 1 (Port 5001)
+  backend-1:
+    image: chatbot-backend-1:prod
+    build:
+      context: ./backend
+      target: production
+    container_name: chatbot-backend-1-prod
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5001
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-prod-net
+
+  # 3. BACKEND INSTANCE 2 (Port 5002 - Phục vụ Load Balancing & Failover)
+  backend-2:
+    image: chatbot-backend-2:prod
+    build:
+      context: ./backend
+      target: production
+    container_name: chatbot-backend-2-prod
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5002
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-prod-net
+
+  # 4. BULLMQ WORKER ĐỘC LẬP (Xử lý tác vụ nền)
+  backend-worker:
+    image: chatbot-worker:prod
+    build:
+      context: ./backend
+      target: production
+    container_name: chatbot-worker-prod
+    command: ["node", "dist/worker.js"]
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-prod-net
+
+  # 5. FRONTEND NEXT.JS STANDALONE (Tối ưu Image ~120MB)
+  frontend:
+    image: chatbot-frontend:prod
+    build:
+      context: ./frontend
+      target: production
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
+        - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:8080}
+        - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+        - NEXT_PUBLIC_MICROSOFT_CLIENT_ID=${NEXT_PUBLIC_MICROSOFT_CLIENT_ID}
+        - NEXT_PUBLIC_MICROSOFT_TENANT_ID=${NEXT_PUBLIC_MICROSOFT_TENANT_ID}
+    container_name: chatbot-frontend-prod
+    restart: always
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    networks:
+      - chatbot-prod-net
+
+  # 6. REDIS
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-redis-prod
+    restart: always
+    volumes:
+      - redis-data-prod:/data
+    networks:
+      - chatbot-prod-net
+
+  # 7. ELASTICSEARCH (Tìm kiếm full-text & đồng bộ dữ liệu)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: chatbot-elasticsearch-prod
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data-prod:/usr/share/elasticsearch/data
+    networks:
+      - chatbot-prod-net
+
+networks:
+  chatbot-prod-net:
+    driver: bridge
+
+volumes:
+  redis-data-prod:
+  elasticsearch-data-prod:

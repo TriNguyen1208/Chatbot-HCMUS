@@ -6,6 +6,9 @@ import { trace } from "@opentelemetry/api";
 export const logger = pino({
     level: process.env.LOG_LEVEL || "info",
     timestamp: pino.stdTimeFunctions.isoTime,
+    base: {
+        instance_port: process.env.PORT || "5000",
+    },
 });
 
 /**

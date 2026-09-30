@@ -9,9 +9,9 @@ import { env } from "@/config/env";
 // Khởi tạo MSAL instance bên ngoài hook để tái sử dụng
 const msalConfig = {
     auth: {
-        clientId: env.microsoftClientId as string,
-        authority: `https://login.microsoftonline.com/${env.microsoftTenantId}`,
-        redirectUri: env.baseUrl, // Đảm bảo đã khai báo trên Azure Portal
+        clientId: (env.microsoftClientId || "") as string,
+        authority: `https://login.microsoftonline.com/${env.microsoftTenantId || "common"}`,
+        redirectUri: typeof window !== "undefined" ? window.location.origin : env.baseUrl, // Đảm bảo đã khai báo trên Azure Portal
     },
     cache: {
         cacheLocation: "sessionStorage",

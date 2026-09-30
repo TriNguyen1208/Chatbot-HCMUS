@@ -1,0 +1,155 @@
+services:
+  # 1. REDIS (Dùng chung cho Rate Limit, Socket Adapter, BullMQ, Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-dev:/data
+    networks:
+      - chatbot-dev-net
+
+  # 2. ELASTICSEARCH (Tìm kiếm full-text & đồng bộ dữ liệu)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: chatbot-elasticsearch-dev
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data-dev:/usr/share/elasticsearch/data
+    networks:
+      - chatbot-dev-net
+
+  # 3. BACKEND INSTANCE 1 (Port 5001)
+  backend-1:
+    image: chatbot-backend-1:dev
+    build:
+      context: ./backend
+      target: development
+    container_name: chatbot-backend-1-dev
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5001
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-dev-net
+
+  # 4. BACKEND INSTANCE 2 (Port 5002 - Cho Load Balancing & Failover)
+  backend-2:
+    image: chatbot-backend-2:dev
+    build:
+      context: ./backend
+      target: development
+    container_name: chatbot-backend-2-dev
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5002
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-dev-net
+
+  # 5. BULLMQ WORKER ĐỘC LẬP (Xử lý hàng đợi ngầm)
+  backend-worker:
+    image: chatbot-worker:dev
+    build:
+      context: ./backend
+      target: development
+    container_name: chatbot-worker-dev
+    command: ["npm", "run", "dev:worker"]
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+      - elasticsearch
+    networks:
+      - chatbot-dev-net
+
+  # 6. NGINX LOAD BALANCER & GATEWAY (Port 8080)
+  nginx:
+    image: nginx:alpine
+    container_name: chatbot-nginx-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend-1
+      - backend-2
+      - frontend
+    networks:
+      - chatbot-dev-net
+
+  # 7. FRONTEND NEXT.JS (Port 3000 - Hot Reload)
+  frontend:
+    image: chatbot-frontend:dev
+    build:
+      context: ./frontend
+      target: development
+    container_name: chatbot-frontend-dev
+    command: ["npm", "run", "dev"]
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - NEXT_PUBLIC_BASE_URL=http://localhost:8080
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+      - NEXT_PUBLIC_MICROSOFT_CLIENT_ID=${NEXT_PUBLIC_MICROSOFT_CLIENT_ID}
+      - NEXT_PUBLIC_MICROSOFT_TENANT_ID=${NEXT_PUBLIC_MICROSOFT_TENANT_ID}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - chatbot-dev-net
+
+networks:
+  chatbot-dev-net:
+    driver: bridge
+
+volumes:
+  redis-data-dev:
+  elasticsearch-data-dev:

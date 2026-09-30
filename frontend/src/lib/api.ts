@@ -4,10 +4,13 @@ import { useAuthStore } from "@/features/auth/stores/authStore";
 import type { ApiResponse } from "@/types/api.types";
 import { retryWithBackoff } from "@/shared/utils/retry.util";
 
-const BASE_URL = env.apiUrl;
+const rawApiUrl = env.apiUrl || "";
+const cleanBaseUrl = !rawApiUrl 
+    ? "/api" 
+    : (rawApiUrl.endsWith("/api") ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, "")}/api`);
 
 export const api = axios.create({
-    baseURL: BASE_URL + "/api",
+    baseURL: cleanBaseUrl,
     headers: { "Content-Type": "application/json" },
     withCredentials: true,
 });
@@ -67,7 +70,7 @@ api.interceptors.response.use(
                 await retryWithBackoff(
                     async () => {
                         return await axios.post(
-                            `${BASE_URL}/api/auth/refresh-token`,
+                            `${cleanBaseUrl}/auth/refresh-token`,
                             {},
                             {
                                 withCredentials: true,

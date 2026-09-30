@@ -15,7 +15,14 @@ class SocketService {
 
     public connect(): Socket {
         if (!this.socket) {
-            this.socket = io(env.apiUrl, {
+            const socketUrl = env.apiUrl?.startsWith("http")
+                ? env.apiUrl
+                : typeof window !== "undefined"
+                  ? window.location.origin
+                  : "";
+
+            this.socket = io(socketUrl, {
+                path: "/socket.io",
                 withCredentials: true,
                 transports: ["websocket"],
                 autoConnect: true,
